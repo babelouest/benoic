@@ -1,0 +1,49 @@
+#!/bin/sh
+### BEGIN INIT INFO
+# Provides:          angharad
+# Required-Start:    $remote_fs $network $time
+# Required-Stop:     $remote_fs $network $time
+# Should-Start:
+# Should-Stop:
+# Default-Start:     2 3 4 5
+# Default-Stop:      0 1 6
+# Short-Description: Starts the angharad daemon
+# Description:
+### END INIT INFO
+
+#user=liquidsoap
+user=pi
+group=pi
+prefix=/usr/local/bin
+exec_prefix=${prefix}
+angharad=${prefix}/angharad
+angharadconf=/etc/angharad.conf
+pidfile=/var/run/angharad.pid
+
+case "$1" in
+  stop)
+    echo -n "Stopping angharad "
+    start-stop-daemon --stop --quiet --pidfile $pidfile --retry 4
+    > $pidfile
+    echo "OK"
+    ;;
+
+  start)
+    echo -n "Starting Angharad "
+    touch $pidfile
+    chown $user:$group $pidfile
+    start-stop-daemon --start --quiet --make-pidfile --pidfile $pidfile \
+      --chuid $user:$group --background --exec $angharad -- $angharadconf
+    echo "OK"
+    ;;
+
+  restart|force-reload)
+    $0 stop
+    $0 start
+    ;;
+
+  *)
+    echo "Usage: $0 {start|stop|restart|force-reload}"
+    exit 1
+    ;;
+esac
