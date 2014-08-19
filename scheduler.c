@@ -14,14 +14,10 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   // If not responding, try to reconnect device
   for (i=0; i<nb_terminal; i++) {
     if (!send_heartbeat(terminal[i])) {
-      printf("Alice 0\n");
       snprintf(buf, MSGLENGTH, "Connection attempt to %s, result: %s", terminal[i]->name, reconnect_device(terminal[i])!=-1?"Success":"Error");
-      printf("Alice 1\n");
       log_message(LOG_INFO, buf);
       if (terminal[i]->enabled) {
-        printf("Alice 2\n");
         snprintf(buf, MSGLENGTH, "Initialization of %s, result: %s", terminal[i]->name, init_device_status(sqlite3_db, terminal[i])==1?"Success":"Error");
-        printf("Alice 3\n");
         log_message(LOG_INFO, buf);
       }
     }
