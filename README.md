@@ -23,7 +23,17 @@ $ make angharad
 Using angharad server
 =====================
 
-run the command `$ angharad path/to/config/file` to run the server
+To compile and run the server, run the command
+```shell
+$ make angharad
+$ angharad path/to/config/file
+```
+
+To install the compiled server in /usr/local/bin, run the command
+```shell
+$ make install
+```
+
 access to the server commands via a client through the origin address http[s]://angharad-server:port/*prefix*/
 
 To use angharad as a Daemon, install the init file as root:
