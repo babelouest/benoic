@@ -26,7 +26,7 @@ Using angharad server
 To compile and run the server, run the command
 ```shell
 $ make angharad
-$ angharad path/to/config/file
+$ ./angharad path/to/config/file
 ```
 
 To install the compiled server in /usr/local/bin, run the command
