@@ -9,8 +9,8 @@
  */
 int is_connected(device * terminal) {
   if (!(terminal != NULL && terminal->enabled && terminal->serial_fd != -1)) {
-	if (terminal!=NULL) {
-	  terminal->enabled=0;
+    if (terminal!=NULL) {
+      terminal->enabled=0;
     }
     return 0;
   } else {
@@ -81,6 +81,7 @@ int close_device(device * terminal) {
     return 0;
   } else {
     terminal->enabled=0;
+    pthread_mutex_destroy(&terminal->lock);
     return serialport_close(terminal->serial_fd);
   }
 }
@@ -170,6 +171,7 @@ int set_switch_state(device * terminal, char * pin, int status) {
   int timeout = TIMEOUT;
   int result=-1;
 
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "SETSWITCH%s,%d\n", pin, status);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -178,6 +180,7 @@ int set_switch_state(device * terminal, char * pin, int status) {
     result = strtol(serial_read+1, NULL, 10);
   }
   serialport_flush(terminal->serial_fd);
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -191,6 +194,7 @@ int get_switch_state(device * terminal, char * pin, int force) {
   int timeout = TIMEOUT;
   int result=-1;
   
+  pthread_mutex_lock(&terminal->lock);
   if (force == 1) {
     snprintf(serial_command, WORDLENGTH, "GETSWITCH%s,1\n", pin);
   } else {
@@ -203,6 +207,7 @@ int get_switch_state(device * terminal, char * pin, int force) {
     //result = atoi(serial_read+1);
     result = strtol(serial_read+1, NULL, 10);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -216,6 +221,7 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   int timeout = 5000;
   float result=-999.;
   
+  pthread_mutex_lock(&terminal->lock);
   if (force) {
     snprintf(serial_command, WORDLENGTH, "%s,1\n", sensor);
   } else {
@@ -230,6 +236,7 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   if (force) {
     serialport_flush(terminal->serial_fd);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -243,6 +250,7 @@ int send_heartbeat(device * terminal) {
   int timeout = TIMEOUT;
   int result = 0;
   
+  pthread_mutex_lock(&terminal->lock);
   if (!terminal->enabled) {
     return 0;
   }
@@ -257,6 +265,7 @@ int send_heartbeat(device * terminal) {
       result = 0;
     }
   }
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -265,15 +274,17 @@ int send_heartbeat(device * terminal) {
  */
 int get_overview(device * terminal, char * output) {
   char eolchar = '}';
-    char serial_command[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1];
   int serial_result;
   int timeout = TIMEOUT;
   
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "OVERVIEW\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(terminal->serial_fd, output, eolchar, MSGLENGTH, timeout);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return (serial_result != -1);
 }
 
@@ -286,11 +297,13 @@ int get_refresh(device * terminal, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "REFRESH\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(terminal->serial_fd, output, eolchar, MSGLENGTH, timeout);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return (serial_result != -1);
 }
 
@@ -303,11 +316,13 @@ int get_name(device * terminal, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "NAME\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(terminal->serial_fd, output, eolchar, WORDLENGTH, timeout);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return (serial_result != -1);
 }
 
@@ -320,6 +335,7 @@ int get_heater(device * terminal, char * heat_id, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "GET%s\n", heat_id);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -327,6 +343,7 @@ int get_heater(device * terminal, char * heat_id, char * output) {
     serial_read[strlen(serial_read) - 1] = '\0';
     snprintf(output, WORDLENGTH, "%s", serial_read+1);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return (serial_result != -1);
 }
 
@@ -335,18 +352,20 @@ int get_heater(device * terminal, char * heat_id, char * output) {
  */
 int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * output) {
   char eolchar = '}';
-    char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
-    int serial_result;
-    int timeout = TIMEOUT;
-    
-    snprintf(serial_command, WORDLENGTH, "SET%s,%d,%.2f\n", heat_id, heat_enabled, max_heat_value);
-    serial_result = serialport_write(terminal->serial_fd, serial_command);
-    if (serial_result != -1) {
-      serial_result = serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
-      serial_read[strlen(serial_read) - 1] = '\0';
-      snprintf(output, WORDLENGTH, "%s", serial_read+1);
-    }
-    return (serial_result != -1);
+  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  int serial_result;
+  int timeout = TIMEOUT;
+  
+  pthread_mutex_lock(&terminal->lock);
+  snprintf(serial_command, WORDLENGTH, "SET%s,%d,%.2f\n", heat_id, heat_enabled, max_heat_value);
+  serial_result = serialport_write(terminal->serial_fd, serial_command);
+  if (serial_result != -1) {
+    serial_result = serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
+    serial_read[strlen(serial_read) - 1] = '\0';
+    snprintf(output, WORDLENGTH, "%s", serial_read+1);
+  }
+  pthread_mutex_unlock(&terminal->lock);
+  return (serial_result != -1);
 }
 
 /**
@@ -359,6 +378,7 @@ int get_light(device * terminal, char * light) {
   int timeout = TIMEOUT;
   int result=-1;
   
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "GET%s\n", light);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -366,6 +386,7 @@ int get_light(device * terminal, char * light) {
     serial_read[strlen(serial_read) - 1] = '\0';
     result = strtol(serial_read+1, NULL, 10);
   }
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -379,6 +400,7 @@ int set_light(device * terminal, char * light, unsigned int status) {
   int timeout = TIMEOUT;
   int result=-1;
 
+  pthread_mutex_lock(&terminal->lock);
   snprintf(serial_command, WORDLENGTH, "SET%s,%d\n", light, status);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -387,5 +409,6 @@ int set_light(device * terminal, char * light, unsigned int status) {
     result = strtol(serial_read+1, NULL, 10);
   }
   serialport_flush(terminal->serial_fd);
+  pthread_mutex_unlock(&terminal->lock);
   return result;
 }

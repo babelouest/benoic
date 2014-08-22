@@ -1,7 +1,8 @@
 CC=gcc
-CFLAGS=-c -Wall -D_REENTRANT -O3
-LDFLAGS=-lc -lmicrohttpd -lconfig -lsqlite3 -lm
-DEBUGFLAGS=-DDEBUG -g
+CFLAGS=-c -Wall -D_REENTRANT
+LDFLAGS=-lc -lmicrohttpd -lconfig -lsqlite3 -lm -lpthread
+DEBUGFLAGS=-DDEBUG -g -O0
+RELEASEFLAGS=-O3
 KILLALLFLAG=-q
 
 all: angharad
@@ -13,22 +14,22 @@ angharad: angharad.o arduino-serial-lib.o nondevice-commands.o device-commands.o
 	$(CC) $(LDFLAGS) -o angharad angharad.o nondevice-commands.o device-commands.o scheduler.o arduino-serial-lib.o
 
 angharad.o: angharad.c angharad.h
-	$(CC) $(CFLAGS) angharad.c
+	$(CC) $(CFLAGS) $(RELEASEFLAGS) angharad.c
 
 nondevice-commands.o: nondevice-commands.c angharad.h
-	$(CC) $(CFLAGS) nondevice-commands.c
+	$(CC) $(CFLAGS) $(RELEASEFLAGS) nondevice-commands.c
 
 device-commands.o: device-commands.c angharad.h
-	$(CC) $(CFLAGS) device-commands.c
+	$(CC) $(CFLAGS) $(RELEASEFLAGS) device-commands.c
 
 scheduler.o: scheduler.c angharad.h
-	$(CC) $(CFLAGS) scheduler.c
+	$(CC) $(CFLAGS) $(RELEASEFLAGS) scheduler.c
 
 arduino-serial-lib.o: arduino-serial-lib.c arduino-serial-lib.h
-	$(CC) $(CFLAGS) arduino-serial-lib.c
+	$(CC) $(CFLAGS) $(RELEASEFLAGS) arduino-serial-lib.c
 
 clean:
-	rm -f *.o angharad test_eval test_mhd
+	rm -f *.o angharad
 
 stop:
 	-sudo /etc/init.d/angharad stop
@@ -47,7 +48,7 @@ debug: angharad.c angharad.h nondevice-commands.c device-commands.c scheduler.c 
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) device-commands.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) scheduler.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) angharad.c
-	$(CC) $(LDFLAGS) -o angharad angharad.o nondevice-commands.o device-commands.o scheduler.o arduino-serial-lib.o
+	$(CC) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o nondevice-commands.o device-commands.o scheduler.o arduino-serial-lib.o
 	
 test: debug
 	./angharad angharad.conf

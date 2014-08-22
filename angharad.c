@@ -31,7 +31,7 @@ static void request_completed (void *cls, struct MHD_Connection *connection,
 int main(int argc, char* argv[]) {
   
   struct MHD_Daemon *daemon;
-  char * message = malloc((MSGLENGTH+1)*sizeof(char));
+  char message[MSGLENGTH+1];
   int i;
   time_t now;
   struct tm ts;
@@ -40,6 +40,7 @@ int main(int argc, char* argv[]) {
   log_message(LOG_INFO, "Starting angharad server");
   if (argc>1) {
     if (!initialize(argv[1], message)) {
+      log_message(LOG_INFO, message);
       for (i=0; i<nb_terminal; i++) {
         free(terminal[i]);
       }
@@ -52,8 +53,10 @@ int main(int argc, char* argv[]) {
     exit(-1);
   }
   
-  daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SELECT_INTERNALLY, cfg_port, NULL, NULL, 
-                             &angharad_rest_webservice, NULL, MHD_OPTION_NOTIFY_COMPLETED, request_completed, NULL, MHD_OPTION_END);
+  daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION | MHD_USE_SELECT_INTERNALLY, 
+                              cfg_port, NULL, NULL, &angharad_rest_webservice, NULL, 
+                              MHD_OPTION_NOTIFY_COMPLETED, request_completed, NULL, 
+                              MHD_OPTION_END);
   
   if (NULL == daemon) {
     return 1;
@@ -76,7 +79,6 @@ int main(int argc, char* argv[]) {
   }
   sqlite3_close(sqlite3_db);
   free(terminal);
-  free(message);
   
   return (0);
 }
@@ -122,9 +124,9 @@ int initialize(char * config_file, char * message) {
     config_destroy(&cfg);
     return 0;
   } else {
-    rc = sqlite3_open(cur_dbpath, &sqlite3_db);
-    if (rc != SQLITE_OK) {
-      snprintf(message, MSGLENGTH, "Error, can't open database: %s\n", sqlite3_errmsg(sqlite3_db));
+    rc = sqlite3_open_v2(cur_dbpath, &sqlite3_db, SQLITE_OPEN_READWRITE, NULL);
+    if (rc != SQLITE_OK && sqlite3_db != NULL) {
+      snprintf(message, MSGLENGTH, "Database error: %s\n", sqlite3_errmsg(sqlite3_db));
       sqlite3_close(sqlite3_db);
       config_destroy(&cfg);
       return 0;
@@ -167,10 +169,14 @@ int initialize(char * config_file, char * message) {
             snprintf(message, MSGLENGTH, "Error initializing device %s", terminal[nb_terminal]->name);
             log_message(LOG_INFO, message);
           }
+          if (pthread_mutex_init(&terminal[nb_terminal]->lock, NULL) != 0) {
+            snprintf(message, MSGLENGTH, "Impossible to initialize Mutex Lock for %s", terminal[nb_terminal]->name);
+            log_message(LOG_INFO, message);
+          }
         }
         nb_terminal++;
       } else {
-        snprintf(message, MSGLENGTH, "Error reading parameters for device {name='%s', type='%s', uri='%s'}", cur_name, cur_type, cur_uri);
+        snprintf(message, MSGLENGTH, "Error reading parameters for device (name='%s', type='%s', uri='%s')", cur_name, cur_type, cur_uri);
         log_message(LOG_INFO, message);
       }
     }
@@ -225,7 +231,7 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
   struct _script * cur_script;
   struct _schedule * cur_schedule;
   
-  snprintf(urlcpy,MSGLENGTH , "%s", url);
+  snprintf(urlcpy, MSGLENGTH, "%s", url);
   source = urlcpy;
   
   prefix = strtok_r( source, delim, &saveptr );

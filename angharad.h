@@ -18,6 +18,7 @@
 #include <stddef.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
+#include <pthread.h>
 
 #include "arduino-serial-lib.h"
 
@@ -90,6 +91,7 @@ typedef struct _device {
   char display[WORDLENGTH+1];   	// Display name of the device
   int type;                     	// Device type (Serial, USB, network, etc.)
   char uri[WORDLENGTH+1];       	// URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
+  pthread_mutex_t lock;             // Mutex lock to avoid simultaneous access of the device
   
   char serial_file[WORDLENGTH+1];	// filename of the device
   int serial_fd;                	// file descriptor of the device if serial type
