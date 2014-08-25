@@ -76,7 +76,6 @@ int main(int argc, char* argv[]) {
       snprintf(message, MSGLENGTH, "Error creating thread, return code: %d", thread_ret);
       log_message(LOG_INFO, message);
     }
-    //run_scheduler(sqlite3_db, terminal, nb_terminal);
     time(&now);
     ts = *localtime(&now);
     duration = (unsigned int)(60-ts.tm_sec);
@@ -202,10 +201,11 @@ int initialize(char * config_file, char * message) {
  * Main libmicrohttpd answer callback function
  * url format: /PREFIX/COMMAND/DEVICE[/PARAM1[/PARAM2[/1]]]
  * examples:
- * Get indoor temperature from device DEV1: /PREFIX/SENSOR/DEV1/TEMPINT
+ * Get indoor temperature on sensor 0 from device DEV1: /PREFIX/SENSOR/DEV1/TEMPINT/0
  * Set pin 3 to ON on DEV1 : /PREFIX/SETPIN/DEV1/3/1
  * Get pin 2 state on DEV2 : /PREFIX/GETPIN/DEV2/2
  * Get forced pin 2 state on DEV2 : /PREFIX/GETPIN/DEV2/2/1
+ * etc.
  */
 static int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   const char *url, const char *method,

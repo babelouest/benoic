@@ -56,11 +56,6 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
       cur_schedule.script = sqlite3_column_int(stmt, 5);
       cur_schedule.enabled = sqlite3_column_int(stmt, 6);
       
-      /*ts = *localtime(&cur_schedule.next_time);
-      strftime(sql_query, sizeof(sql_query), "%a %Y-%m-%d %H:%M:%S %Z", &ts);
-      snprintf(buf, MSGLENGTH, "schedule #%d, due for %s, to launch script %d", cur_schedule.id, sql_query, cur_schedule.script);
-      log_message(LOG_INFO, buf);*/
-      
       if (is_scheduler_now(cur_schedule)) {
         // Run the specified script
         snprintf(buf, MSGLENGTH, "Scheduled script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
@@ -70,7 +65,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
           snprintf(buf, MSGLENGTH, "Script \"%s\" failed", cur_schedule.name);
           log_message(LOG_INFO, buf);
         } else {
-          snprintf(buf, MSGLENGTH, "run_script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
+          snprintf(buf, MSGLENGTH, "run_script \"%s\", (id: %d) finished", cur_schedule.name, cur_schedule.id);
           journal(sqlite3_db, "scheduler", buf, "success");
         }
       }
