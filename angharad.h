@@ -46,6 +46,7 @@
 #define ACTION_SET      4
 #define ACTION_SENSOR   5
 #define ACTION_HEATER   6
+#define ACTION_SLEEP    88
 #define ACTION_SYSTEM   99
 
 #define VALUE_INT     0
@@ -180,12 +181,17 @@ typedef struct _light {
   unsigned int on;
 } light;
 
-struct connection_info_struct
-{
+struct connection_info_struct {
   int connectiontype;
   unsigned int data_type;
   void * data;
   struct MHD_PostProcessor *postprocessor;
+};
+
+struct thread_arguments {
+  sqlite3 * sqlite3_db;
+  device ** terminal;
+  unsigned int nb_terminal;
 };
 
 // Init function
@@ -231,6 +237,7 @@ int evaluate_values(action ac);
 char * get_schedules(sqlite3 * sqlite3_db, char * device);
 
 // Scheduler
+void * thread_scheduler_run(void * args);
 int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
 int is_scheduler_now(schedule sc);
 int update_schedule(sqlite3 * sqlite3_db, schedule * sc);

@@ -36,6 +36,9 @@ int main(int argc, char* argv[]) {
   time_t now;
   struct tm ts;
   unsigned int duration;
+  pthread_t thread_scheduler;
+  int thread_ret;
+  struct thread_arguments thread_args;
   
   log_message(LOG_INFO, "Starting angharad server");
   if (argc>1) {
@@ -64,8 +67,16 @@ int main(int argc, char* argv[]) {
     snprintf(message, MSGLENGTH, "Start listening on port %d", cfg_port);
     log_message(LOG_INFO, message);
   }
+  thread_args.sqlite3_db = sqlite3_db;
+  thread_args.terminal = terminal;
+  thread_args.nb_terminal = nb_terminal;
   while (1) {
-    run_scheduler(sqlite3_db, terminal, nb_terminal);
+    thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)&thread_args);
+    if (thread_ret) {
+      snprintf(message, MSGLENGTH, "Error creating thread, return code: %d", thread_ret);
+      log_message(LOG_INFO, message);
+    }
+    //run_scheduler(sqlite3_db, terminal, nb_terminal);
     time(&now);
     ts = *localtime(&now);
     duration = (unsigned int)(60-ts.tm_sec);
@@ -218,7 +229,8 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
   struct _device * cur_terminal = NULL;
   struct connection_info_struct *con_info = *con_cls;
   struct sockaddr *so_client = MHD_get_connection_info (connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS)->client_addr;
-    
+  int tf_len;
+  
   char * debug = malloc((MSGLENGTH+1)*sizeof(char));
   
   // Post data structs
@@ -310,16 +322,18 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
       if (command != NULL) {
         if (0 == strcmp(command, "DEVICES")) {
           to_free = get_devices(sqlite3_db, terminal, nb_terminal);
-          page = realloc(page, (16+strlen(to_free))*sizeof(char));
-          snprintf(page, MSGLENGTH, "{\"devices\":[%s]}", to_free);
+          tf_len = (16+strlen(to_free))*sizeof(char);
+          page = realloc(page, tf_len);
+          snprintf(page, tf_len, "{\"devices\":[%s]}", to_free);
           free(to_free);
           to_free = NULL;
         } else if ( 0 == strcmp(command, "ACTIONS")) {
           device = strtok_r( NULL, delim, &saveptr );
           to_free = get_actions(sqlite3_db, device);
           if (to_free != NULL) {
-            page = realloc(page, (16+strlen(to_free))*sizeof(char));
-            snprintf(page, MSGLENGTH, "{\"actions\":[%s]}", to_free);
+            tf_len = (16+strlen(to_free))*sizeof(char);
+            page = realloc(page, tf_len);
+            snprintf(page, tf_len, "{\"actions\":[%s]}", to_free);
             free(to_free);
             to_free = NULL;
           } else {
@@ -329,8 +343,9 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
           device = strtok_r( NULL, delim, &saveptr );
           to_free = get_scripts(sqlite3_db, device);
           if (to_free != NULL) {
-            page = realloc(page, (15+strlen(to_free))*sizeof(char));
-            snprintf(page, MSGLENGTH, "{\"scripts\":[%s]}", to_free);
+            tf_len = (15+strlen(to_free))*sizeof(char);
+            page = realloc(page, tf_len);
+            snprintf(page, tf_len, "{\"scripts\":[%s]}", to_free);
             free(to_free);
             to_free = NULL;
           } else {
@@ -342,7 +357,7 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
             snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"no script id specified\"}}");
           } else {
             if (get_script(sqlite3_db, script, command_result)) {
-              snprintf(page, MSGLENGTH, "{\"result\":%s", command_result);
+              snprintf(page, MSGLENGTH, "{\"result\":%s}", command_result);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error getting script\"}");
             }
@@ -362,8 +377,9 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
           device = strtok_r( NULL, delim, &saveptr );
           to_free = get_schedules(sqlite3_db, device);
           if (to_free != NULL) {
-            page = realloc(page, (15+strlen(to_free))*sizeof(char));
-            snprintf(page, MSGLENGTH, "{\"result\":[%s]}", to_free);
+            tf_len = (15+strlen(to_free))*sizeof(char);
+            page = realloc(page, tf_len);
+            snprintf(page, tf_len, "{\"result\":[%s]}", to_free);
             free(to_free);
             to_free = NULL;
           } else {

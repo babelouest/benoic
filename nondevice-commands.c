@@ -483,14 +483,6 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
       if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
         ac.condition_result = sqlite3_column_int(stmt, 6);
       }
-      /*printf("current action\n\tname: %s\n\ttype: %d\n\tdevice: %s\n\tpin: %s\n\tsensor: %s\n\tparams: %s\n\tcondition result: %d\n", 
-            ac.name,
-            ac.type,
-            ac.device,
-            ac.pin,
-            ac.sensor,
-            ac.params,
-            ac.condition_result);*/
       switch (ac.type) {
         case ACTION_GET:
         case ACTION_SET:
@@ -509,6 +501,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
         case ACTION_DEVICE:
         case ACTION_OVERVIEW:
         case ACTION_REFRESH:
+        case ACTION_SLEEP:
         case ACTION_SYSTEM:
         default:
           ac.condition_value.type = VALUE_STRING;
@@ -535,7 +528,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db) {
   char str_result[MSGLENGTH+1], tmp[WORDLENGTH+1], jo_command[MSGLENGTH+1], jo_result[MSGLENGTH+1];
   value first;
-  int heat_set;
+  int heat_set, sleep_val;
   float heat_max_value;
   device * cur_terminal;
   
@@ -632,6 +625,11 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         ac.result_value = first;
       }
       break;
+    case ACTION_SLEEP:
+      sleep_val = strtol(ac.params, NULL, 10);
+      if (sleep_val > 0) {
+        usleep(sleep_val*1000);
+      }
     case ACTION_SYSTEM:
       system(ac.params);
       break;
@@ -984,7 +982,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SET && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.pin, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SYSTEM && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
+  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   
   sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
@@ -1034,7 +1032,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_SYSTEM) {
+  if ((cur_action.type == ACTION_SYSTEM) || (cur_action.type == ACTION_SLEEP)) {
     strcpy(device, "");
     strcpy(pin, "");
     strcpy(sensor, "");
@@ -1088,7 +1086,7 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SET && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.pin, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SYSTEM && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
+  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   
   sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
@@ -1140,7 +1138,7 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_SYSTEM) {
+  if (cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) {
     strcpy(device, "");
     strcpy(pin, "");
     strcpy(sensor, "");

@@ -1,6 +1,18 @@
 #include "angharad.h"
 
 /**
+ * Thread function for the scheduler
+ * So if the last scheduled scripts are not finished to run
+ * (because of a long sleep function for example),
+ * The next scheduler doesn't have to wait for the previous to finish.
+ */
+void * thread_scheduler_run(void * args) {
+  struct thread_arguments * cur_args = (struct thread_arguments *) args;
+  run_scheduler(cur_args->sqlite3_db, cur_args->terminal, cur_args->nb_terminal);
+  return NULL;
+}
+
+/**
  * Main thread launched periodically
  */
 int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal) {
