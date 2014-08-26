@@ -62,6 +62,8 @@ int main(int argc, char* argv[]) {
                               MHD_OPTION_END);
   
   if (NULL == daemon) {
+    snprintf(message, MSGLENGTH, "Error starting http daemon on port %d", cfg_port);
+    log_message(LOG_INFO, message);
     return 1;
   } else {
     snprintf(message, MSGLENGTH, "Start listening on port %d", cfg_port);
@@ -72,9 +74,9 @@ int main(int argc, char* argv[]) {
   thread_args.nb_terminal = nb_terminal;
   while (1) {
     thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)&thread_args);
-		thread_detach = pthread_detach(thread_scheduler);
+    thread_detach = pthread_detach(thread_scheduler);
     if (thread_ret || thread_detach) {
-			snprintf(message, MSGLENGTH, "Error creating or detaching thread, return code: %d, detach code: %d", thread_ret, thread_detach);
+      snprintf(message, MSGLENGTH, "Error creating or detaching thread, return code: %d, detach code: %d", thread_ret, thread_detach);
       log_message(LOG_INFO, message);
     }
     time(&now);
@@ -662,13 +664,12 @@ static int angharad_rest_webservice (void *cls, struct MHD_Connection *connectio
     snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"unknown prefix\",\"prefix\":\"%s\"}}", sanitized);
   }
   
-  response = MHD_create_response_from_buffer (strlen (page), (void *) page, MHD_RESPMEM_MUST_COPY );
+  journal(sqlite3_db, inet_ntoa(((struct sockaddr_in *)so_client)->sin_addr), url, page);
+  response = MHD_create_response_from_buffer (strlen (page), (void *) page, MHD_RESPMEM_MUST_FREE );
   ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
   MHD_destroy_response (response);
-  snprintf(debug, MSGLENGTH, "finishing answer_to_connection, url: %s", url);
+  snprintf(debug, MSGLENGTH, "End execution of angharad_rest_webservice, url: %s", url);
   log_message(LOG_INFO, debug);
-  journal(sqlite3_db, inet_ntoa(((struct sockaddr_in *)so_client)->sin_addr), url, page);
-  free(page);
   free(urlcpy);
   free(command_result);
   free(debug);
