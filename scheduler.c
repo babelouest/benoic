@@ -9,6 +9,7 @@
 void * thread_scheduler_run(void * args) {
   struct thread_arguments * cur_args = (struct thread_arguments *) args;
   run_scheduler(cur_args->sqlite3_db, cur_args->terminal, cur_args->nb_terminal);
+	pthread_exit(NULL);
   return NULL;
 }
 

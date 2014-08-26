@@ -37,7 +37,7 @@ int main(int argc, char* argv[]) {
   struct tm ts;
   unsigned int duration;
   pthread_t thread_scheduler;
-  int thread_ret;
+  int thread_ret, thread_detach;
   struct thread_arguments thread_args;
   
   log_message(LOG_INFO, "Starting angharad server");
@@ -72,8 +72,9 @@ int main(int argc, char* argv[]) {
   thread_args.nb_terminal = nb_terminal;
   while (1) {
     thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)&thread_args);
-    if (thread_ret) {
-      snprintf(message, MSGLENGTH, "Error creating thread, return code: %d", thread_ret);
+		thread_detach = pthread_detach(thread_scheduler);
+    if (thread_ret || thread_detach) {
+			snprintf(message, MSGLENGTH, "Error creating or detaching thread, return code: %d, detach code: %d", thread_ret, thread_detach);
       log_message(LOG_INFO, message);
     }
     time(&now);
