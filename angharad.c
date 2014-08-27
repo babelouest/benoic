@@ -637,7 +637,6 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             sanitize_json_string(command, sanitized, WORDLENGTH);
             snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"unknown command\",\"command\":\"%s\"}}", sanitized);
           }
-          free(con_info->data);
         }
       } else {
         snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"empty command\"}}");
@@ -1013,6 +1012,7 @@ void request_completed (void *cls, struct MHD_Connection *connection,
   if (con_info->connectiontype == HTTPPOST) {
     MHD_destroy_post_processor (con_info->postprocessor);
   }
+  free(con_info->data);
   free(con_info);
   *con_cls = NULL;
 }
