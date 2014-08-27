@@ -269,4 +269,20 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device);
 int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int status);
 int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device);
 
+// libmicrohttpd functions
+int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind,
+                         const char *key, const char *filename,
+                         const char *content_type,
+                         const char *transfer_encoding,
+                         const char *data,
+                         uint64_t off,
+                         size_t size);
+int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
+                                     const char *url, const char *method,
+                                     const char *version, const char *upload_data,
+                                     size_t *upload_data_size, void **con_cls);
+void request_completed (void *cls, struct MHD_Connection *connection,
+                               void **con_cls, enum MHD_RequestTerminationCode toe);
+
+
 #endif //__ANGHARAD_H__

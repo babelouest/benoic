@@ -10,20 +10,6 @@ char cfg_prefix[WORDLENGTH+1];
 sqlite3 * sqlite3_db;
 // END Global variables
 
-static int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind,
-                         const char *key, const char *filename,
-                         const char *content_type,
-                         const char *transfer_encoding,
-                         const char *data,
-                         uint64_t off,
-                         size_t size);
-static int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
-                                     const char *url, const char *method,
-                                     const char *version, const char *upload_data,
-                                     size_t *upload_data_size, void **con_cls);
-static void request_completed (void *cls, struct MHD_Connection *connection,
-                               void **con_cls, enum MHD_RequestTerminationCode toe);
-
 /**
  * main function
  * initializes the application, run the http server and the scheduler
@@ -210,7 +196,7 @@ int initialize(char * config_file, char * message) {
  * Get forced pin 2 state on DEV2 : /PREFIX/GETPIN/DEV2/2/1
  * etc.
  */
-static int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
+int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   const char *url, const char *method,
                   const char *version, const char *upload_data,
                   size_t *upload_data_size, void **con_cls) {
@@ -753,8 +739,7 @@ int sanitize_json_string(char * source, char * target, size_t len) {
 /**
  * Parse the POST data
  */
-static int
-iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
+int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
               const char *filename, const char *content_type,
               const char *transfer_encoding, const char *data, uint64_t off,
               size_t size) {
@@ -1019,8 +1004,7 @@ iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
 /**
  * Mark the request completed so angharad_rest_webservice can keep going
  */
-static void
-request_completed (void *cls, struct MHD_Connection *connection,
+void request_completed (void *cls, struct MHD_Connection *connection,
                    void **con_cls, enum MHD_RequestTerminationCode toe) {
   struct connection_info_struct *con_info = *con_cls;
   if (NULL == con_info) {
