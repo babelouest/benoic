@@ -830,6 +830,7 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
     free(sql_query);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query");
+      free(script);
       sqlite3_finalize(stmt);
       return 0;
     } else {
@@ -1390,10 +1391,12 @@ int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
  * Delete the specified script
  */
 int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+  char * sql_query = NULL;
   int sql_result;
   
   if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_INFO, "Error deleting schedule, wrong params"); return 0;}
+  
+  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_scheduler where sh_id='%q'", schedule_id);
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
@@ -1415,6 +1418,7 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
   heatMaxValue = strtok_r(NULL, ";", &saveptr);
   if (heatSet == NULL || heatOn == NULL || heatMaxValue == NULL) {
     log_message(LOG_INFO, "Error parsing heater data");
+    free(sql_query);
     return 0;
   } else {
     sanitize_json_string(heater_name, cur_heater->name, WORDLENGTH);

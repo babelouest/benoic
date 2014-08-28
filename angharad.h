@@ -32,7 +32,7 @@
 #define HUMINT "HUMINT"
 
 #define MSGLENGTH 4096
-#define WORDLENGTH 63
+#define WORDLENGTH 64
 
 #define TYPE_NONE   0
 #define TYPE_SERIAL 1
@@ -188,14 +188,16 @@ struct connection_info_struct {
   struct MHD_PostProcessor *postprocessor;
 };
 
-struct thread_arguments {
-  sqlite3 * sqlite3_db;
+struct config_elements {
+  int tcp_port;
+  char url_prefix[WORDLENGTH+1];
   device ** terminal;
   unsigned int nb_terminal;
+  sqlite3 * sqlite3_db;
 };
 
 // Init function
-int initialize(char * config_file, char * message);
+int initialize(char * config_file, char * message, struct config_elements * config);
 device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal);
 
 // Interface with the Arduinos

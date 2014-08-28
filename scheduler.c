@@ -7,8 +7,8 @@
  * The next scheduler doesn't have to wait for the previous to finish.
  */
 void * thread_scheduler_run(void * args) {
-  struct thread_arguments * cur_args = (struct thread_arguments *) args;
-  run_scheduler(cur_args->sqlite3_db, cur_args->terminal, cur_args->nb_terminal);
+  struct config_elements * config = (struct config_elements *) args;
+  run_scheduler(config->sqlite3_db, config->terminal, config->nb_terminal);
 	pthread_exit(NULL);
   return NULL;
 }
@@ -181,13 +181,9 @@ int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
   int sql_result;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, 
-           "update an_scheduler set sh_name='%q', sh_enabled='%d', sh_next_time='%ld', sh_repeat_schedule='%d', sh_repeat_schedule_value='%d', sc_id='%d' where sh_id='%d'",
-           sc.name,
+           "UPDATE an_scheduler SET sh_enabled='%d', sh_next_time='%ld' WHERE sh_id='%d'",
            sc.enabled,
            (long)sc.next_time,
-           sc.repeat_schedule,
-           sc.repeat_schedule_value,
-           sc.script,
            sc.id
   );
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
