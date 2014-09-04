@@ -16,17 +16,17 @@ int main(int argc, char* argv[]) {
   int thread_ret, thread_detach;
   
   // Config variables
-  struct config_elements config;
+  struct config_elements * config = malloc(sizeof(struct config_elements));
 
   log_message(LOG_INFO, "Starting angharad server");
   if (argc>1) {
-    if (!initialize(argv[1], message, &config)) {
+    if (!initialize(argv[1], message, config)) {
       log_message(LOG_INFO, message);
-      for (i=0; i<config.nb_terminal; i++) {
-        free(config.terminal[i]);
+      for (i=0; i<config->nb_terminal; i++) {
+        free(config->terminal[i]);
       }
       
-      free(config.terminal);
+      free(config->terminal);
       exit(-1);
     }
   } else {
@@ -35,20 +35,20 @@ int main(int argc, char* argv[]) {
   }
   
   daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION, 
-                              config.tcp_port, NULL, NULL, &angharad_rest_webservice, (void *)&config, 
+                              config->tcp_port, NULL, NULL, &angharad_rest_webservice, (void *)config, 
                               MHD_OPTION_NOTIFY_COMPLETED, request_completed, NULL, 
                               MHD_OPTION_END);
   
   if (NULL == daemon) {
-    snprintf(message, MSGLENGTH, "Error starting http daemon on port %d", config.tcp_port);
+    snprintf(message, MSGLENGTH, "Error starting http daemon on port %d", config->tcp_port);
     log_message(LOG_INFO, message);
     return 1;
   } else {
-    snprintf(message, MSGLENGTH, "Start listening on port %d", config.tcp_port);
+    snprintf(message, MSGLENGTH, "Start listening on port %d", config->tcp_port);
     log_message(LOG_INFO, message);
   }
   while (1) {
-    thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)&config);
+    thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)config);
     thread_detach = pthread_detach(thread_scheduler);
     if (thread_ret || thread_detach) {
       snprintf(message, MSGLENGTH, "Error creating or detaching thread, return code: %d, detach code: %d", thread_ret, thread_detach);
@@ -61,12 +61,13 @@ int main(int argc, char* argv[]) {
   }
   MHD_stop_daemon (daemon);
   
-  for (i=0; i<config.nb_terminal; i++) {
-    close_device(config.terminal[i]);
-    free(config.terminal[i]);
+  for (i=0; i<config->nb_terminal; i++) {
+    close_device(config->terminal[i]);
+    free(config->terminal[i]);
   }
-  sqlite3_close(config.sqlite3_db);
-  free(config.terminal);
+  sqlite3_close(config->sqlite3_db);
+  free(config->terminal);
+  free(config);
   
   return (0);
 }
@@ -124,6 +125,8 @@ int initialize(char * config_file, char * message, struct config_elements * conf
   root = config_root_setting(&cfg);
   cfg_devices = config_setting_get_member(root, "devices");
   config->nb_terminal = 0;
+  config->terminal = NULL;
+  
   if (cfg_devices != NULL) {
     count = config_setting_length(cfg_devices);
     for (i=0; i < count; i++) {
@@ -136,13 +139,30 @@ int initialize(char * config_file, char * message, struct config_elements * conf
         } else {
           config->terminal = realloc(config->terminal, (config->nb_terminal+1)*sizeof(device *));
         }
+        
         config->terminal[config->nb_terminal] = malloc(sizeof(device));
+        config->terminal[config->nb_terminal]->id = 0;
+        config->terminal[config->nb_terminal]->enabled = 0;
+        config->terminal[config->nb_terminal]->display[0] = 0;
+        config->terminal[config->nb_terminal]->type = TYPE_NONE;
+        config->terminal[config->nb_terminal]->uri[0] = 0;
         snprintf(config->terminal[config->nb_terminal]->name, WORDLENGTH, "%s", cur_name);
+        
+        if (pthread_mutex_init(&config->terminal[config->nb_terminal]->lock, NULL) != 0) {
+          snprintf(message, MSGLENGTH, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
+          log_message(LOG_INFO, message);
+        }
+        
+        config->terminal[config->nb_terminal]->serial_baud = 0;
+        config->terminal[config->nb_terminal]->serial_fd = -1;
+        memset(config->terminal[config->nb_terminal]->serial_file, '\0', WORDLENGTH+1);
+        
         if (0 == strncmp("serial", cur_type, WORDLENGTH)) {
           config->terminal[config->nb_terminal]->type = TYPE_SERIAL;
           config_setting_lookup_int(cfg_device, "baud", &serial_baud);
           config->terminal[config->nb_terminal]->serial_baud = serial_baud;
         }
+
         snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH, "%s", cur_uri);
         if (connect_device(config->terminal[config->nb_terminal]) == -1) {
           snprintf(message, MSGLENGTH, "Error connecting device %s, using uri: %s", config->terminal[config->nb_terminal]->name, config->terminal[config->nb_terminal]->uri);
@@ -155,10 +175,6 @@ int initialize(char * config_file, char * message, struct config_elements * conf
             log_message(LOG_INFO, message);
           } else {
             snprintf(message, MSGLENGTH, "Error initializing device %s", config->terminal[config->nb_terminal]->name);
-            log_message(LOG_INFO, message);
-          }
-          if (pthread_mutex_init(&config->terminal[config->nb_terminal]->lock, NULL) != 0) {
-            snprintf(message, MSGLENGTH, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
             log_message(LOG_INFO, message);
           }
         }
@@ -209,7 +225,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   struct sockaddr *so_client = MHD_get_connection_info (connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS)->client_addr;
   int tf_len;
   struct config_elements * config = (struct config_elements *) cls;
-  struct connection_info_struct * con_info_post;
+  struct connection_info_struct * con_info_post = NULL;
   char urlcpy[urllength+1];
   
   // Post data structs
@@ -226,12 +242,12 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   prefix = strtok_r( urlcpy, delim, &saveptr );
   
   if (NULL == *con_cls) {
-    con_info_post = malloc (sizeof (struct connection_info_struct));
-    if (NULL == con_info_post) {
-      return MHD_NO;
-    }
     
     if (0 == strcmp (method, "POST")) {
+      con_info_post = malloc (sizeof (struct connection_info_struct));
+      if (NULL == con_info_post) {
+        return MHD_NO;
+      }
       command = strtok_r( NULL, delim, &saveptr );
       if (0 == strcmp("SETDEVICEDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _device));

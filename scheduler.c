@@ -20,7 +20,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   // Look for every enabled scheduler in the database
   sqlite3_stmt *stmt;
   int sql_result, row_result, i;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * buf = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1], buf[MSGLENGTH+1];
   schedule cur_schedule;
   
   // Send a heartbeat to all devices
@@ -39,10 +39,8 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   //struct tm ts;
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh_id, sh_name, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sc_id, sh_enabled FROM an_scheduler WHERE sh_enabled = 1");
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(buf);
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -74,7 +72,6 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
       update_schedule(sqlite3_db, &cur_schedule);
       row_result = sqlite3_step(stmt);
     }
-    free(buf);
     sqlite3_finalize(stmt);
     return 1;
   }
@@ -177,7 +174,7 @@ time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule
  * Update a scheduler in the database
  */
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   int sql_result;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, 
@@ -187,6 +184,5 @@ int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
            sc.id
   );
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-  free(sql_query);
   return ( sql_result == SQLITE_OK );
 }

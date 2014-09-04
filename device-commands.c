@@ -23,8 +23,8 @@ int is_connected(device * terminal) {
  */
 int connect_device(device * terminal) {
   int i=0;
-  char filename[WORDLENGTH+1];
-  char cur_name[WORDLENGTH+1];
+  char filename[WORDLENGTH+1] = {0};
+  char cur_name[WORDLENGTH+1] = {0};
   
   if (terminal == NULL) {
     return -1;
@@ -106,9 +106,9 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   int i;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
-  char cur_name[WORDLENGTH+1], sanitized[WORDLENGTH+1];
-  char * output = malloc(2*sizeof(char)), * one_item = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
+  char cur_name[WORDLENGTH+1] = {0}, sanitized[WORDLENGTH+1] = {0};
+	char * output = malloc(2*sizeof(char)), one_item[MSGLENGTH+1];
 
   strcpy(output, "");
   for (i=0; i<nb_terminal; i++) {
@@ -119,7 +119,8 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query");
       sqlite3_finalize(stmt);
-      return 0;
+			free(output);
+      return NULL;
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
@@ -156,8 +157,6 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     output = realloc(output, strlen(output)+strlen(one_item)+1);
     strcat(output, one_item);
   }
-  free(sql_query);
-  free(one_item);
   return output;
 }
 
@@ -166,7 +165,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
  */
 int set_switch_state(device * terminal, char * pin, int status) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   int result=-1;
@@ -189,7 +188,7 @@ int set_switch_state(device * terminal, char * pin, int status) {
  */
 int get_switch_state(device * terminal, char * pin, int force) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   int result=-1;
@@ -216,7 +215,7 @@ int get_switch_state(device * terminal, char * pin, int force) {
  */
 float get_sensor_value(device * terminal, char * sensor, int force) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = 5000;
   float result=-999.;
@@ -245,7 +244,7 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
  */
 int send_heartbeat(device * terminal) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   int result = 0;
@@ -274,7 +273,7 @@ int send_heartbeat(device * terminal) {
  */
 int get_overview(device * terminal, char * output) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   
@@ -293,7 +292,7 @@ int get_overview(device * terminal, char * output) {
  */
 int get_refresh(device * terminal, char * output) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   
@@ -312,7 +311,7 @@ int get_refresh(device * terminal, char * output) {
  */
 int get_name(device * terminal, char * output) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   
@@ -331,7 +330,7 @@ int get_name(device * terminal, char * output) {
  */
 int get_heater(device * terminal, char * heat_id, char * output) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   
@@ -352,7 +351,7 @@ int get_heater(device * terminal, char * heat_id, char * output) {
  */
 int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * output) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   
@@ -373,7 +372,7 @@ int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_he
  */
 int get_light(device * terminal, char * light) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   int result=-1;
@@ -395,7 +394,7 @@ int get_light(device * terminal, char * light) {
  */
 int set_light(device * terminal, char * light, unsigned int status) {
   char eolchar = '}';
-  char serial_command[WORDLENGTH+1], serial_read[WORDLENGTH+1];
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
   int result=-1;

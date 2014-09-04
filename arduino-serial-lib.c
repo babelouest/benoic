@@ -134,7 +134,7 @@ int serialport_write(int fd, const char* str)
 //
 int serialport_read_until(int fd, char* buf, char until, int buf_max, int timeout)
 {
-  char b[1];  // read expects an array, so we give it a 1-byte array
+  char b[1] = {0};  // read expects an array, so we give it a 1-byte array
   int i=0;
   do { 
     int n = read(fd, b, 1);  // read a char at a time

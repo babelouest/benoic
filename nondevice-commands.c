@@ -10,7 +10,7 @@
  */
 char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   char *tmp, *source, *saveptr, * overview_result_cpy = NULL, key[WORDLENGTH+1]={0}, value[WORDLENGTH+1]={0}, device[WORDLENGTH+1]={0}, tmp_value[WORDLENGTH+1], sanitized[WORDLENGTH+1], heater_value[WORDLENGTH+1]={0};
-  char * one_element = malloc((MSGLENGTH+1)*sizeof(char)), * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL;
+	char one_element[MSGLENGTH+1], * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL;
   int i;
   pin * pins = NULL;
   sensor * sensors = NULL;
@@ -18,9 +18,9 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   light * lights = NULL;
   int nb_pins = 0, nb_sensors = 0, nb_heaters = 0, nb_lights = 0;
   
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+  char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
-  int sql_result, row_result;
+  int sql_result, row_result, output_len;
   
   overview_result_cpy = malloc(strlen(overview_result)*sizeof(char));
   snprintf(overview_result_cpy, strlen(overview_result)-1, "%s", overview_result+1);
@@ -190,14 +190,11 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   str_lights = realloc(str_lights, strlen(str_lights)+2);
   strcat(str_lights, "]");
   
-  output = malloc((53+strlen(device)+strlen(str_pins)+strlen(str_lights)+strlen(str_sensors)+strlen(str_heaters))*sizeof(char));
-  snprintf(output, MSGLENGTH, "{\"name\":\"%s\",\"pins\":%s,\"lights\":%s,\"sensors\":%s,\"heaters\":%s}", device, str_pins, str_lights, str_sensors, str_heaters);
+	output_len = 53+strlen(device)+strlen(str_pins)+strlen(str_lights)+strlen(str_sensors)+strlen(str_heaters);
+  output = malloc(output_len*sizeof(char));
+	snprintf(output, output_len-1, "{\"name\":\"%s\",\"pins\":%s,\"lights\":%s,\"sensors\":%s,\"heaters\":%s}", device, str_pins, str_lights, str_sensors, str_heaters);
   
   // Free all allocated pointers before return
-  free(sql_query);
-  sql_query = NULL;
-  free(one_element);
-  one_element = NULL;
   free(pins);
   pins = NULL;
   free(sensors);
@@ -208,6 +205,8 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   heaters = NULL;
   free(str_pins);
   str_pins = NULL;
+  free(str_sensors);
+  str_sensors = NULL;
   free(str_heaters);
   str_heaters = NULL;
   free(str_lights);
@@ -224,7 +223,7 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   char cur_name[WORDLENGTH+1]={0}, cur_device[WORDLENGTH+1]={0}, cur_pin[WORDLENGTH+1]={0}, cur_sensor[WORDLENGTH+1]={0}, cur_heater[WORDLENGTH+1]={0}, cur_params[WORDLENGTH+1]={0};
-  char * actions = malloc(2*sizeof(char)), * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * one_item = malloc((MSGLENGTH+1)*sizeof(char));
+	char * actions = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], one_item[MSGLENGTH+1];
   
   if (device == NULL) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params FROM an_action ac LEFT OUTER JOIN an_device de ON de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw ON sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se ON se.se_id = ac.se_id LEFT OUTER JOIN an_heater he ON he.he_id = ac.he_id");
@@ -232,7 +231,6 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params FROM an_action ac LEFT OUTER JOIN an_device de ON de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw ON sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se ON se.se_id = ac.se_id LEFT OUTER JOIN an_heater he ON he.he_id = ac.he_id WHERE ac.de_id in (SELECT de_id FROM an_device where de_name = '%q')", device);
   }
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     sqlite3_finalize(stmt);
@@ -277,7 +275,7 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
   int sql_result, row_result;
   char cur_name[WORDLENGTH+1], device_name[WORDLENGTH+1];
   int cur_id, cur_enabled;
-  char * scripts = malloc(2*sizeof(char)), * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * one_item = NULL, * actions = NULL;
+	char * scripts = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], * one_item = NULL, * actions = NULL;
   
   if (device == NULL) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id");
@@ -285,7 +283,6 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id WHERE de.de_id in (SELECT de_id FROM an_device where de_name = '%q')", device);
   }
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     free(scripts);
@@ -340,24 +337,20 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
 char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), ac_name[WORDLENGTH+1], value_condition[WORDLENGTH+1], * actions = malloc(sizeof(char)), * one_item = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1], ac_name[WORDLENGTH+1], value_condition[WORDLENGTH+1], * actions = malloc(sizeof(char)), one_item[MSGLENGTH+1];
   int rank, result_condition, ac_id;
   
   if (script_id == 0) {
     log_message(LOG_INFO, "Error getting action scripts, script_id is 0");
-    free(sql_query);
     free(actions);
-    free(one_item);
     return NULL;
   }
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, aas.as_rank, aas.as_result_condition, aas.as_value_condition FROM an_action_script aas, an_action ac WHERE ac.ac_id=aas.ac_id AND aas.sc_id='%d' ORDER BY as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     free(actions);
-    free(one_item);
     sqlite3_finalize(stmt);
     return NULL;
   } else {
@@ -386,14 +379,12 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
         break;
       } else {
         free(actions);
-        free(one_item);
         sqlite3_finalize(stmt);
         return NULL;
       }
       row_result = sqlite3_step(stmt);
     }
     sqlite3_finalize(stmt);
-    free(one_item);
     return actions;
   }
 }
@@ -404,11 +395,10 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
 int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview) {
   sqlite3_stmt *stmt;
   int sql_result, sc_id, sc_enabled, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), sc_name[WORDLENGTH+1], device[WORDLENGTH+1], tmp[WORDLENGTH*3];
+	char sql_query[MSGLENGTH+1], sc_name[WORDLENGTH+1], device[WORDLENGTH+1], tmp[WORDLENGTH*3];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id WHERE sc.sc_id = '%q'", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     sqlite3_finalize(stmt);
@@ -441,12 +431,11 @@ int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview) {
 int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_id) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   action ac;
     
   snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, ac.ac_params, acs.as_result_condition, acs.as_value_condition, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' order by acs.as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     sqlite3_finalize(stmt);
@@ -456,9 +445,13 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
     while (row_result == SQLITE_ROW) {
       if (sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
         snprintf(ac.name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+      } else {
+        strcpy(ac.name, "");
       }
       if (sqlite3_column_type(stmt, 1) != SQLITE_NULL) {
         ac.type = sqlite3_column_int(stmt, 1);
+      } else {
+        ac.type = ACTION_NONE;
       }
       if (sqlite3_column_type(stmt, 2) != SQLITE_NULL) {
         snprintf(ac.device, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 2));
@@ -482,6 +475,8 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
       }
       if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
         ac.condition_result = sqlite3_column_int(stmt, 6);
+      } else {
+        ac.condition_result = CONDITION_NO;
       }
       switch (ac.type) {
         case ACTION_GET:
@@ -526,11 +521,16 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
  * Run the specified action, evaluate the result and return if the result is valid
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db) {
-  char str_result[MSGLENGTH+1], tmp[WORDLENGTH+1], jo_command[MSGLENGTH+1], jo_result[MSGLENGTH+1];
+  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0};
   value first;
   int heat_set, sleep_val;
   float heat_max_value;
   device * cur_terminal;
+  
+  ac.result_value.type = VALUE_NONE;
+  ac.result_value.i_value = 0;
+  ac.result_value.f_value = 0.0;
+  strcpy(ac.result_value.s_value, "");
   
   switch (ac.type) {
     case ACTION_DEVICE:
@@ -632,6 +632,9 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
     case ACTION_SYSTEM:
       system(ac.params);
+      break;
+    default:
+      ac.result_value.type = VALUE_NONE;
       break;
   }
   snprintf(jo_command, MSGLENGTH, "run_action \"%s\" (id:%d, type:%d)", ac.name, ac.id, ac.type);
@@ -754,10 +757,10 @@ int evaluate_values(action ac) {
 char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1];
+	char sql_query[MSGLENGTH+1], * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1];
   int cur_id;
   long next_time;
-  char * script = malloc((MSGLENGTH+1)*sizeof(char)), script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char));
+	char script[MSGLENGTH+1], script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char));
   int enabled, repeat_schedule, repeat_schedule_value;
   
   if (device == NULL) {
@@ -766,10 +769,8 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule, sh.sh_repeat_schedule_value, sh.sc_id, de.de_name FROM an_scheduler sh LEFT OUTER JOIN an_device de ON de.de_id = sh.de_id WHERE sh.de_id in (SELECT de_id FROM an_device where de_name = '%q')", device);
   }
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(script);
     free(scripts);
     sqlite3_finalize(stmt);
     return NULL;
@@ -807,7 +808,6 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
       one_item = NULL;
       row_result = sqlite3_step(stmt);
     }
-    free(script);
     sqlite3_finalize(stmt);
     return scripts;
   }
@@ -817,7 +817,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
  * Change the state of a schedule
  */
 int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * script = malloc((MSGLENGTH+1)*sizeof(char)), script_id[WORDLENGTH+1];
+	char sql_query[MSGLENGTH+1], script[MSGLENGTH+1], script_id[WORDLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   struct _schedule cur_schedule;
@@ -827,10 +827,8 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh_id, sh_name, sh_enabled, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sc_id FROM an_scheduler WHERE sh_id='%q'", schedule);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    free(sql_query);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query");
-      free(script);
       sqlite3_finalize(stmt);
       return 0;
     } else {
@@ -851,19 +849,16 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
         }
         sanitize_json_string(cur_schedule.name, cur_schedule.name, WORDLENGTH);
         snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"script\":%s}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, script);
-        free(script);
         sqlite3_finalize(stmt);
         return 1;
       } else {
         log_message(LOG_INFO, "Error getting schedule data");
-        free(script);
         sqlite3_finalize(stmt);
         return 0;
       }
     }
   } else {
     log_message(LOG_INFO, "Error updating schedule");
-    free(script);
     sqlite3_finalize(stmt);
     return 0;
   }
@@ -873,17 +868,15 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
  * Change the display name and the enable settings for a device
  */
 int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_device (de_id, de_name, de_display, de_active) VALUES ((SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_device.name, cur_device.name, cur_device.display, cur_device.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_device.name, cur_device.name, WORDLENGTH);
     sanitize_json_string(cur_device.display, cur_device.display, WORDLENGTH);
     snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s}", cur_device.name, cur_device.display, cur_device.enabled?"true":"false");
-    free(sql_query);
     return 1;
   } else {
-    free(sql_query);
     return 0;
   }
 }
@@ -892,17 +885,15 @@ int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_resu
  * Change the display name, the type and the enable settings for a device
  */
 int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')))", cur_pin.name, cur_pin.device, cur_pin.device, cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled, cur_pin.name, cur_pin.device);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_pin.name, cur_pin.name, WORDLENGTH);
     sanitize_json_string(cur_pin.display, cur_pin.display, WORDLENGTH);
     snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s}", cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled?"true":"false");
-    free(sql_query);
     return 1;
   } else {
-    free(sql_query);
     return 0;
   }
 }
@@ -911,7 +902,7 @@ int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
  * Change the display name and the enable settings for a device
  */
 int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active) VALUES ((SELECT se_id FROM an_sensor where se_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d')", cur_sensor.name, cur_sensor.device, cur_sensor.device, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
@@ -919,10 +910,8 @@ int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_resu
     sanitize_json_string(cur_sensor.display, cur_sensor.display, WORDLENGTH);
     sanitize_json_string(cur_sensor.unit, cur_sensor.unit, WORDLENGTH);
     snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s}", cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false");
-    free(sql_query);
     return 1;
   } else {
-    free(sql_query);
     return 0;
   }
 }
@@ -931,17 +920,15 @@ int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_resu
  * Change the display name and the enable settings for a light
  */
 int set_light_data(sqlite3 * sqlite3_db, light cur_light, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_light (li_id, de_id, li_name, li_display, li_enabled) VALUES ((SELECT li_id FROM an_light where li_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_light.name, cur_light.device, cur_light.device, cur_light.name, cur_light.display, cur_light.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_light.name, cur_light.name, WORDLENGTH);
     sanitize_json_string(cur_light.display, cur_light.display, WORDLENGTH);
     snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s}", cur_light.name, cur_light.display, cur_light.enabled?"true":"false");
-    free(sql_query);
     return 1;
   } else {
-    free(sql_query);
     return 0;
   }
 }
@@ -950,7 +937,7 @@ int set_light_data(sqlite3 * sqlite3_db, light cur_light, char * command_result)
  * Change the display name, the unit and the enable settings for a heater
  */
 int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_result) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled) VALUES ((SELECT he_id FROM an_heater where he_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d')", cur_heater.name, cur_heater.device, cur_heater.device, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled);
   //printf("%s\n", sql_query);
@@ -959,10 +946,8 @@ int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_resu
     sanitize_json_string(cur_heater.display, cur_heater.display, WORDLENGTH);
     sanitize_json_string(cur_heater.unit, cur_heater.unit, WORDLENGTH);
     snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s}", cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false");
-    free(sql_query);
     return 1;
   } else {
-    free(sql_query);
     return 0;
   }
 }
@@ -971,7 +956,7 @@ int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_resu
  * Add an action into the database
  */
 int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char * sql_query = NULL, device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
+	char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
@@ -984,8 +969,6 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
   if (cur_action.type == ACTION_DEVICE) {
     strcpy(device, "");
@@ -1047,7 +1030,6 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      free(sql_query);
       sqlite3_finalize(stmt);
       return 0;
     } else {
@@ -1055,19 +1037,16 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
       if (row_result == SQLITE_ROW) {
         cur_action.id = sqlite3_column_int(stmt, 0);
         snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\"}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params);
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 1;
       } else {
         log_message(LOG_INFO, "Error getting last_insert_rowid()");
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 0;
       }
     }
   } else {
     log_message(LOG_INFO, "Error inserting action");
-    free(sql_query);
     sqlite3_finalize(stmt);
     return 0;
   }
@@ -1077,7 +1056,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
  * Modifies the specified action
  */
 int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char * sql_query = NULL, device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
+	char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
   
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
@@ -1088,8 +1067,6 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
   if (cur_action.type == ACTION_DEVICE) {
     strcpy(device, "");
@@ -1149,11 +1126,9 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
                 
   sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_action SET ac_name='%q', ac_type='%d', de_id=(select de_id from an_device where de_name='%q'), sw_id=(select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), se_id=(select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), he_id=(select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), ac_params='%q' WHERE ac_id='%d'", cur_action.name, cur_action.type, device, pin, device, sensor, device, heater, device, params, cur_action.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    free(sql_query);
     snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\"}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params);
     return 1;
   } else {
-    free(sql_query);
     log_message(LOG_INFO, "Error updating action");
     return 0;
   }
@@ -1163,21 +1138,18 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
  * Delete the specified action
  */
 int delete_action(sqlite3 * sqlite3_db, char * action_id) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE ac_id='%q'", action_id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action WHERE ac_id='%q'", action_id);
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-      free(sql_query);
       return 1;
     } else {
-      free(sql_query);
       log_message(LOG_INFO, "Error deleting action");
       return 0;
     }
   } else {
-    free(sql_query);
     log_message(LOG_INFO, "Error deleting action_script");
     return 0;
   }
@@ -1187,7 +1159,7 @@ int delete_action(sqlite3 * sqlite3_db, char * action_id) {
  * Add a script into the database
  */
 int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
-  char * sql_query = NULL, tmp[MSGLENGTH+1];
+	char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result, rank=0;
   
@@ -1195,15 +1167,12 @@ int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
   
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_INFO, "Error inserting script, wrong params"); return 0;}
   
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
-  
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_script (sc_name, de_id, sc_enabled) VALUES ('%q', (SELECT de_id FROM an_device where de_name='%q'), '%d')", cur_script.name, cur_script.device, cur_script.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sprintf(sql_query, "SELECT last_insert_rowid()");
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      free(sql_query);
       sqlite3_finalize(stmt);
       return 0;
     } else {
@@ -1230,19 +1199,16 @@ int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
           action_token = strtok_r(NULL, ";", &saveptr);
         }
         snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device);
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 1;
       } else {
         log_message(LOG_INFO, "Error executing sql query last_insert_rowid()");
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 0;
       }
     }
   } else {
     log_message(LOG_INFO, "Error inserting script");
-    free(sql_query);
     return 0;
   }
 }
@@ -1251,7 +1217,7 @@ int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
  * Modifies the specified script
  */
 int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
-  char * sql_query = NULL, tmp[MSGLENGTH+1];
+	char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1];
   int rank=0;
   
   char * action_token, * action, * result_condition, * value_condition, * saveptr, * saveptr2;
@@ -1259,13 +1225,10 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_INFO, "Error updating script, wrong params"); return 0;}
   if (cur_script.id == 0) {log_message(LOG_INFO, "Error updating script, wrong params"); return 0;}
   
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
-  
   // Reinit action_script list
   sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE sc_id='%d'", cur_script.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
     log_message(LOG_INFO, "Error updating script, wrong params");
-    free(sql_query);
     return 0;
   }
   sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_script SET sc_name='%q', de_id=(SELECT de_id FROM an_device where de_name='%q'), sc_enabled='%d' WHERE sc_id='%d'", cur_script.name, cur_script.device, cur_script.enabled, cur_script.id);
@@ -1288,11 +1251,9 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
       action_token = strtok_r(NULL, ";", &saveptr);
     }
     snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device);
-    free(sql_query);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating script");
-    free(sql_query);
     return 0;
   }
 }
@@ -1301,22 +1262,19 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
  * Delete the specified script
  */
 int delete_script(sqlite3 * sqlite3_db, char * script_id) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE sc_id='%q'", script_id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_script WHERE sc_id='%q'", script_id);
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-      free(sql_query);
       return 1;
     } else {
       log_message(LOG_INFO, "Error deleting script");
-      free(sql_query);
       return 0;
     }
   } else {
     log_message(LOG_INFO, "Error deleting action_script");
-    free(sql_query);
     return 0;
   }
 }
@@ -1325,13 +1283,11 @@ int delete_script(sqlite3 * sqlite3_db, char * script_id) {
  * Add a schedule into the database
  */
 int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result) {
-  char * sql_query = NULL;
+	char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
   if (0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error inserting schedule, wrong params"); return 0;}
-  
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_scheduler (sh_name, sh_enabled, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, de_id, sc_id) VALUES ('%q', '%d', '%d', '%d', '%d', (SELECT de_id FROM an_device WHERE de_name='%q'), '%d')", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
@@ -1339,7 +1295,6 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      free(sql_query);
       sqlite3_finalize(stmt);
       return 0;
     } else {
@@ -1347,19 +1302,16 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
       if (row_result == SQLITE_ROW) {
         cur_schedule.id = sqlite3_column_int(stmt, 0);
         snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 1;
       } else {
         log_message(LOG_INFO, "Error getting last_insert_rowid()");
-        free(sql_query);
         sqlite3_finalize(stmt);
         return 0;
       }
     }
   } else {
     log_message(LOG_INFO, "Error inserting action");
-    free(sql_query);
     sqlite3_finalize(stmt);
     return 0;
   }
@@ -1369,20 +1321,16 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
  * Modifies the specified schedule
  */
 int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result) {
-  char * sql_query = NULL;
+	char sql_query[MSGLENGTH+1];
   
   if (cur_schedule.id == 0 || 0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error updating schedule, wrong params"); return 0;}
-  
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_scheduler SET sh_name='%q', sh_enabled='%d', sh_next_time='%d', sh_repeat_schedule='%d', sh_repeat_schedule_value='%d', de_id=(SELECT de_id FROM an_device WHERE de_name='%q'), sc_id='%d' WHERE sh_id='%d'", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script, cur_schedule.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
-    free(sql_query);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating action");
-    free(sql_query);
     return 0;
   }
 }
@@ -1391,16 +1339,13 @@ int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
  * Delete the specified script
  */
 int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
-  char * sql_query = NULL;
+	char sql_query[MSGLENGTH+1];
   int sql_result;
   
   if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_INFO, "Error deleting schedule, wrong params"); return 0;}
   
-  sql_query = malloc((MSGLENGTH+1)*sizeof(char));
-  
   sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_scheduler where sh_id='%q'", schedule_id);
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-  free(sql_query);
   return ( sql_result == SQLITE_OK );
 }
 
@@ -1411,14 +1356,13 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
   char * heatSet, * heatOn, * heatMaxValue, * saveptr;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   
   heatSet = strtok_r(source, ";", &saveptr);
   heatOn = strtok_r(NULL, ";", &saveptr);
   heatMaxValue = strtok_r(NULL, ";", &saveptr);
   if (heatSet == NULL || heatOn == NULL || heatMaxValue == NULL) {
     log_message(LOG_INFO, "Error parsing heater data");
-    free(sql_query);
     return 0;
   } else {
     sanitize_json_string(heater_name, cur_heater->name, WORDLENGTH);
@@ -1428,7 +1372,6 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
     cur_heater->heat_max_value = strtof(heatMaxValue, NULL);
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he_display, he_enabled, he_unit from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')", heater_name, device);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    free(sql_query);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query");
     } else {
@@ -1460,7 +1403,7 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
  * Save the heat status in the database for startup init
  */
 int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater_name, int heat_enabled, float max_heat_value) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result, he_id;
   
@@ -1468,7 +1411,6 @@ int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(sql_query);
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -1480,7 +1422,6 @@ int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater
       sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_heater (he_id, he_name, de_id, he_set, he_max_heat_value) VALUES ((SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id=(SELECT de_id FROM an_device where de_name='%q')), '%q', (SELECT de_id FROM an_device where de_name='%q'), '%d', '%2f')", heater_name, device, heater_name, device, heat_enabled, max_heat_value);
     }
     sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-    free(sql_query);
     sqlite3_finalize(stmt);
     return ( sql_result == SQLITE_OK );
   }
@@ -1490,7 +1431,7 @@ int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater
  * Save the heat status in the database for startup init
  */
 int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int status) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
@@ -1498,7 +1439,6 @@ int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int 
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(sql_query);
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -1509,23 +1449,20 @@ int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int 
       sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_switch (de_id, sw_name, sw_display, sw_status) VALUES ((SELECT de_id FROM an_device where de_name='%q'), 'PIN%q', 'PIN%q', '%d')", device, pin, pin, status);
     }
     sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-    free(sql_query);
     sqlite3_finalize(stmt);
     return ( sql_result == SQLITE_OK );
   }
 }
 
 int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char)), * log = malloc((MSGLENGTH+1)*sizeof(char)), pin_name[WORDLENGTH+1];
+	char sql_query[MSGLENGTH+1], log[MSGLENGTH+1], pin_name[WORDLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result, state_result=1;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_name FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_status = '1'", cur_device->name);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(log);
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -1539,7 +1476,6 @@ int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device) {
       }
       row_result = sqlite3_step(stmt);
     }
-    free(log);
     sqlite3_finalize(stmt);
     return state_result;
   }
@@ -1549,14 +1485,13 @@ int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device) {
  * Get the heat status in the database for startup init
  */ 
 heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
-  char * sql_query = malloc((MSGLENGTH+1)*sizeof(char));
+	char sql_query[MSGLENGTH+1];
   heater * heaters = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, nb_heaters=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he.he_id, he.he_name, de.de_name, he.he_enabled, he.he_set, he.he_max_heat_value FROM an_heater he LEFT OUTER JOIN an_device de on de.de_id = he.de_id WHERE he.de_id in (SELECT de_id FROM an_device where de_name='%q')", device);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-  free(sql_query);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
   } else {

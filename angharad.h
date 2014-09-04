@@ -31,7 +31,7 @@
 #define TEMPINT "TEMPINT"
 #define HUMINT "HUMINT"
 
-#define MSGLENGTH 4096
+#define MSGLENGTH 1023
 #define WORDLENGTH 64
 
 #define TYPE_NONE   0
@@ -48,10 +48,12 @@
 #define ACTION_HEATER   6
 #define ACTION_SLEEP    88
 #define ACTION_SYSTEM   99
+#define ACTION_NONE     999
 
 #define VALUE_INT     0
 #define VALUE_FLOAT   1
 #define VALUE_STRING  2
+#define VALUE_NONE    9
 
 #define CONDITION_NO 0 // None
 #define CONDITION_EQ 1 // Equals
