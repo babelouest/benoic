@@ -31,7 +31,7 @@
 #define TEMPINT "TEMPINT"
 #define HUMINT "HUMINT"
 
-#define MSGLENGTH 1023
+#define MSGLENGTH 2047
 #define WORDLENGTH 64
 
 #define TYPE_NONE   0
@@ -89,16 +89,16 @@
 
 typedef struct _device {
   unsigned int id;
-  int enabled;                  	// Device enabled or not
-  char name[WORDLENGTH+1];      	// Name of the device on the commands
-  char display[WORDLENGTH+1];   	// Display name of the device
-  int type;                     	// Device type (Serial, USB, network, etc.)
-  char uri[WORDLENGTH+1];       	// URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
-  pthread_mutex_t lock;             // Mutex lock to avoid simultaneous access of the device
+  int enabled;                    // Device enabled or not
+  char name[WORDLENGTH+1];        // Name of the device on the commands
+  char display[WORDLENGTH+1];     // Display name of the device
+  int type;                       // Device type (Serial, USB, network, etc.)
+  char uri[WORDLENGTH+1];         // URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
+  pthread_mutex_t lock;           // Mutex lock to avoid simultaneous access of the device
   
-  char serial_file[WORDLENGTH+1];	// filename of the device
-  int serial_fd;                	// file descriptor of the device if serial type
-  int serial_baud;              	// baud speed of the device if serial type
+  char serial_file[WORDLENGTH+1]; // filename of the device
+  int serial_fd;                  // file descriptor of the device if serial type
+  int serial_baud;                // baud speed of the device if serial type
 } device;
 
 typedef struct _pin {
@@ -109,6 +109,9 @@ typedef struct _pin {
   int type;
   int enabled;
   int status;
+  int monitored;
+  int monitored_every;
+  time_t monitored_next;
 } pin;
 
 typedef struct _sensor {
@@ -119,6 +122,9 @@ typedef struct _sensor {
   char unit[WORDLENGTH+1];
   char value[WORDLENGTH+1];
   int enabled;
+  int monitored;
+  int monitored_every;
+  time_t monitored_next;
 } sensor;
 
 typedef struct _value {
@@ -183,6 +189,15 @@ typedef struct _light {
   unsigned int on;
 } light;
 
+typedef struct _monitor {
+  unsigned int id;
+  time_t date;
+  char device[WORDLENGTH+1];
+  char pin[WORDLENGTH+1];
+  char sensor[WORDLENGTH+1];
+  char value[WORDLENGTH+1];
+} monitor;
+
 struct connection_info_struct {
   int connectiontype;
   unsigned int data_type;
@@ -243,11 +258,17 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device);
 // Scheduler
 void * thread_scheduler_run(void * args);
 int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
-int is_scheduler_now(schedule sc);
+int is_scheduled_now(time_t next_time);
 int update_schedule(sqlite3 * sqlite3_db, schedule * sc);
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc);
 time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule_value);
 int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char * command_result);
+
+// Monitor
+int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, pin p);
+int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, sensor s);
+int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value);
+char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, const char * sensor, const char * start_date);
 
 // add/modify/remove elements
 int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_result);

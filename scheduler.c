@@ -7,9 +7,57 @@
  * The next scheduler doesn't have to wait for the previous to finish.
  */
 void * thread_scheduler_run(void * args) {
+  char sql_query[MSGLENGTH+1];
+  int sql_result, row_result;
+  pin p;
+  sensor s;
+  sqlite3_stmt *stmt;
+
+  // Get configuration variables
   struct config_elements * config = (struct config_elements *) args;
+  
+  // Run scheduler manager
   run_scheduler(config->sqlite3_db, config->terminal, config->nb_terminal);
-	pthread_exit(NULL);
+  
+  // Monitor switches
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw.sw_id, sw.sw_name, de.de_name, sw.sw_monitored_every, sw.sw_monitored_next FROM an_switch sw, an_device de WHERE sw_monitored=1 AND de.de_id = sw.de_id");
+  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_INFO, "Error preparing sql query (switches monitored)");
+  } else {
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      p.id = sqlite3_column_int(stmt, 0);
+      snprintf(p.name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
+      snprintf(p.device, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 2));
+      p.monitored_every = sqlite3_column_int(stmt, 3);
+      p.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
+      monitor_switch(config->sqlite3_db, config->terminal, config->nb_terminal, p);
+      row_result = sqlite3_step(stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+  stmt = NULL;
+  
+  // Monitor sensors
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se.se_id, se.se_name, de.de_name, se.se_monitored_every, se.se_monitored_next FROM an_sensor se, an_device de WHERE se_monitored=1 AND de.de_id = se.de_id");
+  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_INFO, "Error preparing sql query (sensors monitored)");
+  } else {
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      s.id = sqlite3_column_int(stmt, 0);
+      snprintf(s.name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
+      snprintf(s.device, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 2));
+      s.monitored_every = sqlite3_column_int(stmt, 3);
+      s.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
+      monitor_sensor(config->sqlite3_db, config->terminal, config->nb_terminal, s);
+      row_result = sqlite3_step(stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+  pthread_exit(NULL);
   return NULL;
 }
 
@@ -20,7 +68,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   // Look for every enabled scheduler in the database
   sqlite3_stmt *stmt;
   int sql_result, row_result, i;
-	char sql_query[MSGLENGTH+1], buf[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1], buf[MSGLENGTH+1];
   schedule cur_schedule;
   
   // Send a heartbeat to all devices
@@ -49,13 +97,13 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
       // Set the schedule object
       cur_schedule.id = sqlite3_column_int(stmt, 0);
       snprintf(cur_schedule.name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
-      cur_schedule.next_time = (long)sqlite3_column_int(stmt, 2);
+      cur_schedule.next_time = (time_t)sqlite3_column_int(stmt, 2);
       cur_schedule.repeat_schedule = sqlite3_column_int(stmt, 3);
       cur_schedule.repeat_schedule_value = sqlite3_column_int(stmt, 4);
       cur_schedule.script = sqlite3_column_int(stmt, 5);
       cur_schedule.enabled = sqlite3_column_int(stmt, 6);
       
-      if (is_scheduler_now(cur_schedule)) {
+      if (is_scheduled_now(cur_schedule.next_time)) {
         // Run the specified script
         snprintf(buf, MSGLENGTH, "Scheduled script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
         log_message(LOG_INFO, buf);
@@ -80,12 +128,12 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
 /**
  * Evaluates if the schedule is due now (within a minute) or not
  */
-int is_scheduler_now(schedule sc) {
+int is_scheduled_now(time_t next_time) {
   time_t now;
   time(&now);
   
-  if (sc.next_time != 0) {
-    return ((now-sc.next_time)>=0 && (now-sc.next_time) <= 60);
+  if (next_time != 0) {
+    return ((now - next_time)>=0 && (now - next_time) <= 60);
   }
   return 0;
 }
@@ -174,7 +222,7 @@ time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule
  * Update a scheduler in the database
  */
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
-	char sql_query[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1];
   int sql_result;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, 
@@ -185,4 +233,78 @@ int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
   );
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
   return ( sql_result == SQLITE_OK );
+}
+
+/**
+ * Monitor one switch and update next time value with the every value
+ */
+int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, pin p) {
+  device * cur_terminal;
+  char sw_state[WORDLENGTH+1];
+  char sql_query[MSGLENGTH+1];
+  time_t now, next_time;
+  int was_ran = 0;
+  
+  time(&now);
+  
+  if (is_scheduled_now(p.monitored_next) || p.monitored_next < now) {
+    // Monitor switch state
+    cur_terminal = get_device_from_name(p.device, terminal, nb_terminal);
+    was_ran = 1;
+    snprintf(sw_state, WORDLENGTH, "%d", get_switch_state(cur_terminal, p.name+3, 1));
+    if (!monitor_store(sqlite3_db, p.device, p.name, "", sw_state)) {
+      log_message(LOG_INFO, "Error storing switch state monitor value into database");
+    }
+  }
+  
+  if (was_ran || (p.monitored_next <= now && p.monitored_every > 0)) {
+    next_time = calculate_next_time(now, REPEAT_MINUTE, p.monitored_every);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_switch SET sw_monitored_next = '%ld' WHERE sw_id = '%d'", next_time, p.id);
+    return ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
+  } else {
+    return 1;
+  }
+}
+
+/**
+ * Monitor one sensor and update next time value with the every value
+ */
+int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, sensor s) {
+  device * cur_terminal;
+  char se_value[WORDLENGTH+1];
+  char sql_query[MSGLENGTH+1];
+  time_t now, next_time;
+  int was_ran=0;
+  
+  time(&now);
+  
+  if (is_scheduled_now(s.monitored_next) || s.monitored_next < now) {
+    // Monitor sensor data
+    cur_terminal = get_device_from_name(s.device, terminal, nb_terminal);
+
+    was_ran = 1;
+    snprintf(se_value, WORDLENGTH, "%.2f", get_sensor_value(cur_terminal, s.name, 1));
+    if (!monitor_store(sqlite3_db, s.device, "", s.name, se_value)) {
+      log_message(LOG_INFO, "Error storing sensor data monitor value into database");
+    }
+
+  }
+  
+  if (was_ran || (s.monitored_next <= now && s.monitored_every > 0)) {
+    next_time = calculate_next_time(now, REPEAT_MINUTE, s.monitored_every);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_sensor SET se_monitored_next = '%ld' WHERE se_id = '%d'", next_time, s.id);
+    return ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
+  } else {
+    return 1;
+  }
+}
+
+/**
+ * Insert monitor value into database
+ */
+int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value) {
+  char sql_query[MSGLENGTH+1];
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, mo_result) VALUES (strftime('%%s','now'), (SELECT de_id FROM an_device WHERE de_name = '%q'), (SELECT sw_id FROM an_switch WHERE sw_name = '%q'), (SELECT se_id FROM an_sensor WHERE se_name = '%q'), '%q')", device_name, switch_name, sensor_name, value);
+  return ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
 }

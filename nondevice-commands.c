@@ -40,7 +40,7 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
       pins = realloc(pins, (nb_pins+1)*sizeof(struct _pin));
       snprintf(pins[nb_pins].name, WORDLENGTH, "%s", key);
       pins[nb_pins].status = strtol(value, NULL, 10);
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_display, sw_active, sw_type from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
+      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_display, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
       if (sql_result != SQLITE_OK) {
         log_message(LOG_INFO, "Error preparing sql query");
@@ -50,6 +50,9 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
           sanitize_json_string((char*)sqlite3_column_text(stmt, 0), pins[nb_pins].display, WORDLENGTH);
           pins[nb_pins].enabled = sqlite3_column_int(stmt, 1);
           pins[nb_pins].type = sqlite3_column_int(stmt, 2);
+          pins[nb_pins].monitored = sqlite3_column_int(stmt, 3);
+          pins[nb_pins].monitored_every = sqlite3_column_int(stmt, 4);
+          pins[nb_pins].monitored_next = sqlite3_column_int(stmt, 5);
         } else {
           // No result, default value
           snprintf(pins[nb_pins].display, WORDLENGTH, "%s", pins[nb_pins].name);
@@ -87,7 +90,7 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
       sensors = realloc(sensors, (nb_sensors+1)*sizeof(struct _sensor));
       snprintf(sensors[nb_sensors].name, WORDLENGTH, "%s", key);
       snprintf(sensors[nb_sensors].value, WORDLENGTH, "%s", value);
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se_display, se_unit, se_active from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
+      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
       if (sql_result != SQLITE_OK) {
         log_message(LOG_INFO, "Error preparing sql query");
@@ -97,6 +100,9 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
           sanitize_json_string((char*)sqlite3_column_text(stmt, 0), sensors[nb_sensors].display, WORDLENGTH);
           sanitize_json_string((char*)sqlite3_column_text(stmt, 1), sensors[nb_sensors].unit, WORDLENGTH);
           sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 2);
+          sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 3);
+          sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 4);
+          sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 5);
         } else {
           // No result, default value
           snprintf(sensors[nb_sensors].display, WORDLENGTH, "%s", sensors[nb_sensors].name);
@@ -133,6 +139,15 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
     strncat(one_element, ",\"enabled\":", MSGLENGTH);
     snprintf(tmp_value, WORDLENGTH, "%s", pins[i].enabled?"true":"false");
     strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%s", pins[i].monitored?"true":"false");
+    strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored_every\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%d", pins[i].monitored_every);
+    strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%ld", pins[i].monitored_next);
+    strncat(one_element, tmp_value, MSGLENGTH);
     strncat(one_element, "}", MSGLENGTH);
     str_pins = realloc(str_pins, strlen(str_pins)+strlen(one_element)+1);
     strcat(str_pins, one_element);
@@ -159,6 +174,15 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
     strncat(one_element, sensors[i].unit, MSGLENGTH);
     strncat(one_element, "\",\"enabled\":", MSGLENGTH);
     snprintf(tmp_value, WORDLENGTH, "%s", sensors[i].enabled?"true":"false");
+    strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%s", sensors[i].monitored?"true":"false");
+    strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored_every\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%d", sensors[i].monitored_every);
+    strncat(one_element, tmp_value, MSGLENGTH);
+    strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
+    snprintf(tmp_value, WORDLENGTH, "%ld", sensors[i].monitored_next);
     strncat(one_element, tmp_value, MSGLENGTH);
     strncat(one_element, "}", MSGLENGTH);
     str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+1);
@@ -885,9 +909,9 @@ int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_resu
  * Change the display name, the type and the enable settings for a device
  */
 int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
-	char sql_query[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1];
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')))", cur_pin.name, cur_pin.device, cur_pin.device, cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled, cur_pin.name, cur_pin.device);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), '%d', '%d', 0)", cur_pin.name, cur_pin.device, cur_pin.device, cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled, cur_pin.name, cur_pin.device, cur_pin.monitored, cur_pin.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_pin.name, cur_pin.name, WORDLENGTH);
     sanitize_json_string(cur_pin.display, cur_pin.display, WORDLENGTH);
@@ -902,9 +926,10 @@ int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
  * Change the display name and the enable settings for a device
  */
 int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_result) {
-	char sql_query[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1];
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active) VALUES ((SELECT se_id FROM an_sensor where se_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d')", cur_sensor.name, cur_sensor.device, cur_sensor.device, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled);
+  log_message(LOG_INFO, "set_sensor_data");
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next) VALUES ((SELECT se_id FROM an_sensor where se_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d', 0)", cur_sensor.name, cur_sensor.device, cur_sensor.device, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled, cur_sensor.monitored, cur_sensor.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_sensor.name, cur_sensor.name, WORDLENGTH);
     sanitize_json_string(cur_sensor.display, cur_sensor.display, WORDLENGTH);
@@ -920,9 +945,10 @@ int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_resu
  * Change the display name and the enable settings for a light
  */
 int set_light_data(sqlite3 * sqlite3_db, light cur_light, char * command_result) {
-	char sql_query[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_light (li_id, de_id, li_name, li_display, li_enabled) VALUES ((SELECT li_id FROM an_light where li_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_light.name, cur_light.device, cur_light.device, cur_light.name, cur_light.display, cur_light.enabled);
+  log_message(LOG_INFO, sql_query);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_light.name, cur_light.name, WORDLENGTH);
     sanitize_json_string(cur_light.display, cur_light.display, WORDLENGTH);
@@ -1534,4 +1560,66 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
   } else {
     return 1;
   }
+}
+
+/**
+ * Gets the monitored value using the given filters
+ */
+char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, const char * sensor, const char * start_date) {
+  char sql_query[MSGLENGTH+1];
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, first_result = 1, t_len;
+  char p_device[WORDLENGTH+1], p_pin[WORDLENGTH+1], p_sensor[WORDLENGTH+1], p_start_date[WORDLENGTH+1], where_switch[MSGLENGTH+1], where_sensor[MSGLENGTH+1], monitor_date[WORDLENGTH+1], monitor_value[WORDLENGTH+1], one_item[WORDLENGTH*2 + 1];
+  time_t yesterday;
+  char * to_return = NULL;
+  
+  snprintf(p_device, WORDLENGTH, "%s", device);
+  snprintf(p_pin, WORDLENGTH, "%s", pin);
+  snprintf(p_sensor, WORDLENGTH, "%s", sensor);
+  if (start_date == NULL) {
+    time(&yesterday);
+    yesterday -= 60*60*24; // set start_date to yesterday
+    snprintf(p_start_date, WORDLENGTH, "%ld", yesterday);
+  } else {
+    snprintf(p_start_date, WORDLENGTH, "%s", start_date);
+  }
+  
+  if (pin != NULL && 0 != strcmp("0", pin)) {
+    sqlite3_snprintf(MSGLENGTH, where_switch, "AND mo.sw_id = (SELECT sw_id FROM an_switch WHERE sw_name='%q' AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_pin, p_device);
+  } else {
+    strcpy(p_pin, "");
+    strcpy(where_switch, "");
+  }
+  
+  if (sensor != NULL && 0 != strcmp("0", sensor)) {
+    sqlite3_snprintf(MSGLENGTH, where_sensor, "AND mo.se_id = (SELECT se_id FROM an_sensor WHERE se_name='%q' AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_sensor, p_device);
+  } else {
+    strcpy(p_sensor, "");
+    strcpy(where_sensor, "");
+  }
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT mo.mo_date, mo.mo_result FROM an_monitor mo LEFT OUTER JOIN an_device de ON de.de_id = mo.de_id LEFT OUTER JOIN an_switch sw ON sw.sw_id = mo.sw_id LEFT OUTER JOIN an_sensor se ON se.se_id = mo.se_id WHERE mo.de_id = (SELECT de_id FROM an_device WHERE de_name='%q') AND datetime(mo.mo_date, 'unixepoch') >= datetime('%q', 'unixepoch') %s %s ORDER BY mo.mo_date ASC", p_device, p_start_date, where_switch, where_sensor);
+  sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_INFO, "Error preparing sql query");
+    sqlite3_finalize(stmt);
+    return 0;
+  } else {
+    t_len = (63 + strlen(device) + strlen(p_pin) + strlen(p_sensor) + strlen(p_start_date));
+    to_return = malloc(t_len * sizeof(char));
+    snprintf(to_return, t_len, "{\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"start_date\":\"%s\",\"values\":[", device, p_pin, p_sensor, p_start_date);
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      snprintf(monitor_date, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+      snprintf(monitor_value, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
+      snprintf(one_item, WORDLENGTH*2, "%s{\"date_time\":\"%s\",\"value\":\"%s\"}", first_result?"":",", monitor_date, monitor_value);
+      to_return = realloc(to_return, (strlen(to_return)+strlen(one_item)+1)*sizeof(char));
+      strcat(to_return, one_item);
+      first_result = 0;
+      row_result = sqlite3_step(stmt);
+    }
+    to_return = realloc(to_return, (strlen(to_return)+3) * sizeof(char));
+    strcat(to_return, "]}");
+  }
+  return to_return;
 }

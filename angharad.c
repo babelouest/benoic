@@ -13,7 +13,7 @@ int main(int argc, char* argv[]) {
   struct tm ts;
   unsigned int duration;
   pthread_t thread_scheduler;
-  int thread_ret, thread_detach;
+  int thread_ret_scheduler, thread_detach_scheduler;
   
   // Config variables
   struct config_elements * config = malloc(sizeof(struct config_elements));
@@ -48,10 +48,10 @@ int main(int argc, char* argv[]) {
     log_message(LOG_INFO, message);
   }
   while (1) {
-    thread_ret = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)config);
-    thread_detach = pthread_detach(thread_scheduler);
-    if (thread_ret || thread_detach) {
-      snprintf(message, MSGLENGTH, "Error creating or detaching thread, return code: %d, detach code: %d", thread_ret, thread_detach);
+    thread_ret_scheduler = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)config);
+    thread_detach_scheduler = pthread_detach(thread_scheduler);
+    if (thread_ret_scheduler || thread_detach_scheduler) {
+      snprintf(message, MSGLENGTH, "Error creating or detaching scheduler thread, return code: %d, detach code: %d", thread_ret_scheduler, thread_detach_scheduler);
       log_message(LOG_INFO, message);
     }
     time(&now);
@@ -62,6 +62,7 @@ int main(int argc, char* argv[]) {
   MHD_stop_daemon (daemon);
   
   for (i=0; i<config->nb_terminal; i++) {
+    pthread_mutex_destroy(&config->terminal[i]->lock);
     close_device(config->terminal[i]);
     free(config->terminal[i]);
   }
@@ -208,7 +209,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   
   char delim[] = "/";
   char * prefix = NULL;
-  char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL;
+  char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL, * start_date = NULL;
   char * page = NULL, buffer[MSGLENGTH+1];
   char * saveptr;
   heater heat_status;
@@ -544,6 +545,20 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 } else {
                   snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
                 }
+              } else if ( 0 == strncmp("MONITOR", command, strlen("MONITOR")) ) {
+                pin = strtok_r( NULL, delim, &saveptr );
+                sensor = strtok_r( NULL, delim, &saveptr );
+                start_date = strtok_r( NULL, delim, &saveptr );
+                to_free = get_monitor(config->sqlite3_db, device, pin, sensor, start_date);
+                if (to_free != NULL) {
+                  tf_len = strlen(to_free);
+                  free(page);
+                  page = malloc((tf_len + 1) * sizeof(char));
+                  strcpy(page, to_free);
+                  free(to_free);
+                } else {
+                  snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error getting monitor values\"}");
+                }
               } else {
                 sanitize_json_string(command, sanitized, WORDLENGTH);
                 snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"unknown command\",\"command\":\"%s\"}}", sanitized);
@@ -800,6 +815,14 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_pin->enabled=(0==strcmp("true", data))?1:0;
         }
+      } else if (0 == strcmp (key, "monitored")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_pin->monitored=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "monitored_every")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_pin->monitored_every=strtol(data, NULL, 10);
+        }
       }
       break;
     case DATA_SENSOR:
@@ -823,6 +846,14 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_sensor->enabled=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "monitored")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_sensor->monitored=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "monitored_every")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_sensor->monitored_every=strtol(data, NULL, 10);
         }
       }
     break;

@@ -51,4 +51,4 @@ debug: angharad.c angharad.h nondevice-commands.c device-commands.c scheduler.c 
 	$(CC) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o nondevice-commands.o device-commands.o scheduler.o arduino-serial-lib.o
 	
 test: debug
-	./angharad angharad.conf
+	./angharad ./angharad.conf

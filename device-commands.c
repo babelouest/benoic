@@ -81,7 +81,6 @@ int close_device(device * terminal) {
     return 0;
   } else {
     terminal->enabled=0;
-    pthread_mutex_destroy(&terminal->lock);
     return serialport_close(terminal->serial_fd);
   }
 }
@@ -203,7 +202,6 @@ int get_switch_state(device * terminal, char * pin, int force) {
   if (serial_result != -1) {
     serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    //result = atoi(serial_read+1);
     result = strtol(serial_read+1, NULL, 10);
   }
   pthread_mutex_unlock(&terminal->lock);

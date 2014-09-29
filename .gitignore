@@ -22,3 +22,6 @@
 *.x86_64
 *.hex
 angharad
+data.sql
+dump.sql
+schema.sql
