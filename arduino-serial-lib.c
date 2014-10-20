@@ -52,7 +52,7 @@ int serialport_init(const char* serialport, int baud)
   fd = open(serialport, O_RDWR | O_NONBLOCK );
   
   if (fd == -1)  {
-      return -1;
+    return -1;
   }
   
   if (tcgetattr(fd, &toptions) < 0) {
@@ -98,7 +98,6 @@ int serialport_init(const char* serialport, int baud)
   if( tcsetattr(fd, TCSAFLUSH, &toptions) < 0) {
     return -1;
   }
-
   return fd;
 }
 

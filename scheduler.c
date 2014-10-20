@@ -57,7 +57,7 @@ void * thread_scheduler_run(void * args) {
     }
   }
   sqlite3_finalize(stmt);
-  pthread_exit(NULL);
+  pthread_exit((void *)0);
   return NULL;
 }
 
@@ -75,7 +75,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   // If not responding, try to reconnect device
   for (i=0; i<nb_terminal; i++) {
     if (!send_heartbeat(terminal[i])) {
-      snprintf(buf, MSGLENGTH, "Connection attempt to %s, result: %s", terminal[i]->name, reconnect_device(terminal[i])!=-1?"Success":"Error");
+      snprintf(buf, MSGLENGTH, "Connection attempt to %s, result: %s", terminal[i]->name, reconnect_device(terminal[i], terminal, nb_terminal)!=-1?"Success":"Error");
       log_message(LOG_INFO, buf);
       if (terminal[i]->enabled) {
         snprintf(buf, MSGLENGTH, "Initialization of %s, result: %s", terminal[i]->name, init_device_status(sqlite3_db, terminal[i])==1?"Success":"Error");

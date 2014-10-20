@@ -165,7 +165,7 @@ int initialize(char * config_file, char * message, struct config_elements * conf
         }
 
         snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH, "%s", cur_uri);
-        if (connect_device(config->terminal[config->nb_terminal]) == -1) {
+        if (connect_device(config->terminal[config->nb_terminal], config->terminal, config->nb_terminal) == -1) {
           snprintf(message, MSGLENGTH, "Error connecting device %s, using uri: %s", config->terminal[config->nb_terminal]->name, config->terminal[config->nb_terminal]->uri);
           log_message(LOG_INFO, message);
         } else {
@@ -425,7 +425,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             if (cur_terminal == NULL) {
               snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"device not found\",\"device\":\"%s\"}}", device);
             } else if ( 0 == strcmp("RESET", command) ) {
-              result = reconnect_device(cur_terminal);
+              result = reconnect_device(cur_terminal, config->terminal, config->nb_terminal);
               sanitize_json_string(device, sanitized, WORDLENGTH);
               if (result && init_device_status(config->sqlite3_db, cur_terminal)) {
                 snprintf(buffer, MSGLENGTH, "Device %s initialized", cur_terminal->name);

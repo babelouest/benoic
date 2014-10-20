@@ -21,7 +21,7 @@ int is_connected(device * terminal) {
 /**
  * Connect the device
  */
-int connect_device(device * terminal) {
+int connect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
   int i=0;
   char filename[WORDLENGTH+1] = {0};
   char cur_name[WORDLENGTH+1] = {0};
@@ -32,7 +32,7 @@ int connect_device(device * terminal) {
     if (terminal->type == TYPE_SERIAL) {
       for (i=0; i<128; i++) {
         snprintf(filename, WORDLENGTH, "%s%d", terminal->uri, i);
-        if (access(filename, F_OK) != -1) {
+        if (!is_file_opened(filename, terminals, nb_terminal) && access(filename, F_OK) != -1) {
           terminal->serial_fd = serialport_init(filename, terminal->serial_baud);
           if (terminal->serial_fd != -1) {
             serialport_flush(terminal->serial_fd);
@@ -55,9 +55,22 @@ int connect_device(device * terminal) {
 }
 
 /**
+ * Check if the file is already opened for a device
+ */
+int is_file_opened(char * serial_file, device ** terminal, unsigned int nb_terminal) {
+  int i;
+  for (i=0; i<nb_terminal; i++) {
+    if (terminal[i] != NULL && 0 == strncmp(serial_file, terminal[i]->serial_file, WORDLENGTH)) {
+      return 1;
+    }
+  }
+  return 0;
+}
+
+/**
  * Reconnect the device if it was disconnected for example
  */
-int reconnect_device(device * terminal) {
+int reconnect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
   if (terminal == NULL) {
     return -1;
   } else {
@@ -65,7 +78,8 @@ int reconnect_device(device * terminal) {
       terminal->serial_fd = serialport_init(terminal->serial_file, terminal->serial_baud);
     }
     if (terminal->serial_fd == -1) {
-      return connect_device(terminal);
+      strcpy(terminal->serial_file, "");
+      return connect_device(terminal, terminals, nb_terminal);
     } else {
       terminal->enabled=1;
       return terminal->serial_fd;
@@ -118,7 +132,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query");
       sqlite3_finalize(stmt);
-			free(output);
+      free(output);
       return NULL;
     } else {
       row_result = sqlite3_step(stmt);
@@ -169,7 +183,9 @@ int set_switch_state(device * terminal, char * pin, int status) {
   int timeout = TIMEOUT;
   int result=-1;
 
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
   snprintf(serial_command, WORDLENGTH, "SETSWITCH%s,%d\n", pin, status);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -192,7 +208,9 @@ int get_switch_state(device * terminal, char * pin, int force) {
   int timeout = TIMEOUT;
   int result=-1;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
   if (force == 1) {
     snprintf(serial_command, WORDLENGTH, "GETSWITCH%s,1\n", pin);
   } else {
@@ -218,7 +236,9 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   int timeout = 5000;
   float result=-999.;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
   if (force) {
     snprintf(serial_command, WORDLENGTH, "%s,1\n", sensor);
   } else {
@@ -247,9 +267,11 @@ int send_heartbeat(device * terminal) {
   int timeout = TIMEOUT;
   int result = 0;
   
-  pthread_mutex_lock(&terminal->lock);
   if (!terminal->enabled) {
     return 0;
+  }
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
   }
   
   snprintf(serial_command, WORDLENGTH, "MARCO\n");
@@ -275,7 +297,9 @@ int get_overview(device * terminal, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return 0;
+  }
   snprintf(serial_command, WORDLENGTH, "OVERVIEW\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -294,7 +318,9 @@ int get_refresh(device * terminal, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return 0;
+  }
   snprintf(serial_command, WORDLENGTH, "REFRESH\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -313,7 +339,9 @@ int get_name(device * terminal, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return 0;
+  }
   snprintf(serial_command, WORDLENGTH, "NAME\n");
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -332,7 +360,9 @@ int get_heater(device * terminal, char * heat_id, char * output) {
   int serial_result;
   int timeout = TIMEOUT;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return 0;
+  }
   snprintf(serial_command, WORDLENGTH, "GET%s\n", heat_id);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -353,7 +383,9 @@ int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_he
   int serial_result;
   int timeout = TIMEOUT;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return 0;
+  }
   snprintf(serial_command, WORDLENGTH, "SET%s,%d,%.2f\n", heat_id, heat_enabled, max_heat_value);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -375,7 +407,9 @@ int get_light(device * terminal, char * light) {
   int timeout = TIMEOUT;
   int result=-1;
   
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
   snprintf(serial_command, WORDLENGTH, "GET%s\n", light);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {
@@ -397,7 +431,9 @@ int set_light(device * terminal, char * light, unsigned int status) {
   int timeout = TIMEOUT;
   int result=-1;
 
-  pthread_mutex_lock(&terminal->lock);
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
   snprintf(serial_command, WORDLENGTH, "SET%s,%d\n", light, status);
   serial_result = serialport_write(terminal->serial_fd, serial_command);
   if (serial_result != -1) {

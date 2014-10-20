@@ -219,8 +219,8 @@ device * get_device_from_name(char * device_name, device ** terminal, unsigned i
 
 // Interface with the Arduinos
 int is_connected(device * terminal);
-int connect_device(device * terminal);
-int reconnect_device(device * terminal);
+int connect_device(device * terminal, device ** terminals, unsigned int nb_terminal);
+int reconnect_device(device * terminal, device ** terminals, unsigned int nb_terminal);
 int close_device(device * terminal);
 int send_heartbeat(device * terminal);
 int set_switch_state(device * terminal, char * pin, int status);
@@ -236,6 +236,7 @@ int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_he
 int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater);
 int get_light(device * terminal, char * light);
 int set_light(device * terminal, char * light, unsigned int status);
+int is_file_opened(char * serial_file, device ** terminal, unsigned int nb_terminal);
 
 // System functions
 void log_message(int type, const char * message);
