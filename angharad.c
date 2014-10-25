@@ -2,9 +2,56 @@
 
 /**
  * main function
+ * Forks and run the server in the child process
+ * if the server crashes, restart it
+ * 
+ * Note: the fork/waitpd is a temporary solution 
+ * until I find a way to bypass the server crash 
+ * when the usb resets the arduino,
+ * leading to input/output error right after...
+ */
+int main (int argc, char **argv) {
+  pid_t result;
+  int status;
+  
+  if (argc>1) {result = fork();
+    if(result == 0)
+      server(argv[1]);
+    
+    if(result < 0) {
+      log_message(LOG_INFO, "Error initial fork");
+      exit(1);
+    }
+    
+    for(;;) {
+      status = 0;
+      waitpid(-1, &status, 0);
+      if(!WIFEXITED(status)) {
+        result = fork();
+        if(result == 0) {
+          log_message(LOG_INFO, "Restarting server");
+          server(argv[1]);
+        }
+        if(result < 0) {
+          log_message(LOG_INFO, "Crashed and cannot restart");
+          exit(1);
+        }
+      } else {
+        exit(0);
+      }
+    }
+  } else {
+    log_message(LOG_INFO, "No config file specified\n");
+    exit(-1);
+  }
+  return 0;
+}
+
+/**
+ * server function
  * initializes the application, run the http server and the scheduler
  */
-int main(int argc, char* argv[]) {
+int server(char * config_file) {
   
   struct MHD_Daemon *daemon;
   char message[MSGLENGTH+1];
@@ -19,7 +66,15 @@ int main(int argc, char* argv[]) {
   struct config_elements * config = malloc(sizeof(struct config_elements));
 
   log_message(LOG_INFO, "Starting angharad server");
-  if (argc>1) {
+  if (!initialize(config_file, message, config)) {
+    log_message(LOG_INFO, message);
+    for (i=0; i<config->nb_terminal; i++) {
+      free(config->terminal[i]);
+    }
+    free(config->terminal);
+    exit(-1);
+  }
+  /*if (argc>1) {
     if (!initialize(argv[1], message, config)) {
       log_message(LOG_INFO, message);
       for (i=0; i<config->nb_terminal; i++) {
@@ -32,7 +87,7 @@ int main(int argc, char* argv[]) {
   } else {
     log_message(LOG_INFO, "No config file specified\n");
     exit(-1);
-  }
+  }*/
   
   daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION, 
                               config->tcp_port, NULL, NULL, &angharad_rest_webservice, (void *)config, 
@@ -512,7 +567,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 heat_value = strtok_r( NULL, delim, &saveptr );
                 if (heater_name != NULL && heat_enabled != NULL && (heat_value != NULL || 0==strcmp("0",heat_enabled))) {
                   i_heat_enabled = 0==strcmp("1",heat_enabled)?1:0;
-                  f_heat_value = i_heat_enabled?strtof(heat_value, NULL):0.0;
+                  f_heat_value = strtof(heat_value, NULL);
                   if (set_heater(cur_terminal, heater_name, i_heat_enabled, f_heat_value, buffer)) {
                     if (parse_heater(config->sqlite3_db, cur_terminal->name, heater_name, buffer, &heat_status)) {
                       if (!set_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {

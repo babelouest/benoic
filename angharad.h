@@ -8,6 +8,7 @@
 #include <sys/stat.h>
 #include <sys/select.h>
 #include <sys/socket.h>
+#include <sys/wait.h>
 #include <string.h>
 #include <microhttpd.h>
 #include <syslog.h>
@@ -214,6 +215,7 @@ struct config_elements {
 };
 
 // Init function
+int server(char * config_file);
 int initialize(char * config_file, char * message, struct config_elements * config);
 device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal);
 
