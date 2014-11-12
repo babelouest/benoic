@@ -12,9 +12,11 @@
  */
 int main (int argc, char **argv) {
   pid_t result;
-  int status;
+  int status, nb_restart;
+  char message[WORDLENGTH+1];
   
-  if (argc>1) {result = fork();
+  if (argc>1) {
+    result = fork();
     if(result == 0)
       server(argv[1]);
     
@@ -23,17 +25,18 @@ int main (int argc, char **argv) {
       exit(1);
     }
     
-    for(;;) {
+    for(nb_restart=1;;nb_restart++) {
       status = 0;
       waitpid(-1, &status, 0);
       if(!WIFEXITED(status)) {
         result = fork();
         if(result == 0) {
-          log_message(LOG_INFO, "Restarting server");
+          snprintf(message, WORDLENGTH, "Restarting server (%dth time)", nb_restart);
+          log_message(LOG_INFO, message);
           server(argv[1]);
         }
         if(result < 0) {
-          log_message(LOG_INFO, "Crashed and cannot restart");
+          log_message(LOG_INFO, "Server crashed and unable to restart");
           exit(1);
         }
       } else {
@@ -41,7 +44,7 @@ int main (int argc, char **argv) {
       }
     }
   } else {
-    log_message(LOG_INFO, "No config file specified\n");
+    log_message(LOG_INFO, "No config file specified");
     exit(-1);
   }
   return 0;
@@ -345,6 +348,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         ((struct _schedule *)con_info_post->data)->script = 0;
         ((struct _schedule *)con_info_post->data)->repeat_schedule = -1;
         ((struct _schedule *)con_info_post->data)->repeat_schedule_value = 0;
+        ((struct _schedule *)con_info_post->data)->remove_after_done = 0;
         strcpy(((struct _schedule *)con_info_post->data)->name, "");
         strcpy(((struct _schedule *)con_info_post->data)->device, "");
         con_info_post->data_type = DATA_SCHEDULE;
@@ -533,6 +537,13 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 result = set_switch_state(cur_terminal, pin, (status != NULL && (0 == strcmp("1", status))?1:0));
                 snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_status\",\"device\":\"%s\",\"pin\":\"%s\",\"status\":\"%s\",\"response\":%d}}", device, pin, status, result);
                 if (!set_startup_pin_status(config->sqlite3_db, cur_terminal->name, pin, (status != NULL && (0 == strcmp("1", status))?1:0))) {
+                  log_message(LOG_INFO, "Error saving pin status in the database");
+                }
+              } else if ( 0 == strcmp("TOGGLEPIN", command) ) {
+                pin = strtok_r( NULL, delim, &saveptr );
+                result = toggle_switch_state(cur_terminal, pin);
+                snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"toggle_status\",\"device\":\"%s\",\"pin\":\"%s\",\"response\":%d}}", device, pin, result);
+                if (!set_startup_pin_status(config->sqlite3_db, cur_terminal->name, pin, result)) {
                   log_message(LOG_INFO, "Error saving pin status in the database");
                 }
               } else if ( 0 == strcmp("SENSOR", command) ) {
@@ -1077,6 +1088,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "repeat_schedule_value")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_schedule->repeat_schedule_value = strtol(data, NULL, 10);
+        }
+      } else if (0 == strcmp (key, "remove_after_done")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_schedule->remove_after_done = strtol(data, NULL, 10);
         }
       } else if (0 == strcmp (key, "script")) {
         if ((size > 0) && (size <= WORDLENGTH)) {

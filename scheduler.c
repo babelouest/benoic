@@ -85,7 +85,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   }
   
   //struct tm ts;
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh_id, sh_name, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sc_id, sh_enabled FROM an_scheduler WHERE sh_enabled = 1");
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh_id, sh_name, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sc_id, sh_enabled, sh_remove_after_done FROM an_scheduler WHERE sh_enabled = 1");
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
@@ -102,6 +102,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
       cur_schedule.repeat_schedule_value = sqlite3_column_int(stmt, 4);
       cur_schedule.script = sqlite3_column_int(stmt, 5);
       cur_schedule.enabled = sqlite3_column_int(stmt, 6);
+      cur_schedule.remove_after_done = sqlite3_column_int(stmt, 7);
       
       if (is_scheduled_now(cur_schedule.next_time)) {
         // Run the specified script
@@ -162,10 +163,15 @@ int update_schedule(sqlite3 * sqlite3_db, schedule * sc) {
       return update_schedule_db(sqlite3_db, *sc);
     } else if (sc->repeat_schedule == REPEAT_NONE) {
       // Schedule is done now
-      // Disable it in the database
-      sc->next_time = 0;
-      sc->enabled = 0;
-      return update_schedule_db(sqlite3_db, *sc);
+      if (sc->remove_after_done) {
+        // Remove from the database
+        return remove_schedule_db(sqlite3_db, *sc);
+      } else {
+        // Disable it in the database
+        sc->next_time = 0;
+        sc->enabled = 0;
+        return update_schedule_db(sqlite3_db, *sc);
+      }
     }
   }
   // Schedule is in the future, do nothing
@@ -176,27 +182,31 @@ int update_schedule(sqlite3 * sqlite3_db, schedule * sc) {
  * Calculate the next time
  */
 time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule_value) {
-  struct tm ts;
+  struct tm ts = *localtime(&from);
   
   switch (schedule_type) {
     case REPEAT_MINUTE:
-      return (from+60*schedule_value);
+      ts.tm_min += (schedule_value);
+      return (mktime(&ts));
       break;
     case REPEAT_HOUR:
-      return (from+60*60*schedule_value);
+      ts.tm_hour += (schedule_value);
+      return (mktime(&ts));
       break;
     case REPEAT_DAY:
-      return (from+60*60*24*schedule_value);
+      ts.tm_mday += (schedule_value);
+      return (mktime(&ts));
       break;
     case REPEAT_DAY_OF_WEEK:
       if (schedule_value != 0) {
         ts = *localtime(&from);
         do {
           ts.tm_wday++;
+          ts.tm_mday++;
           ts.tm_wday%=7;
           from += 60*60*24;
         } while (!((int)pow(2, (ts.tm_wday)) & schedule_value));
-        return from;
+        return (mktime(&ts));
       } else {
         return 0;
       }
@@ -230,6 +240,21 @@ int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
            sc.enabled,
            (long)sc.next_time,
            sc.id
+  );
+  sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
+  return ( sql_result == SQLITE_OK );
+}
+
+/**
+ * Remove a schedule already done without repeat
+ */
+int remove_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
+  char sql_query[MSGLENGTH+1];
+  int sql_result;
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, 
+                   "DELETE FROM an_scheduler WHERE sh_id='%d'",
+                   sc.id
   );
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
   return ( sql_result == SQLITE_OK );

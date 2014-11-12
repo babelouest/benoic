@@ -45,6 +45,7 @@ CREATE TABLE an_scheduler(
   sh_next_time INT,
   sh_repeat_schedule INT, -- -1: None, 0: minute, 1: hours, 2: days, 3: day of week, 4: month, 5: year
   sh_repeat_schedule_value INT,
+  sh_remove_after_done INT,
   de_id INT,
   sc_id INT, -- script to run if scheduler condition is met
   FOREIGN KEY(de_id) REFERENCES an_device(de_id),

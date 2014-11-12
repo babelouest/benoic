@@ -782,15 +782,15 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   char sql_query[MSGLENGTH+1], * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1];
-  int cur_id;
+  int cur_id, remove_after_done = 0;
   long next_time;
   char script[MSGLENGTH+1], script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char));
   int enabled, repeat_schedule, repeat_schedule_value;
   
   if (device == NULL) {
-    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule, sh.sh_repeat_schedule_value, sh.sc_id, de.de_name FROM an_scheduler sh LEFT OUTER JOIN an_device de ON de.de_id = sh.de_id");
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule, sh.sh_repeat_schedule_value, sh.sc_id, de.de_name, sh.sh_remove_after_done FROM an_scheduler sh LEFT OUTER JOIN an_device de ON de.de_id = sh.de_id");
   } else {
-    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule, sh.sh_repeat_schedule_value, sh.sc_id, de.de_name FROM an_scheduler sh LEFT OUTER JOIN an_device de ON de.de_id = sh.de_id WHERE sh.de_id in (SELECT de_id FROM an_device where de_name = '%q')", device);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule, sh.sh_repeat_schedule_value, sh.sc_id, de.de_name, sh.sh_remove_after_done FROM an_scheduler sh LEFT OUTER JOIN an_device de ON de.de_id = sh.de_id WHERE sh.de_id in (SELECT de_id FROM an_device where de_name = '%q')", device);
   }
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
@@ -819,13 +819,14 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
       } else {
         strcpy(cur_device, "");
       }
+      remove_after_done = sqlite3_column_int(stmt, 8);
       sanitize_json_string(cur_device, cur_device, WORDLENGTH);
       if (!get_script(sqlite3_db, script_id, script)) {
         strcpy(script, "{}");
       }
       sanitize_json_string(cur_name, cur_name, WORDLENGTH);
-      one_item = malloc((95+num_digits(cur_id)+strlen(cur_name)+num_digits(cur_id)+strlen(cur_device)+num_digits_l(next_time)+num_digits(repeat_schedule)+num_digits(repeat_schedule_value)+strlen(script))*sizeof(char));
-      sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"script\":%s}", cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value, script);
+      one_item = malloc((116+num_digits(cur_id)+strlen(cur_name)+num_digits(cur_id)+strlen(cur_device)+num_digits_l(next_time)+num_digits(repeat_schedule)+num_digits(repeat_schedule_value)+num_digits(remove_after_done)+strlen(script))*sizeof(char));
+      sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"remove_after_done\":%d,\"script\":%s}", cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value, remove_after_done, script);
       scripts = realloc(scripts, (strlen(scripts)+strlen(one_item)+1)*sizeof(char));
       strcat(scripts, one_item);
       free(one_item);
@@ -1315,7 +1316,7 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
   
   if (0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error inserting schedule, wrong params"); return 0;}
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_scheduler (sh_name, sh_enabled, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, de_id, sc_id) VALUES ('%q', '%d', '%d', '%d', '%d', (SELECT de_id FROM an_device WHERE de_name='%q'), '%d')", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_scheduler (sh_name, sh_enabled, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sh_remove_after_done, de_id, sc_id) VALUES ('%q', '%d', '%d', '%d', '%d', '%d', (SELECT de_id FROM an_device WHERE de_name='%q'), '%d')", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sprintf(sql_query, "SELECT last_insert_rowid()");
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
@@ -1327,7 +1328,7 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
         cur_schedule.id = sqlite3_column_int(stmt, 0);
-        snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
+        snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
         sqlite3_finalize(stmt);
         return 1;
       } else {
@@ -1351,9 +1352,9 @@ int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
   
   if (cur_schedule.id == 0 || 0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error updating schedule, wrong params"); return 0;}
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_scheduler SET sh_name='%q', sh_enabled='%d', sh_next_time='%d', sh_repeat_schedule='%d', sh_repeat_schedule_value='%d', de_id=(SELECT de_id FROM an_device WHERE de_name='%q'), sc_id='%d' WHERE sh_id='%d'", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script, cur_schedule.id);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_scheduler SET sh_name='%q', sh_enabled='%d', sh_next_time='%d', sh_repeat_schedule='%d', sh_repeat_schedule_value='%d', sh_remove_after_done='%d', de_id=(SELECT de_id FROM an_device WHERE de_name='%q'), sc_id='%d' WHERE sh_id='%d'", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script, cur_schedule.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.device, cur_schedule.script);
+    snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating action");

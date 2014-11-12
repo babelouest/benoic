@@ -199,6 +199,31 @@ int set_switch_state(device * terminal, char * pin, int status) {
 }
 
 /**
+ * Toggle the switch state
+ */
+int toggle_switch_state(device * terminal, char * pin) {
+  char eolchar = '}';
+    char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
+    int serial_result;
+    int timeout = TIMEOUT;
+    int result=-1;
+    
+    if (pthread_mutex_lock(&terminal->lock)) {
+      return result;
+    }
+    snprintf(serial_command, WORDLENGTH, "TOGGLESWITCH%s\n", pin);
+    serial_result = serialport_write(terminal->serial_fd, serial_command);
+    if (serial_result != -1) {
+      serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
+      serial_read[strlen(serial_read) - 1] = '\0';
+      result = strtol(serial_read+1, NULL, 10);
+    }
+    serialport_flush(terminal->serial_fd);
+    pthread_mutex_unlock(&terminal->lock);
+    return result;
+}
+
+/**
  * Get the state of a pin on the designated terminal
  */
 int get_switch_state(device * terminal, char * pin, int force) {

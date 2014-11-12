@@ -165,6 +165,7 @@ typedef struct _schedule {
   time_t next_time;
   int repeat_schedule;
   unsigned int repeat_schedule_value;
+  unsigned int remove_after_done;
   char device[WORDLENGTH+1];
   int script;
 } schedule;
@@ -227,6 +228,7 @@ int close_device(device * terminal);
 int send_heartbeat(device * terminal);
 int set_switch_state(device * terminal, char * pin, int status);
 int get_switch_state(device * terminal, char * pin, int force);
+int toggle_switch_state(device * terminal, char * pin);
 float get_sensor_value(device * terminal, char * sensor, int force);
 int get_overview(device * terminal, char * output);
 int get_refresh(device * terminal, char * output);
@@ -264,6 +266,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
 int is_scheduled_now(time_t next_time);
 int update_schedule(sqlite3 * sqlite3_db, schedule * sc);
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc);
+int remove_schedule_db(sqlite3 * sqlite3_db, schedule sc);
 time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule_value);
 int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char * command_result);
 
