@@ -458,7 +458,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   char sql_query[MSGLENGTH+1];
   action ac;
     
-  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, ac.ac_params, acs.as_result_condition, acs.as_value_condition, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' order by acs.as_rank", script_id);
+  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params, acs.as_result_condition, acs.as_value_condition, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id LEFT OUTER JOIN an_heater he on he.he_id = ac.he_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' order by acs.as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
@@ -493,12 +493,17 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
         memset(ac.sensor, 0, WORDLENGTH*sizeof(char));;
       }
       if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
-        snprintf(ac.params, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 5));
+        snprintf(ac.heater, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 5));
+      } else {
+        memset(ac.heater, 0, WORDLENGTH*sizeof(char));;
+      }
+      if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
+        snprintf(ac.params, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 6));
       } else {
         memset(ac.params, 0, MSGLENGTH*sizeof(char));;
       }
-      if (sqlite3_column_type(stmt, 6) != SQLITE_NULL) {
-        ac.condition_result = sqlite3_column_int(stmt, 6);
+      if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
+        ac.condition_result = sqlite3_column_int(stmt, 7);
       } else {
         ac.condition_result = CONDITION_NO;
       }
@@ -507,14 +512,14 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
         case ACTION_SET:
         case ACTION_HEATER:
           ac.condition_value.type = VALUE_INT;
-          if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
-            ac.condition_value.i_value = sqlite3_column_int(stmt, 7);
+          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
+            ac.condition_value.i_value = sqlite3_column_int(stmt, 8);
           }
           break;
         case ACTION_SENSOR:
           ac.condition_value.type = VALUE_FLOAT;
-          if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
-            ac.condition_value.f_value = (float)sqlite3_column_double(stmt, 7);
+          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
+            ac.condition_value.f_value = (float)sqlite3_column_double(stmt, 8);
           }
           break;
         case ACTION_DEVICE:
@@ -524,12 +529,12 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
         case ACTION_SYSTEM:
         default:
           ac.condition_value.type = VALUE_STRING;
-          if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
-            snprintf(ac.condition_value.s_value, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 7));
+          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
+            snprintf(ac.condition_value.s_value, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 8));
           }
           break;
       }
-      ac.id = sqlite3_column_int(stmt, 8);
+      ac.id = sqlite3_column_int(stmt, 9);
       if (!run_action(ac, terminal, nb_terminal, sqlite3_db)) {
         sqlite3_finalize(stmt);
         return 0;
@@ -638,6 +643,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         heat_max_value = strtof(ac.params+2, NULL);
         first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
+printf("%s  %s - %d %.2f\n", ac.device, ac.heater, heat_set, heat_max_value);
         if (cur_terminal->enabled && set_heater(cur_terminal, ac.heater, heat_set, heat_max_value, tmp)) {
           first.i_value = 1;
           if (!set_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
@@ -1434,7 +1440,7 @@ int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater
   sqlite3_stmt *stmt;
   int sql_result, row_result, he_id;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he_id FROM an_heater WHERE he_id=(SELECT he_id FROM an_heater WHERE he_name = '%q') AND de_id=(SELECT de_id FROM an_device where de_name='%q')", heater_name, device);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id in (SELECT de_id FROM an_device where de_name='%q')", heater_name, device);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
