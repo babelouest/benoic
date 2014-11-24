@@ -330,6 +330,6 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
 int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value) {
   char sql_query[MSGLENGTH+1];
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, mo_result) VALUES (strftime('%%s','now'), (SELECT de_id FROM an_device WHERE de_name = '%q'), (SELECT sw_id FROM an_switch WHERE sw_name = '%q'), (SELECT se_id FROM an_sensor WHERE se_name = '%q'), '%q')", device_name, switch_name, sensor_name, value);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, mo_result) VALUES (strftime('%%s','now'), (SELECT de_id FROM an_device WHERE de_name = '%q'), (SELECT sw_id FROM an_switch WHERE sw_name = '%q' and de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), (SELECT se_id FROM an_sensor WHERE se_name = '%q' and de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), '%q')", device_name, switch_name, device_name, sensor_name, device_name, value);
   return ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
 }
