@@ -1630,3 +1630,109 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, 
   }
   return to_return;
 }
+
+int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
+  char sql_query[MSGLENGTH+1] = {0}, message[MSGLENGTH+1] = {0};
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
+  
+  if (sqlite3_db != NULL && sqlite3_archive_db != NULL) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT jo_date, jo_origin, jo_command, jo_result FROM an_journal WHERE jo_date < '%d'", epoch_from);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_INFO, "Error preparing sql query (archive_journal)");
+      sqlite3_finalize(stmt);
+      return 0;
+    } else {
+      row_result = sqlite3_step(stmt);
+      while (row_result == SQLITE_ROW) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_journal (jo_date, jo_origin, jo_command, jo_result) VALUES ('%q', '%q', '%q', '%q')", 
+                         (char*)sqlite3_column_text(stmt, 0),
+                         (char*)sqlite3_column_text(stmt, 1),
+                         (char*)sqlite3_column_text(stmt, 2),
+                         (char*)sqlite3_column_text(stmt, 3));
+        if ( sqlite3_exec(sqlite3_archive_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+          log_message(LOG_INFO, "Error archiving journal");
+          sqlite3_finalize(stmt);
+          return 0;
+        }
+                row_result = sqlite3_step(stmt);
+      }
+            sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
+            sqlite3_finalize(stmt);
+            if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+              snprintf(message, MSGLENGTH, "End archiving journal, limit date %d", epoch_from);
+              log_message(LOG_INFO, message);
+              return 1;
+            } else {
+              log_message(LOG_INFO, "Error deleting old journal data");
+              return 0;
+            }
+    }
+  } else {
+    return 0;
+  }
+}
+
+int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
+  char sql_query[MSGLENGTH+1] = {0}, message[MSGLENGTH+1] = {0};
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
+  
+  if (sqlite3_db != NULL && sqlite3_archive_db != NULL) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT mo_date, de_id, sw_id, se_id, mo_result FROM an_monitor WHERE mo_date < '%d'", epoch_from);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_INFO, "Error preparing sql query (archive_monitor)");
+      sqlite3_finalize(stmt);
+      return 0;
+    } else {
+      row_result = sqlite3_step(stmt);
+      while (row_result == SQLITE_ROW) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, mo_result) VALUES ('%q', '%d', '%d', '%d', '%q')", 
+                         (char*)sqlite3_column_text(stmt, 0),
+                         sqlite3_column_int(stmt, 1),
+                         sqlite3_column_int(stmt, 2),
+                         sqlite3_column_int(stmt, 3),
+                         (char*)sqlite3_column_text(stmt, 4));
+        if ( sqlite3_exec(sqlite3_archive_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+          log_message(LOG_INFO, "Error archiving monitor");
+          sqlite3_finalize(stmt);
+          return 0;
+        }
+                row_result = sqlite3_step(stmt);
+      }
+      sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_monitor WHERE mo_date < '%d'; vacuum", epoch_from);
+      sqlite3_finalize(stmt);
+      if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+        snprintf(message, MSGLENGTH, "End archiving monitor, limit date %d", epoch_from);
+        log_message(LOG_INFO, message);
+        return 1;
+      } else {
+        log_message(LOG_INFO, "Error deleting old monitor data");
+        return 0;
+      }
+    }
+  } else {
+    return 0;
+  }
+}
+
+int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_from) {
+  int rc;
+  sqlite3 * sqlite3_archive_db;
+  char message[MSGLENGTH+1];
+  
+  rc = sqlite3_open_v2(db_archive_path, &sqlite3_archive_db, SQLITE_OPEN_READWRITE, NULL);
+  if (rc != SQLITE_OK && sqlite3_archive_db != NULL) {
+    snprintf(message, MSGLENGTH, "Database error: %s", sqlite3_errmsg(sqlite3_archive_db));
+    log_message(LOG_INFO, message);
+    sqlite3_close(sqlite3_archive_db);
+    return 0;
+  } else {
+    rc = archive_journal(sqlite3_db, sqlite3_archive_db, epoch_from) && 
+                archive_monitor(sqlite3_db, sqlite3_archive_db, epoch_from);
+    sqlite3_close(sqlite3_archive_db);
+    return rc;
+  }
+}

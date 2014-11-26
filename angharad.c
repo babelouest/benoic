@@ -180,6 +180,12 @@ int initialize(char * config_file, char * message, struct config_elements * conf
     }
   }
   
+  if (!config_lookup_string(&cfg, "dbpath_archive", &cur_dbpath)) {
+    snprintf(message, MSGLENGTH, "Warning config file, dbpath_archive not found\n");
+  } else {
+    snprintf(config->db_archive_path, MSGLENGTH, "%s", cur_dbpath);
+  }
+    
   // Get device list
   root = config_root_setting(&cfg);
   cfg_devices = config_setting_get_member(root, "devices");
@@ -267,7 +273,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   
   char delim[] = "/";
   char * prefix = NULL;
-  char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL, * start_date = NULL;
+  char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL, * start_date = NULL, * epoch_from_str = NULL;
   char * page = NULL, buffer[MSGLENGTH+1];
   char * saveptr;
   heater heat_status;
@@ -278,6 +284,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   float sensor_value;
   int iforce;
   int i_heat_enabled;
+  int epoch_from;
   float f_heat_value;
   struct _device * cur_terminal = NULL;
   struct connection_info_struct *con_info = *con_cls;
@@ -474,6 +481,14 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             snprintf(page, MSGLENGTH, "{\"result\":\"ok\"}");
           } else {
             snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error deleting schedule\"}");
+          }
+        } else if ( 0 == strcmp("ARCHIVE", command) ) {
+          epoch_from_str = strtok_r( NULL, delim, &saveptr );
+          epoch_from = strtol(epoch_from_str, NULL, 10);
+          if (archive(config->sqlite3_db, config->db_archive_path, epoch_from)) {
+            snprintf(page, MSGLENGTH, "{\"result\":\"ok\",\"archive_from\":%d}", epoch_from);
+          } else {
+            snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"archive_from\":%d}", epoch_from);
           }
         } else {
           device = strtok_r( NULL, delim, &saveptr );

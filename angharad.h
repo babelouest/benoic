@@ -213,6 +213,7 @@ struct config_elements {
   device ** terminal;
   unsigned int nb_terminal;
   sqlite3 * sqlite3_db;
+  char db_archive_path[MSGLENGTH+1];
 };
 
 // Init function
@@ -275,6 +276,11 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
 int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, sensor s);
 int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value);
 char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, const char * sensor, const char * start_date);
+
+// Archive
+int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
+int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
+int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_from);
 
 // add/modify/remove elements
 int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_result);
