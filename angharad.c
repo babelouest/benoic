@@ -77,20 +77,6 @@ int server(char * config_file) {
     free(config->terminal);
     exit(-1);
   }
-  /*if (argc>1) {
-    if (!initialize(argv[1], message, config)) {
-      log_message(LOG_INFO, message);
-      for (i=0; i<config->nb_terminal; i++) {
-        free(config->terminal[i]);
-      }
-      
-      free(config->terminal);
-      exit(-1);
-    }
-  } else {
-    log_message(LOG_INFO, "No config file specified\n");
-    exit(-1);
-  }*/
   
   daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION, 
                               config->tcp_port, NULL, NULL, &angharad_rest_webservice, (void *)config, 

@@ -47,6 +47,7 @@
 #define ACTION_SET      4
 #define ACTION_SENSOR   5
 #define ACTION_HEATER   6
+#define ACTION_TOGGLE   7
 #define ACTION_SLEEP    88
 #define ACTION_SYSTEM   99
 #define ACTION_NONE     999
