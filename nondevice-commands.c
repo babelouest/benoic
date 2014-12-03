@@ -550,7 +550,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
  * Run the specified action, evaluate the result and return if the result is valid
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db) {
-  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0};
+  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0};
   value first;
   int heat_set, sleep_val;
   float heat_max_value;
@@ -563,6 +563,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
   
   switch (ac.type) {
     case ACTION_DEVICE:
+      snprintf(message_log, MSGLENGTH, "run_action: get_devices");
       if (get_devices(sqlite3_db, terminal, nb_terminal)) {
         first.type = VALUE_STRING;
         ac.result_value = first;
@@ -571,6 +572,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_OVERVIEW:
+      snprintf(message_log, MSGLENGTH, "run_action: overview %s", ac.device);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled && get_overview(cur_terminal, str_result)) {
@@ -585,6 +587,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_REFRESH:
+      snprintf(message_log, MSGLENGTH, "run_action: refresh %s", ac.device);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled && get_refresh(cur_terminal, str_result)) {
@@ -599,6 +602,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_GET:
+      snprintf(message_log, MSGLENGTH, "run_action: get_switch_state %s %s %s", ac.device, ac.pin, ac.params);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         first.type = VALUE_INT;
@@ -611,6 +615,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_SET:
+      snprintf(message_log, MSGLENGTH, "run_action: set_switch_state %s %s %s", ac.device, ac.pin, ac.params);
       if (ac.device != NULL) {
         first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
@@ -626,6 +631,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_SENSOR:
+      snprintf(message_log, MSGLENGTH, "run_action: sensor %s %s %s", ac.device, ac.sensor, ac.params);
       if (ac.device != NULL && ac.sensor != NULL) {
         first.type = VALUE_FLOAT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
@@ -638,12 +644,12 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_HEATER:
+      snprintf(message_log, MSGLENGTH, "run_action: set_heater %s %s %s", ac.device, ac.heater, ac.params);
       if (ac.device != NULL && ac.heater != NULL && ac.params != NULL) {
         heat_set = ac.params[0]=='1'?1:0;
         heat_max_value = strtof(ac.params+2, NULL);
         first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-printf("%s  %s - %d %.2f\n", ac.device, ac.heater, heat_set, heat_max_value);
         if (cur_terminal->enabled && set_heater(cur_terminal, ac.heater, heat_set, heat_max_value, tmp)) {
           first.i_value = 1;
           if (!set_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
@@ -656,11 +662,13 @@ printf("%s  %s - %d %.2f\n", ac.device, ac.heater, heat_set, heat_max_value);
       }
       break;
     case ACTION_SLEEP:
+      snprintf(message_log, MSGLENGTH, "run_action: sleep %s", ac.params);
       sleep_val = strtol(ac.params, NULL, 10);
       if (sleep_val > 0) {
         usleep(sleep_val*1000);
       }
     case ACTION_SYSTEM:
+      snprintf(message_log, MSGLENGTH, "run_action: system %s", ac.params);
       system(ac.params);
       break;
     default:
@@ -680,6 +688,7 @@ printf("%s  %s - %d %.2f\n", ac.device, ac.heater, heat_set, heat_max_value);
       break;
   }
   journal(sqlite3_db, "run_script", jo_command, jo_result);
+  log_message(LOG_INFO, message_log);
   return evaluate_values(ac);
 }
 
