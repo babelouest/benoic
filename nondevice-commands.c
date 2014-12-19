@@ -961,7 +961,6 @@ int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
 int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_result) {
   char sql_query[MSGLENGTH+1];
   
-  log_message(LOG_INFO, "set_sensor_data");
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next) VALUES ((SELECT se_id FROM an_sensor where se_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d', 0)", cur_sensor.name, cur_sensor.device, cur_sensor.device, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled, cur_sensor.monitored, cur_sensor.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_sensor.name, cur_sensor.name, WORDLENGTH);
