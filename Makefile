@@ -38,7 +38,7 @@ start:
 	sudo /etc/init.d/angharad start
 
 install: angharad
-	sudo cp -f angharad /usr/local/bin
+	sudo cp -f angharad /usr/bin
 	
 run: angharad stop install start
 
