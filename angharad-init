@@ -14,7 +14,7 @@
 #user=liquidsoap
 user=pi
 group=pi
-prefix=/usr/local/bin
+prefix=/usr/bin
 exec_prefix=${prefix}
 angharad=${prefix}/angharad
 angharadconf=/etc/angharad.conf
