@@ -88,6 +88,7 @@
 #define HTTPGET             0
 #define HTTPPOST            1
 
+#define ERROR_SENSOR -999.
 
 typedef struct _device {
   unsigned int id;
@@ -215,6 +216,7 @@ struct config_elements {
   unsigned int nb_terminal;
   sqlite3 * sqlite3_db;
   char db_archive_path[MSGLENGTH+1];
+  char script_path[MSGLENGTH+1];
 };
 
 // Init function
@@ -256,15 +258,15 @@ int num_digits_l (long n);
 char * get_scripts(sqlite3 * sqlite3_db, char * device);
 int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview);
 char * get_action_script(sqlite3 * sqlite3_db, int script_id);
-int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_id);
+int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path, char * script_id);
 char * get_actions(sqlite3 * sqlite3_db, char * device);
-int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db);
+int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path);
 int evaluate_values(action ac);
 char * get_schedules(sqlite3 * sqlite3_db, char * device);
 
 // Scheduler
 void * thread_scheduler_run(void * args);
-int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
+int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path);
 int is_scheduled_now(time_t next_time);
 int update_schedule(sqlite3 * sqlite3_db, schedule * sc);
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc);

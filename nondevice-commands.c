@@ -452,7 +452,7 @@ int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview) {
  * Each action should be ran if the precedent ran successfully,
  * and its result is consistent to the expected result
  */
-int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_id) {
+int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path, char * script_id) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   char sql_query[MSGLENGTH+1];
@@ -536,7 +536,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
           break;
       }
       ac.id = sqlite3_column_int(stmt, 9);
-      if (!run_action(ac, terminal, nb_terminal, sqlite3_db)) {
+      if (!run_action(ac, terminal, nb_terminal, sqlite3_db, script_path)) {
         sqlite3_finalize(stmt);
         return 0;
       }
@@ -550,8 +550,8 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
 /**
  * Run the specified action, evaluate the result and return if the result is valid
  */
-int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db) {
-  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0};
+int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path) {
+  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
   value first;
   int heat_set, sleep_val;
   float heat_max_value;
@@ -686,7 +686,8 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
     case ACTION_SYSTEM:
       snprintf(message_log, MSGLENGTH, "run_action: system %s", ac.params);
-      system(ac.params);
+      snprintf(str_system, MSGLENGTH, "%s/%s", script_path, ac.params);
+      system(str_system);
       break;
     default:
       ac.result_value.type = VALUE_NONE;

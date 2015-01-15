@@ -17,7 +17,7 @@ void * thread_scheduler_run(void * args) {
   struct config_elements * config = (struct config_elements *) args;
   
   // Run scheduler manager
-  run_scheduler(config->sqlite3_db, config->terminal, config->nb_terminal);
+  run_scheduler(config->sqlite3_db, config->terminal, config->nb_terminal, config->script_path);
   
   // Monitor switches
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw.sw_id, sw.sw_name, de.de_name, sw.sw_monitored_every, sw.sw_monitored_next FROM an_switch sw, an_device de WHERE sw_monitored=1 AND de.de_id = sw.de_id");
@@ -64,7 +64,7 @@ void * thread_scheduler_run(void * args) {
 /**
  * Main thread launched periodically
  */
-int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal) {
+int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path) {
   // Look for every enabled scheduler in the database
   sqlite3_stmt *stmt;
   int sql_result, row_result, i;
@@ -109,7 +109,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
         snprintf(buf, MSGLENGTH, "Scheduled script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
         log_message(LOG_INFO, buf);
         snprintf(buf, WORDLENGTH, "%d", cur_schedule.script);
-        if (!run_script(sqlite3_db, terminal, nb_terminal, buf)) {
+        if (!run_script(sqlite3_db, terminal, nb_terminal, script_path, buf)) {
           snprintf(buf, MSGLENGTH, "Script \"%s\" failed", cur_schedule.name);
           log_message(LOG_INFO, buf);
         } else {
@@ -300,6 +300,7 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   char sql_query[MSGLENGTH+1];
   time_t now, next_time;
   int was_ran=0;
+  float sensor_value;
   
   time(&now);
   
@@ -308,7 +309,10 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     cur_terminal = get_device_from_name(s.device, terminal, nb_terminal);
 
     was_ran = 1;
-    snprintf(se_value, WORDLENGTH, "%.2f", get_sensor_value(cur_terminal, s.name, 1));
+    sensor_value = get_sensor_value(cur_terminal, s.name, 1);
+    if (sensor_value != ERROR_SENSOR) {
+      snprintf(se_value, WORDLENGTH, "%.2f", sensor_value);
+    }
     if (!monitor_store(sqlite3_db, s.device, "", s.name, se_value)) {
       log_message(LOG_INFO, "Error storing sensor data monitor value into database");
     }

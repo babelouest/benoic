@@ -259,7 +259,8 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = 5000;
-  float result=-999.;
+  float result = ERROR_SENSOR;
+  char * read_cpy, * end_ptr;
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
@@ -273,7 +274,13 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   if (serial_result != -1) {
     serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    result = atof(serial_read+1);
+    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    strcpy(read_cpy, serial_read+1);
+    result = strtof(read_cpy, &end_ptr);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SENSOR;
+    }
+    free(read_cpy);
   }
   if (force) {
     serialport_flush(terminal->serial_fd);

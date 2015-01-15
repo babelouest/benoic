@@ -125,7 +125,7 @@ int server(char * config_file) {
 int initialize(char * config_file, char * message, struct config_elements * config) {
   config_t cfg;
   config_setting_t *root, *cfg_devices;
-  const char * cur_prefix, * cur_name, * cur_dbpath, * cur_uri, * cur_type;
+  const char * cur_prefix, * cur_name, * cur_dbpath, * cur_uri, * cur_type, * cur_scriptpath;
   int count, i, serial_baud, rc;
   
   config_init(&cfg);
@@ -170,6 +170,12 @@ int initialize(char * config_file, char * message, struct config_elements * conf
     snprintf(message, MSGLENGTH, "Warning config file, dbpath_archive not found\n");
   } else {
     snprintf(config->db_archive_path, MSGLENGTH, "%s", cur_dbpath);
+  }
+    
+  if (!config_lookup_string(&cfg, "scriptpath", &cur_scriptpath)) {
+    snprintf(message, MSGLENGTH, "Warning config file, scriptpath not found\n");
+  } else {
+    snprintf(config->script_path, MSGLENGTH, "%s", cur_scriptpath);
   }
     
   // Get device list
@@ -420,7 +426,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
           if (script == NULL) {
             snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"no script id specified\"}}");
           } else {
-            if (run_script(config->sqlite3_db, config->terminal, config->nb_terminal, script)) {
+            if (run_script(config->sqlite3_db, config->terminal, config->nb_terminal, config->script_path, script)) {
               snprintf(page, MSGLENGTH, "{\"result\":\"ok\"}");
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error running script\"}");
@@ -553,11 +559,15 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   ((0 == strncmp(TEMPEXT, sensor, strlen(TEMPEXT))) || 
                   (0 == strncmp(TEMPINT, sensor, strlen(TEMPINT))) || 
                   (0 == strncmp(HUMINT, sensor, strlen(HUMINT))))) {
-                        force = strtok_r( NULL, delim, &saveptr );
-                        iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
-                        sensor_value = get_sensor_value(cur_terminal, sensor, iforce);
-                        sanitize_json_string(device, sanitized, WORDLENGTH);
-                        snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"sensor\",\"device\":\"%s\",\"response\":%.2f}}", sanitized, sensor_value);
+                  force = strtok_r( NULL, delim, &saveptr );
+                  iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
+                  sensor_value = get_sensor_value(cur_terminal, sensor, iforce);
+                  sanitize_json_string(device, sanitized, WORDLENGTH);
+                  if (sensor_value == ERROR_SENSOR) {
+                    snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"sensor\",\"device\":\"%s\",\"response\":\"error\"}}", sanitized);
+                  } else {
+                    snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"sensor\",\"device\":\"%s\",\"response\":%.2f}}", sanitized, sensor_value);
+                  }
                 } else {
                   sanitize_json_string(sensor, sanitized, WORDLENGTH);
                   snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"unknown sensor\",\"sensor\":\"%s\"}}", sanitized);
