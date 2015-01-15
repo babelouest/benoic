@@ -10,6 +10,8 @@ You must have the following development libraries installed to compile:
 - libmicrohttpd 1.0
 - libconfig
 - libsqlite3
+- libmath
+- libpthread
 
 Create the database:
 ```shell
@@ -34,7 +36,7 @@ To install the compiled server in /usr/local/bin, run the command
 $ make install
 ```
 
-access to the server commands via a client through the origin address http[s]://angharad-server:port/*prefix*/
+access to the server commands via a client through the origin address http://angharad-server:port/*prefix*/
 
 To use angharad as a Daemon, install the init file as root:
 ```shell
@@ -42,3 +44,5 @@ To use angharad as a Daemon, install the init file as root:
 # update-rc.d angharad defaults
 # service angharad start
 ```
+
+Clients available: angharadweb
