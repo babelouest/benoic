@@ -638,7 +638,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled) {
           first.i_value = toggle_switch_state(cur_terminal, ac.pin+3);
-          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, (0 == strcmp(ac.params, "1")))) {
+          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, first.i_value)) {
             log_message(LOG_INFO, "Error saving pin status in the database");
           }
         } else {
@@ -1718,18 +1718,18 @@ int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned
           sqlite3_finalize(stmt);
           return 0;
         }
-                row_result = sqlite3_step(stmt);
+        row_result = sqlite3_step(stmt);
       }
-            sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
-            sqlite3_finalize(stmt);
-            if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              snprintf(message, MSGLENGTH, "End archiving journal, limit date %d", epoch_from);
-              log_message(LOG_INFO, message);
-              return 1;
-            } else {
-              log_message(LOG_INFO, "Error deleting old journal data");
-              return 0;
-            }
+	  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
+	  sqlite3_finalize(stmt);
+	  if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+	    snprintf(message, MSGLENGTH, "End archiving journal, limit date %d", epoch_from);
+	    log_message(LOG_INFO, message);
+	    return 1;
+	  } else {
+	    log_message(LOG_INFO, "Error deleting old journal data");
+	    return 0;
+	  }
     }
   } else {
     return 0;

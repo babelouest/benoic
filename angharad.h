@@ -89,6 +89,7 @@
 #define HTTPPOST            1
 
 #define ERROR_SENSOR -999.
+#define ERROR_SWITCH -1
 
 typedef struct _device {
   unsigned int id;

@@ -181,7 +181,8 @@ int set_switch_state(device * terminal, char * pin, int status) {
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
-  int result=-1;
+  int result=ERROR_SWITCH;
+  char * read_cpy, * end_ptr;
 
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
@@ -191,9 +192,15 @@ int set_switch_state(device * terminal, char * pin, int status) {
   if (serial_result != -1) {
     serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    result = strtol(serial_read+1, NULL, 10);
+    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    strcpy(read_cpy, serial_read+1);
+    result = strtol(read_cpy, &end_ptr, 10);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SWITCH;
+    }
+    free(read_cpy);
   }
-  serialport_flush(terminal->serial_fd);
+  //serialport_flush(terminal->serial_fd);
   pthread_mutex_unlock(&terminal->lock);
   return result;
 }
@@ -206,8 +213,9 @@ int toggle_switch_state(device * terminal, char * pin) {
     char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
     int serial_result;
     int timeout = TIMEOUT;
-    int result=-1;
-    
+    int result=ERROR_SWITCH;
+    char * read_cpy, * end_ptr;
+
     if (pthread_mutex_lock(&terminal->lock)) {
       return result;
     }
@@ -216,9 +224,15 @@ int toggle_switch_state(device * terminal, char * pin) {
     if (serial_result != -1) {
       serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
       serial_read[strlen(serial_read) - 1] = '\0';
-      result = strtol(serial_read+1, NULL, 10);
+      read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+      strcpy(read_cpy, serial_read+1);
+      result = strtol(read_cpy, &end_ptr, 10);
+      if (read_cpy == end_ptr) {
+        result = ERROR_SWITCH;
+      }
+      free(read_cpy);
     }
-    serialport_flush(terminal->serial_fd);
+    //serialport_flush(terminal->serial_fd);
     pthread_mutex_unlock(&terminal->lock);
     return result;
 }
@@ -231,12 +245,13 @@ int get_switch_state(device * terminal, char * pin, int force) {
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
-  int result=-1;
+  int result=ERROR_SWITCH;
+  char * read_cpy, * end_ptr;
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
-  if (force == 1) {
+  if (force) {
     snprintf(serial_command, WORDLENGTH, "GETSWITCH%s,1\n", pin);
   } else {
     snprintf(serial_command, WORDLENGTH, "GETSWITCH%s\n", pin);
@@ -245,7 +260,16 @@ int get_switch_state(device * terminal, char * pin, int force) {
   if (serial_result != -1) {
     serialport_read_until(terminal->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    result = strtol(serial_read+1, NULL, 10);
+    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    strcpy(read_cpy, serial_read+1);
+    result = strtol(read_cpy, &end_ptr, 10);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SWITCH;
+    }
+    free(read_cpy);
+  }
+  if (force) {
+    serialport_flush(terminal->serial_fd);
   }
   pthread_mutex_unlock(&terminal->lock);
   return result;
@@ -473,7 +497,7 @@ int set_light(device * terminal, char * light, unsigned int status) {
     serial_read[strlen(serial_read) - 1] = '\0';
     result = strtol(serial_read+1, NULL, 10);
   }
-  serialport_flush(terminal->serial_fd);
+  //serialport_flush(terminal->serial_fd);
   pthread_mutex_unlock(&terminal->lock);
   return result;
 }

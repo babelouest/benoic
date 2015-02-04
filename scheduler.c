@@ -265,10 +265,11 @@ int remove_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
  */
 int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, pin p) {
   device * cur_terminal;
-  char sw_state[WORDLENGTH+1];
-  char sql_query[MSGLENGTH+1];
+  char sw_state[WORDLENGTH+1] = {0};
+  char sql_query[MSGLENGTH+1] = {0};
   time_t now, next_time;
   int was_ran = 0;
+  int switch_value = 0;
   
   time(&now);
   
@@ -276,9 +277,12 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     // Monitor switch state
     cur_terminal = get_device_from_name(p.device, terminal, nb_terminal);
     was_ran = 1;
-    snprintf(sw_state, WORDLENGTH, "%d", get_switch_state(cur_terminal, p.name+3, 1));
-    if (!monitor_store(sqlite3_db, p.device, p.name, "", sw_state)) {
-      log_message(LOG_INFO, "Error storing switch state monitor value into database");
+    switch_value = get_switch_state(cur_terminal, p.name+3, 1);
+    if (switch_value != ERROR_SWITCH) {
+      snprintf(sw_state, WORDLENGTH, "%d", switch_value);
+      if (!monitor_store(sqlite3_db, p.device, p.name, "", sw_state)) {
+        log_message(LOG_INFO, "Error storing switch state monitor value into database");
+      }
     }
   }
   
@@ -296,11 +300,11 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
  */
 int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, sensor s) {
   device * cur_terminal;
-  char se_value[WORDLENGTH+1];
-  char sql_query[MSGLENGTH+1];
+  char se_value[WORDLENGTH+1] = {0};
+  char sql_query[MSGLENGTH+1] = {0};
   time_t now, next_time;
   int was_ran=0;
-  float sensor_value;
+  float sensor_value=0;
   
   time(&now);
   
@@ -312,11 +316,10 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     sensor_value = get_sensor_value(cur_terminal, s.name, 1);
     if (sensor_value != ERROR_SENSOR) {
       snprintf(se_value, WORDLENGTH, "%.2f", sensor_value);
+      if (!monitor_store(sqlite3_db, s.device, "", s.name, se_value)) {
+        log_message(LOG_INFO, "Error storing sensor data monitor value into database");
+      }
     }
-    if (!monitor_store(sqlite3_db, s.device, "", s.name, se_value)) {
-      log_message(LOG_INFO, "Error storing sensor data monitor value into database");
-    }
-
   }
   
   if (was_ran || (s.monitored_next <= now && s.monitored_every > 0)) {
