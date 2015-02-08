@@ -48,23 +48,10 @@
 #define ACTION_SENSOR   5
 #define ACTION_HEATER   6
 #define ACTION_TOGGLE   7
+#define ACTION_SCRIPT   77
 #define ACTION_SLEEP    88
 #define ACTION_SYSTEM   99
 #define ACTION_NONE     999
-
-#define VALUE_INT     0
-#define VALUE_FLOAT   1
-#define VALUE_STRING  2
-#define VALUE_NONE    9
-
-#define CONDITION_NO 0 // None
-#define CONDITION_EQ 1 // Equals
-#define CONDITION_LT 2 // Lower than
-#define CONDITION_LE 3 // Lower than or equal to
-#define CONDITION_GE 4 // Greater than or equal to
-#define CONDITION_GT 5 // Greater than
-#define CONDITION_NE 6 // Not equal
-#define CONDITION_CO 7 // Contains
 
 #define REPEAT_NONE         -1
 #define REPEAT_MINUTE       0
@@ -131,14 +118,6 @@ typedef struct _sensor {
   time_t monitored_next;
 } sensor;
 
-typedef struct _value {
-  unsigned int id;
-  unsigned int type;
-  int i_value;
-  float f_value;
-  char s_value[WORDLENGTH+1];
-} value;
-
 typedef struct _action {
   unsigned int id;
   char name[WORDLENGTH+1];
@@ -148,9 +127,6 @@ typedef struct _action {
   char sensor[WORDLENGTH+1];          // Sensor name it applies to (if applicable)
   char heater[WORDLENGTH+1];          // Heater name it applies to (if applicable)
   char params[MSGLENGTH+1];           // Parameters to add to the action
-  value result_value;                 // Result of the action
-  unsigned int condition_result;      // Condition to evaluate for the result
-  value condition_value;              // Condition value to evaluate for the result
 } action;
 
 typedef struct _script {
@@ -262,7 +238,6 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id);
 int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path, char * script_id);
 char * get_actions(sqlite3 * sqlite3_db, char * device);
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path);
-int evaluate_values(action ac);
 char * get_schedules(sqlite3 * sqlite3_db, char * device);
 
 // Scheduler

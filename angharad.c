@@ -1012,42 +1012,6 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= MSGLENGTH)) {
           snprintf(cur_action->params, MSGLENGTH, "%s", data);
         }
-      } else if (0 == strcmp (key, "result_type")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->result_value.type = strtol(data, NULL, 10);
-        }
-      } else if (0 == strcmp (key, "result_s")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->result_value.s_value, WORDLENGTH, "%s", data);
-        }
-      } else if (0 == strcmp (key, "result_i")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->result_value.i_value = strtol(data, NULL, 10);
-        }
-      } else if (0 == strcmp (key, "result_f")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->result_value.f_value = strtof(data, NULL);
-        }
-      } else if (0 == strcmp (key, "condition_result")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->condition_result = strtol(data, NULL, 10);
-        }
-      } else if (0 == strcmp (key, "condition_type")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->condition_value.type = strtol(data, NULL, 10);
-        }
-      } else if (0 == strcmp (key, "condition_s")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->condition_value.s_value, WORDLENGTH, "%s", data);
-        }
-      } else if (0 == strcmp (key, "condition_i")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->condition_value.i_value = strtol(data, NULL, 10);
-        }
-      } else if (0 == strcmp (key, "condition_f")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_action->condition_value.f_value = strtof(data, NULL);
-        }
       }
       break;
     case DATA_SCRIPT:

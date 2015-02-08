@@ -1,59 +1,5 @@
 BEGIN;
 
-CREATE TABLE an_action(
-  ac_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  ac_name TEXT NOT NULL,
-  ac_type INT NOT NULL, -- 0: DEVICES, 1: OVERVIEW, 2: REFRESH, 3: GET, 4: SET, 5: SENSOR, 6: HEATER, 99: SYSTEM
-  de_id INT,
-  sw_id INT,
-  se_id INT,
-  he_id INT,
-  ac_params TEXT NOT NULL,
-  FOREIGN KEY(de_id) REFERENCES an_device(de_id),
-  FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
-  FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
-  FOREIGN KEY(he_id) REFERENCES an_heater(he_id)
-);
-CREATE INDEX iaction ON an_action(ac_id);
-
-CREATE TABLE an_script(
-  sc_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sc_name TEXT NOT NULL,
-  de_id INT,
-  sc_enabled INT,
-  FOREIGN KEY(de_id) REFERENCES an_device(de_id)
-);
-CREATE INDEX iscript ON an_script(sc_id);
-
-CREATE TABLE an_action_script(
-  as_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sc_id INT NOT NULL,
-  ac_id INT NOT NULL,
-  as_rank INT NOT NULL,
-  as_result_condition INT NOT NULL, -- Condition to evaluate for next action.
-                    -- 0: None, 1: Equals, 2: Lower to, 3: Lower or equal to, 4: Higher or equal to, 5: Higher to, 6: Not equal, 7: Contains
-  as_value_condition TEXT,
-  FOREIGN KEY(ac_id) REFERENCES an_action(ac_id),
-  FOREIGN KEY(sc_id) REFERENCES an_script(sc_id)
-);
-CREATE INDEX iaction_script ON an_action_script(ac_id, sc_id);
-
-CREATE TABLE an_scheduler(
-  sh_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  sh_name TEXT,
-  sh_enabled INT,
-  sh_next_time INT,
-  sh_repeat_schedule INT, -- -1: None, 0: minute, 1: hours, 2: days, 3: day of week, 4: month, 5: year
-  sh_repeat_schedule_value INT,
-  sh_remove_after_done INT,
-  de_id INT,
-  sc_id INT, -- script to run if scheduler condition is met
-  FOREIGN KEY(de_id) REFERENCES an_device(de_id),
-  FOREIGN KEY(sc_id) REFERENCES an_script(sc_id)
-);
-CREATE INDEX ischeduler ON an_scheduler(sh_id);
-CREATE INDEX ischedulernexttime ON an_scheduler(sh_next_time);
-
 CREATE TABLE an_device(
   de_id INTEGER PRIMARY KEY AUTOINCREMENT,
   de_name TEXT unique NOT NULL,
@@ -114,6 +60,58 @@ CREATE TABLE an_light(
   FOREIGN KEY(de_id) REFERENCES an_device(de_id)
 );
 CREATE INDEX ilight ON an_light(li_id);
+
+CREATE TABLE an_action(
+  ac_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  ac_name TEXT NOT NULL,
+  ac_type INT NOT NULL, -- 0: DEVICES, 1: OVERVIEW, 2: REFRESH, 3: GET, 4: SET, 5: SENSOR, 6: HEATER, 77: SCRIPT, 88: SLEEP, 99: SYSTEM
+  de_id INT,
+  sw_id INT,
+  se_id INT,
+  he_id INT,
+  ac_params TEXT NOT NULL,
+  FOREIGN KEY(de_id) REFERENCES an_device(de_id),
+  FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
+  FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
+  FOREIGN KEY(he_id) REFERENCES an_heater(he_id)
+);
+CREATE INDEX iaction ON an_action(ac_id);
+
+CREATE TABLE an_script(
+  sc_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sc_name TEXT NOT NULL,
+  de_id INT,
+  sc_enabled INT,
+  FOREIGN KEY(de_id) REFERENCES an_device(de_id)
+);
+CREATE INDEX iscript ON an_script(sc_id);
+
+CREATE TABLE an_action_script(
+  as_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sc_id INT NOT NULL,
+  ac_id INT NOT NULL,
+  as_rank INT NOT NULL,
+  as_enabled INT DEFAULT 1,
+  FOREIGN KEY(ac_id) REFERENCES an_action(ac_id),
+  FOREIGN KEY(sc_id) REFERENCES an_script(sc_id)
+);
+CREATE INDEX iaction_script ON an_action_script(ac_id, sc_id);
+
+CREATE TABLE an_scheduler(
+  sh_id INTEGER PRIMARY KEY AUTOINCREMENT,
+  sh_name TEXT,
+  sh_enabled INT,
+  sh_next_time INT,
+  sh_repeat_schedule INT, -- -1: None, 0: minute, 1: hours, 2: days, 3: day of week, 4: month, 5: year
+  sh_repeat_schedule_value INT,
+  sh_remove_after_done INT,
+  de_id INT,
+  sc_id INT, -- script to run if scheduler condition is met
+  FOREIGN KEY(de_id) REFERENCES an_device(de_id),
+  FOREIGN KEY(sc_id) REFERENCES an_script(sc_id)
+);
+CREATE INDEX ischeduler ON an_scheduler(sh_id);
+CREATE INDEX ischedulernexttime ON an_scheduler(sh_next_time);
 
 CREATE TABLE an_journal(
   jo_id INTEGER PRIMARY KEY AUTOINCREMENT,

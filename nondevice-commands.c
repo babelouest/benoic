@@ -361,8 +361,8 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
 char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char sql_query[MSGLENGTH+1], ac_name[WORDLENGTH+1], value_condition[WORDLENGTH+1], * actions = malloc(sizeof(char)), one_item[MSGLENGTH+1];
-  int rank, result_condition, ac_id;
+  char sql_query[MSGLENGTH+1], ac_name[WORDLENGTH+1], * actions = malloc(sizeof(char)), one_item[MSGLENGTH+1];
+  int rank, ac_id;
   
   if (script_id == 0) {
     log_message(LOG_INFO, "Error getting action scripts, script_id is 0");
@@ -370,7 +370,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
     return NULL;
   }
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, aas.as_rank, aas.as_result_condition, aas.as_value_condition FROM an_action_script aas, an_action ac WHERE ac.ac_id=aas.ac_id AND aas.sc_id='%d' ORDER BY as_rank", script_id);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, aas.as_rank FROM an_action_script aas, an_action ac WHERE ac.ac_id=aas.ac_id AND aas.sc_id='%d' ORDER BY as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
@@ -390,13 +390,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
         snprintf(ac_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
         sanitize_json_string(ac_name, ac_name, WORDLENGTH);
         rank = sqlite3_column_int(stmt, 2);
-        result_condition = sqlite3_column_int(stmt, 3);
-        if (sqlite3_column_type(stmt, 4) == SQLITE_NULL) {
-          strcpy(value_condition, "-1");
-        } else {
-          snprintf(value_condition, WORDLENGTH, "%d", sqlite3_column_int(stmt, 4));
-        }
-        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"rank\":%d,\"result_condition\":%d,\"result_value\":%s}", ac_id, ac_name, rank, result_condition, value_condition);
+        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"rank\":%d}", ac_id, ac_name, rank);
         actions = realloc(actions, (strlen(actions)+strlen(one_item)+1)*sizeof(char));
         strcat(actions, one_item);
       } else if (row_result == SQLITE_DONE) {
@@ -502,39 +496,6 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
       } else {
         memset(ac.params, 0, MSGLENGTH*sizeof(char));;
       }
-      if (sqlite3_column_type(stmt, 7) != SQLITE_NULL) {
-        ac.condition_result = sqlite3_column_int(stmt, 7);
-      } else {
-        ac.condition_result = CONDITION_NO;
-      }
-      switch (ac.type) {
-        case ACTION_GET:
-        case ACTION_SET:
-        case ACTION_TOGGLE:
-        case ACTION_HEATER:
-          ac.condition_value.type = VALUE_INT;
-          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
-            ac.condition_value.i_value = sqlite3_column_int(stmt, 8);
-          }
-          break;
-        case ACTION_SENSOR:
-          ac.condition_value.type = VALUE_FLOAT;
-          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
-            ac.condition_value.f_value = (float)sqlite3_column_double(stmt, 8);
-          }
-          break;
-        case ACTION_DEVICE:
-        case ACTION_OVERVIEW:
-        case ACTION_REFRESH:
-        case ACTION_SLEEP:
-        case ACTION_SYSTEM:
-        default:
-          ac.condition_value.type = VALUE_STRING;
-          if (sqlite3_column_type(stmt, 8) != SQLITE_NULL) {
-            snprintf(ac.condition_value.s_value, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 8));
-          }
-          break;
-      }
       ac.id = sqlite3_column_int(stmt, 9);
       if (!run_action(ac, terminal, nb_terminal, sqlite3_db, script_path)) {
         sqlite3_finalize(stmt);
@@ -552,23 +513,15 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path) {
   char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
-  value first;
-  int heat_set, sleep_val;
+  int heat_set, sleep_val, toggle_set;
   float heat_max_value;
   device * cur_terminal;
-  
-  ac.result_value.type = VALUE_NONE;
-  ac.result_value.i_value = 0;
-  ac.result_value.f_value = 0.0;
-  strcpy(ac.result_value.s_value, "");
+  FILE * command_stream;
   
   switch (ac.type) {
     case ACTION_DEVICE:
       snprintf(message_log, MSGLENGTH, "run_action: get_devices");
-      if (get_devices(sqlite3_db, terminal, nb_terminal)) {
-        first.type = VALUE_STRING;
-        ac.result_value = first;
-      } else {
+      if (!get_devices(sqlite3_db, terminal, nb_terminal)) {
         return 0;
       }
       break;
@@ -576,11 +529,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       snprintf(message_log, MSGLENGTH, "run_action: overview %s", ac.device);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        if (cur_terminal->enabled && get_overview(cur_terminal, str_result)) {
-          first.type = VALUE_STRING;
-          snprintf(first.s_value, WORDLENGTH, "%s", str_result);
-          ac.result_value = first;
-        } else {
+        if (!cur_terminal->enabled && get_overview(cur_terminal, str_result)) {
           return 0;
         }
       } else {
@@ -591,11 +540,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       snprintf(message_log, MSGLENGTH, "run_action: refresh %s", ac.device);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        if (cur_terminal->enabled && get_refresh(cur_terminal, str_result)) {
-          first.type = VALUE_STRING;
-          snprintf(first.s_value, WORDLENGTH, "%s", str_result);
-          ac.result_value = first;
-        } else {
+        if (!cur_terminal->enabled && get_refresh(cur_terminal, str_result)) {
           return 0;
         }
       } else {
@@ -603,79 +548,52 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       }
       break;
     case ACTION_GET:
-      snprintf(message_log, MSGLENGTH, "run_action: get_switch_state %s %s %s", ac.device, ac.pin, ac.params);
-      if (ac.device != NULL) {
-        cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        first.type = VALUE_INT;
-        if (cur_terminal->enabled) {
-          first.i_value = get_switch_state(cur_terminal, ac.pin+3, (0 == strcmp(ac.params, "1")));
-        } else {
-          first.i_value = 0;
-        }
-        ac.result_value = first;
-      }
       break;
     case ACTION_SET:
       snprintf(message_log, MSGLENGTH, "run_action: set_switch_state %s %s %s", ac.device, ac.pin, ac.params);
       if (ac.device != NULL) {
-        first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled) {
-          first.i_value = set_switch_state(cur_terminal, ac.pin+3, (0 == strcmp(ac.params, "1")));
+          set_switch_state(cur_terminal, ac.pin+3, (0 == strcmp(ac.params, "1")));
           if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, (0 == strcmp(ac.params, "1")))) {
             log_message(LOG_INFO, "Error saving pin status in the database");
           }
-        } else {
-          first.i_value = 0;
         }
-        ac.result_value = first;
       }
       break;
     case ACTION_TOGGLE:
       snprintf(message_log, MSGLENGTH, "run_action: toggle_switch_state %s %s", ac.device, ac.pin);
       if (ac.device != NULL) {
-        first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled) {
-          first.i_value = toggle_switch_state(cur_terminal, ac.pin+3);
-          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, first.i_value)) {
+          toggle_set = toggle_switch_state(cur_terminal, ac.pin+3);
+          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, toggle_set)) {
             log_message(LOG_INFO, "Error saving pin status in the database");
           }
-        } else {
-          first.i_value = 0;
         }
-        ac.result_value = first;
       }
       break;
     case ACTION_SENSOR:
-      snprintf(message_log, MSGLENGTH, "run_action: sensor %s %s %s", ac.device, ac.sensor, ac.params);
-      if (ac.device != NULL && ac.sensor != NULL) {
-        first.type = VALUE_FLOAT;
-        cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        if (cur_terminal->enabled) {
-          first.f_value = get_sensor_value(get_device_from_name(ac.device, terminal, nb_terminal), ac.sensor, (0 == strcmp(ac.params, "1")));
-        } else {
-          first.f_value = 0.0;
-        }
-        ac.result_value = first;
-      }
       break;
     case ACTION_HEATER:
       snprintf(message_log, MSGLENGTH, "run_action: set_heater %s %s %s", ac.device, ac.heater, ac.params);
       if (ac.device != NULL && ac.heater != NULL && ac.params != NULL) {
         heat_set = ac.params[0]=='1'?1:0;
         heat_max_value = strtof(ac.params+2, NULL);
-        first.type = VALUE_INT;
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled && set_heater(cur_terminal, ac.heater, heat_set, heat_max_value, tmp)) {
-          first.i_value = 1;
           if (!set_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
             log_message(LOG_INFO, "Error saving heater status in the database");
           }
-        } else {
-          first.i_value = 0;
         }
-        ac.result_value = first;
+      }
+      break;
+    case ACTION_SCRIPT:
+      snprintf(message_log, MSGLENGTH, "run_action: run script %s", ac.params);
+      if (strlen(ac.params) > 0) {
+        if (!run_script(sqlite3_db, terminal, nb_terminal, script_path, ac.params)) {
+          return 0;
+        }
       }
       break;
     case ACTION_SLEEP:
@@ -687,124 +605,26 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
     case ACTION_SYSTEM:
       snprintf(message_log, MSGLENGTH, "run_action: system %s", ac.params);
       snprintf(str_system, MSGLENGTH, "%s/%s", script_path, ac.params);
-      system(str_system);
+      command_stream = popen(str_system, "r");
+      if (command_stream == NULL) {
+        snprintf(message_log, MSGLENGTH, "unable to run command %s", ac.params);
+        return 0;
+      } else {
+        log_message(LOG_INFO, "Begin command result");
+        while (fgets(tmp, MSGLENGTH, command_stream) != NULL) {
+          log_message(LOG_INFO, tmp);
+        }
+        log_message(LOG_INFO, "End command result");
+      }
+      pclose(command_stream);
       break;
     default:
-      ac.result_value.type = VALUE_NONE;
       break;
   }
   snprintf(jo_command, MSGLENGTH, "run_action \"%s\" (id:%d, type:%d)", ac.name, ac.id, ac.type);
-  switch (ac.result_value.type) {
-    case VALUE_INT:
-      snprintf(jo_result, MSGLENGTH, "%d", ac.result_value.i_value);
-      break;
-    case VALUE_FLOAT:
-      snprintf(jo_result, MSGLENGTH, "%.2f", ac.result_value.f_value);
-      break;
-    case VALUE_STRING:
-      snprintf(jo_result, MSGLENGTH, "%s", ac.result_value.s_value);
-      break;
-  }
   journal(sqlite3_db, "run_script", jo_command, jo_result);
   log_message(LOG_INFO, message_log);
-  return evaluate_values(ac);
-}
-
-/**
- * Evaluate the action result
- */
-int evaluate_values(action ac) {
-  value first, next;
-  int condition;
-  
-  first = ac.result_value;
-  next = ac.condition_value;
-  condition = ac.condition_result;
-  
-  if (condition == CONDITION_NO) {
-    return 1; // No need to compare
-  } else if (first.type != next.type) {
-    return 0; // No need to compare
-  } else {
-    switch (condition) {
-      case CONDITION_EQ:
-        if (first.type == VALUE_INT) {
-          return (first.i_value == next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value == next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 == strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_LT:
-        if (first.type == VALUE_INT) {
-          return (first.i_value < next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value < next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 > strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_LE:
-        if (first.type == VALUE_INT) {
-          return (first.i_value <= next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value <= next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 >= strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_GE:
-        if (first.type == VALUE_INT) {
-          return (first.i_value > next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value > next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 < strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_GT:
-        if (first.type == VALUE_INT) {
-          return (first.i_value >= next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value >= next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 <= strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_NE:
-        if (first.type == VALUE_INT) {
-          return (first.i_value != next.i_value);
-        } else if (first.type == VALUE_FLOAT) {
-          return (first.f_value != next.f_value);
-        } else if (first.type == VALUE_STRING) {
-          return (0 != strncmp(first.s_value, next.s_value, WORDLENGTH));
-        } else {
-          return 0;
-        }
-        break;
-      case CONDITION_CO: // Not applicable to numerics
-        if (first.type == VALUE_STRING) {
-          return (NULL == strstr(first.s_value, next.s_value));
-        } else {
-          return 0;
-        }
-        break;
-      default:
-        return 0;
-        break;
-    }
-  }
+  return 1;
 }
 
 /**
@@ -999,7 +819,6 @@ int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_resu
   char sql_query[MSGLENGTH+1];
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled) VALUES ((SELECT he_id FROM an_heater where he_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d')", cur_heater.name, cur_heater.device, cur_heater.device, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled);
-  //printf("%s\n", sql_query);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     sanitize_json_string(cur_heater.name, cur_heater.name, WORDLENGTH);
     sanitize_json_string(cur_heater.display, cur_heater.display, WORDLENGTH);
@@ -1028,8 +847,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_TOGGLE && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SLEEP && ((0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
+  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   
   if (cur_action.type == ACTION_DEVICE) {
     strcpy(device, "");
@@ -1085,15 +903,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
     strcpy(params, "");
   }
   
-  if (cur_action.type == ACTION_SLEEP) {
-    strcpy(device, "");
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    snprintf(params, WORDLENGTH, "%s", cur_action.params);
-  }
-  
-  if ((cur_action.type == ACTION_SYSTEM) || (cur_action.type == ACTION_SLEEP)) {
+  if ((cur_action.type == ACTION_SYSTEM) || (cur_action.type == ACTION_SLEEP) || (cur_action.type == ACTION_SCRIPT)) {
     strcpy(device, "");
     strcpy(pin, "");
     strcpy(sensor, "");
@@ -1144,8 +954,7 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
   if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_TOGGLE && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SLEEP && ((0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
+  if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   
   if (cur_action.type == ACTION_DEVICE) {
     strcpy(device, "");
@@ -1203,15 +1012,7 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
     strcpy(params, "");
   }
   
-  if (cur_action.type == ACTION_SLEEP) {
-    strcpy(device, "");
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    snprintf(params, WORDLENGTH, "%s", cur_action.params);
-  }
-  
-  if (cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP) {
+  if (cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) {
     strcpy(device, "");
     strcpy(pin, "");
     strcpy(sensor, "");
@@ -1557,7 +1358,7 @@ int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device) {
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_name FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_status = '1'", cur_device->name);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_INFO, "Error preparing sql query");
+    log_message(LOG_INFO, "Error preparing sql query set_startup_pin_on");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -1588,7 +1389,7 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he.he_id, he.he_name, de.de_name, he.he_enabled, he.he_set, he.he_max_heat_value FROM an_heater he LEFT OUTER JOIN an_device de on de.de_id = he.de_id WHERE he.de_id in (SELECT de_id FROM an_device where de_name='%q')", device);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_INFO, "Error preparing sql query");
+    log_message(LOG_INFO, "Error preparing sql query get_startup_heater_status");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
