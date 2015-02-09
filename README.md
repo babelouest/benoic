@@ -16,7 +16,7 @@ You must have the following development libraries installed to compile:
 Create the database:
 ```shell
 $ mkdir /var/cache/angharad
-$ sqlite /var/cache/angharad/angharad.db < angharad.sql
+$ sqlite3 /var/cache/angharad/angharad.db < angharad.sql
 ```
 
 Run the command 
