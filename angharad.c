@@ -12,13 +12,17 @@
  */
 int main (int argc, char **argv) {
   pid_t result;
-  int status, nb_restart;
+  int status, nb_restart, server_result;
   char message[WORDLENGTH+1];
   
   if (argc>1) {
     result = fork();
-    if(result == 0)
-      server(argv[1]);
+    if(result == 0) {
+      server_result = server(argv[1]);
+      if (server_result) {
+        log_message(LOG_INFO, "Error running server");
+      }
+    }
     
     if(result < 0) {
       log_message(LOG_INFO, "Error initial fork");
@@ -33,7 +37,10 @@ int main (int argc, char **argv) {
         if(result == 0) {
           snprintf(message, WORDLENGTH, "Restarting server (%dth time)", nb_restart);
           log_message(LOG_INFO, message);
-          server(argv[1]);
+          server_result = server(argv[1]);
+          if (server_result) {
+            log_message(LOG_INFO, "Error running server");
+          }
         }
         if(result < 0) {
           log_message(LOG_INFO, "Server crashed and unable to restart");
