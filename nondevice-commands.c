@@ -611,7 +611,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         return 0;
       } else {
         log_message(LOG_INFO, "Begin command result");
-        while (fgets(tmp, MSGLENGTH, command_stream) != NULL) {
+        while (fgets(tmp, WORDLENGTH, command_stream) != NULL) {
           log_message(LOG_INFO, tmp);
         }
         log_message(LOG_INFO, "End command result");
