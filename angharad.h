@@ -79,17 +79,18 @@
 #define ERROR_SWITCH -1
 
 typedef struct _device {
-  unsigned int id;
-  int enabled;                    // Device enabled or not
-  char name[WORDLENGTH+1];        // Name of the device on the commands
-  char display[WORDLENGTH+1];     // Display name of the device
-  int type;                       // Device type (Serial, USB, network, etc.)
-  char uri[WORDLENGTH+1];         // URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
-  pthread_mutex_t lock;           // Mutex lock to avoid simultaneous access of the device
+  unsigned int    id;
+  int             enabled;                    // Device enabled or not
+  char            name[WORDLENGTH+1];         // Name of the device on the commands
+  char            display[WORDLENGTH+1];      // Display name of the device
+  int             type;                       // Device type (Serial, USB, network, etc.)
+  char            uri[WORDLENGTH+1];          // URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
+  char            tags[MSGLENGTH+1];
+  pthread_mutex_t lock;                       // Mutex lock to avoid simultaneous access of the device
   
-  char serial_file[WORDLENGTH+1]; // filename of the device
-  int serial_fd;                  // file descriptor of the device if serial type
-  int serial_baud;                // baud speed of the device if serial type
+  char            serial_file[WORDLENGTH+1];  // filename of the device
+  int             serial_fd;                  // file descriptor of the device if serial type
+  int             serial_baud;                // baud speed of the device if serial type
 } device;
 
 typedef struct _pin {
@@ -103,6 +104,7 @@ typedef struct _pin {
   int monitored;
   int monitored_every;
   time_t monitored_next;
+  char tags[MSGLENGTH+1];
 } pin;
 
 typedef struct _sensor {
@@ -116,6 +118,7 @@ typedef struct _sensor {
   int monitored;
   int monitored_every;
   time_t monitored_next;
+  char tags[MSGLENGTH+1];
 } sensor;
 
 typedef struct _action {
@@ -127,6 +130,7 @@ typedef struct _action {
   char sensor[WORDLENGTH+1];          // Sensor name it applies to (if applicable)
   char heater[WORDLENGTH+1];          // Heater name it applies to (if applicable)
   char params[MSGLENGTH+1];           // Parameters to add to the action
+  char tags[MSGLENGTH+1];
 } action;
 
 typedef struct _script {
@@ -135,6 +139,7 @@ typedef struct _script {
   char device[WORDLENGTH+1];          // Optional
   int enabled;
   char actions[MSGLENGTH+1];         // use the format action_id,condition_result,condition_value[[;action_id,condition_result,condition_value]*]
+  char tags[MSGLENGTH+1];
 } script;
 
 typedef struct _schedule {
@@ -147,6 +152,7 @@ typedef struct _schedule {
   unsigned int remove_after_done;
   char device[WORDLENGTH+1];
   int script;
+  char tags[MSGLENGTH+1];
 } schedule;
 
 typedef struct _heater {
@@ -159,6 +165,7 @@ typedef struct _heater {
   unsigned int on;
   float heat_max_value;
   char unit[WORDLENGTH+1];
+  char tags[MSGLENGTH+1];
 } heater;
 
 typedef struct _light {
@@ -168,6 +175,7 @@ typedef struct _light {
   char device[WORDLENGTH+1];
   unsigned int enabled;
   unsigned int on;
+  char tags[MSGLENGTH+1];
 } light;
 
 typedef struct _monitor {
@@ -177,6 +185,7 @@ typedef struct _monitor {
   char pin[WORDLENGTH+1];
   char sensor[WORDLENGTH+1];
   char value[WORDLENGTH+1];
+  char tags[MSGLENGTH+1];
 } monitor;
 
 struct connection_info_struct {
@@ -224,7 +233,7 @@ int set_light(device * terminal, char * light, unsigned int status);
 int is_file_opened(char * serial_file, device ** terminal, unsigned int nb_terminal);
 
 // System functions
-void log_message(int type, const char * message);
+void log_message(int type, const char * message, ...);
 int str_replace(char * source, char * target, size_t len, char * needle, char * haystack);
 int sanitize_json_string(char * source, char * target, size_t len);
 int journal(sqlite3 * sqlite3_db, const char * origin, const char * command, const char * result);
@@ -233,7 +242,7 @@ int num_digits_l (long n);
 
 // Actions and lists
 char * get_scripts(sqlite3 * sqlite3_db, char * device);
-int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview);
+char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags);
 char * get_action_script(sqlite3 * sqlite3_db, int script_id);
 int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path, char * script_id);
 char * get_actions(sqlite3 * sqlite3_db, char * device);
@@ -262,11 +271,11 @@ int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned
 int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_from);
 
 // add/modify/remove elements
-int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_result);
-int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result);
-int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_result);
-int set_light_data(sqlite3 * sqlite3_db, light cur_light, char * command_result);
-int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_result);
+char * set_device_data(sqlite3 * sqlite3_db, device cur_device);
+char * set_pin_data(sqlite3 * sqlite3_db, pin cur_pin);
+char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor);
+char * set_light_data(sqlite3 * sqlite3_db, light cur_light);
+char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater);
 
 int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result);
 int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result);
@@ -300,5 +309,12 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
 void request_completed (void *cls, struct MHD_Connection *connection,
                                void **con_cls, enum MHD_RequestTerminationCode toe);
 
+// tags functions
+char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element);
+char * build_json_tags(char ** tags);
+char ** build_tags_from_list(char * tags);
+int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element, char ** tags);
+int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag);
+int free_tags(char ** tags);
 
 #endif //__ANGHARAD_H__

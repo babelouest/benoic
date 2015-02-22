@@ -151,6 +151,7 @@ CREATE TABLE an_tag_element(
   se_id INT DEFAULT 0,
   he_id INT DEFAULT 0,
   li_id INT DEFAULT 0,
+  ac_id INT DEFAULT 0,
   sc_id INT DEFAULT 0,
   sh_id INT DEFAULT 0,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id),
@@ -158,6 +159,7 @@ CREATE TABLE an_tag_element(
   FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
   FOREIGN KEY(he_id) REFERENCES an_heater(he_id),
   FOREIGN KEY(li_id) REFERENCES an_light(li_id),
+  FOREIGN KEY(ac_id) REFERENCES an_action(ac_id),
   FOREIGN KEY(sc_id) REFERENCES an_script(sc_id),
   FOREIGN KEY(sh_id) REFERENCES an_scheduler(sh_id)
 );

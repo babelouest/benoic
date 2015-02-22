@@ -121,7 +121,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   int sql_result, row_result;
 	char sql_query[MSGLENGTH+1];
   char cur_name[WORDLENGTH+1] = {0}, sanitized[WORDLENGTH+1] = {0};
-	char * output = malloc(2*sizeof(char)), one_item[MSGLENGTH+1];
+	char * output = malloc(2*sizeof(char)), one_item[2*MSGLENGTH+1], * tags = NULL, ** tags_array = NULL;
 
   strcpy(output, "");
   for (i=0; i<nb_terminal; i++) {
@@ -141,6 +141,8 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
         if (strlen(output) > 0) {
           strncat(one_item, ",", MSGLENGTH);
         }
+        tags_array = get_tags(sqlite3_db, NULL, DATA_DEVICE, terminal[i]->name);
+        tags = build_json_tags(tags_array);
         strncat(one_item, "{\"name\":\"", MSGLENGTH);
         sanitize_json_string(terminal[i]->name, sanitized, WORDLENGTH);
         strncat(one_item, sanitized, MSGLENGTH);
@@ -151,7 +153,11 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
         strncat(one_item, (is_connected(terminal[i]))?"true":"false", MSGLENGTH);
         strncat(one_item, ",\"enabled\":", MSGLENGTH);
         strncat(one_item, sqlite3_column_int(stmt, 1)==1?"true":"false", MSGLENGTH);
+        strncat(one_item, ",\"tags\":", MSGLENGTH);
+        strncat(one_item, tags, MSGLENGTH);
         strncat(one_item, "}", MSGLENGTH);
+        free(tags);
+        free_tags(tags_array);
       } else {
         if (one_item == NULL) {
           strncat(one_item, ",", MSGLENGTH);

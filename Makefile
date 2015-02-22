@@ -32,10 +32,10 @@ clean:
 	rm -f *.o angharad
 
 stop:
-	-sudo /etc/init.d/angharad stop
+	-sudo service angharad stop
 
 start:
-	sudo /etc/init.d/angharad start
+	sudo service angharad start
 
 install: angharad
 	sudo cp -f angharad /usr/bin

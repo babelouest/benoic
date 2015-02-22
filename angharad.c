@@ -273,7 +273,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   char delim[] = "/";
   char * prefix = NULL;
   char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL, * start_date = NULL, * epoch_from_str = NULL;
-  char * page = NULL, buffer[MSGLENGTH+1];
+  char * page = NULL, buffer[2*MSGLENGTH+1];
   char * saveptr;
   heater heat_status;
   char sanitized[WORDLENGTH+1];
@@ -316,18 +316,23 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
       command = strtok_r( NULL, delim, &saveptr );
       if (0 == strcmp("SETDEVICEDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _device));
+        memset(((struct _device *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_DEVICE;
       } else if (0 == strcmp("SETPINDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _pin));
+        memset(((struct _pin *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_PIN;
       } else if (0 == strcmp("SETSENSORDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _sensor));
+        memset(((struct _sensor *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SENSOR;
       } else if (0 == strcmp("SETLIGHTDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _light));
+        memset(((struct _light *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_LIGHT;
       } else if (0 == strcmp("SETHEATERDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _heater));
+        memset(((struct _heater *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_HEATER;
       } else if (0 == strcmp("SETACTION", command) || 0 == strcmp("ADDACTION", command)) {
         con_info_post->data = malloc(sizeof(struct _action));
@@ -338,6 +343,8 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         memset(((struct _action *)con_info_post->data)->sensor, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->heater, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->params, 0, MSGLENGTH*sizeof(char));
+        memset(((struct _action *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
+        memset(((struct _action *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_ACTION;
       } else if (0 == strcmp("SETSCRIPT", command) || 0 == strcmp("ADDSCRIPT", command)) {
         con_info_post->data = malloc(sizeof(struct _script));
@@ -346,6 +353,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         strcpy(((struct _script *)con_info_post->data)->device, "");
         ((struct _script *)con_info_post->data)->enabled = 0;
         strcpy(((struct _script *)con_info_post->data)->actions, "");
+        memset(((struct _script *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SCRIPT;
       } else if (0 == strcmp("SETSCHEDULE", command) || 0 == strcmp("ADDSCHEDULE", command)) {
         con_info_post->data = malloc(sizeof(struct _schedule));
@@ -357,6 +365,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         ((struct _schedule *)con_info_post->data)->remove_after_done = 0;
         strcpy(((struct _schedule *)con_info_post->data)->name, "");
         strcpy(((struct _schedule *)con_info_post->data)->device, "");
+        memset(((struct _schedule *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SCHEDULE;
       }
       con_info_post->postprocessor = MHD_create_post_processor (connection, POSTBUFFERSIZE, iterate_post, (void *) con_info_post);
@@ -370,7 +379,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
     }
   }
   
-  page = malloc((MSGLENGTH+1)*sizeof(char));
+  page = malloc((MSGLENGTH*2+1)*sizeof(char));
   // url parsing
   if (prefix == NULL) {
     // wrong url
@@ -422,11 +431,13 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
           if (script == NULL) {
             snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"no script id specified\"}}");
           } else {
-            if (get_script(config->sqlite3_db, script, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"result\":%s}", buffer);
+            to_free = get_script(config->sqlite3_db, script, 1);
+            if (to_free != NULL) {
+              snprintf(page, MSGLENGTH, "{\"result\":%s}", to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error getting script\"}");
             }
+            free(to_free);
           }
         } else if ( 0 == strcmp(command, "RUNSCRIPT")) {
           script = strtok_r( NULL, delim, &saveptr );
@@ -668,44 +679,64 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
           if (0 == strcmp("SETDEVICEDATA", command)) {
             cur_device = (struct _device *)con_info->data;
             cur_terminal = get_device_from_name(cur_device->name, config->terminal, config->nb_terminal);
-            if (set_device_data(config->sqlite3_db, *cur_device, buffer)) {
+            to_free = set_device_data(config->sqlite3_db, *cur_device);
+            if (to_free != NULL) {
               cur_terminal->enabled = cur_device->enabled;
-              snprintf(page, MSGLENGTH, "{\"device\":%s}", buffer);
+              free(page);
+              page = malloc((12+strlen(to_free))*sizeof(char));
+              snprintf(page, 12+strlen(to_free), "{\"device\":%s}", to_free);
+              free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting device\"}");
             }
           } else if (0 == strcmp("SETPINDATA", command)) {
             cur_pin = (struct _pin *)con_info->data;
-            if (set_pin_data(config->sqlite3_db, *cur_pin, buffer)) {
-               snprintf(page, MSGLENGTH, "{\"pin\":%s}", buffer);
+            to_free = set_pin_data(config->sqlite3_db, *cur_pin);
+            if (to_free != NULL) {
+              free(page);
+              page = malloc((9+strlen(to_free))*sizeof(char));
+              snprintf(page, 9+strlen(to_free), "{\"pin\":%s}", to_free);
+              free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting pin\"}");
             }
           } else if (0 == strcmp("SETSENSORDATA", command)) {
             cur_sensor = (struct _sensor *)con_info->data;
-            if (set_sensor_data(config->sqlite3_db, *cur_sensor, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"sensor\":%s}", buffer);
+            to_free = set_sensor_data(config->sqlite3_db, *cur_sensor);
+            if (to_free != NULL) {
+              free(page);
+              page = malloc((12+strlen(to_free))*sizeof(char));
+              snprintf(page, 12+strlen(to_free), "{\"sensor\":%s}", to_free);
+              free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting sensor\"}");
             }
           } else if (0 == strcmp("SETLIGHTDATA", command)) {
             cur_light = (struct _light *)con_info->data;
-            if (set_light_data(config->sqlite3_db, *cur_light, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"light\":%s}", buffer);
+            to_free = set_light_data(config->sqlite3_db, *cur_light);
+            if (to_free != NULL) {
+              free(page);
+              page = malloc((11+strlen(to_free))*sizeof(char));
+              snprintf(page, 11+strlen(to_free), "{\"light\":%s}", to_free);
+              free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting light\"}");
             }
           } else if (0 == strcmp("SETHEATERDATA", command)) {
             cur_heater = (struct _heater *)con_info->data;
-            if (set_heater_data(config->sqlite3_db, *cur_heater, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"heater\":%s}", buffer);
+            to_free = set_heater_data(config->sqlite3_db, *cur_heater);
+            if (to_free != NULL) {
+              free(page);
+              page = malloc((12+strlen(to_free))*sizeof(char));
+              snprintf(page, 12+strlen(to_free), "{\"heater\":%s}", to_free);
+              free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting heater\"}");
             }
           } else if (0 == strcmp("ADDACTION", command)) {
             cur_action = (struct _action *)con_info->data;
             if (add_action(config->sqlite3_db, *cur_action, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"action\":%s}", buffer);
+              snprintf(page, MSGLENGTH*2, "{\"action\":%s}", buffer);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error adding action\"}");
             }
@@ -719,28 +750,28 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
           } else if (0 == strcmp("ADDSCRIPT", command)) {
             cur_script = (struct _script *)con_info->data;
             if (add_script(config->sqlite3_db, *cur_script, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"script\":%s}", buffer);
+              snprintf(page, MSGLENGTH*2, "{\"script\":%s}", buffer);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error adding script\"}");
             }
           } else if (0 == strcmp("SETSCRIPT", command)) {
             cur_script = (struct _script *)con_info->data;
             if (set_script(config->sqlite3_db, *cur_script, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"script\":%s}", buffer);
+              snprintf(page, MSGLENGTH*2, "{\"script\":%s}", buffer);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting script\"}");
             }
           } else if (0 == strcmp("ADDSCHEDULE", command)) {
             cur_schedule = (struct _schedule *)con_info->data;
             if (add_schedule(config->sqlite3_db, *cur_schedule, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"schedule\":%s}", buffer);
+              snprintf(page, MSGLENGTH*2, "{\"schedule\":%s}", buffer);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error adding schedule\"}");
             }
           } else if (0 == strcmp("SETSCHEDULE", command)) {
             cur_schedule = (struct _schedule *)con_info->data;
             if (set_schedule(config->sqlite3_db, *cur_schedule, buffer)) {
-              snprintf(page, MSGLENGTH, "{\"schedule\":%s}", buffer);
+              snprintf(page, MSGLENGTH*2, "{\"schedule\":%s}", buffer);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting schedule\"}");
             }
@@ -764,7 +795,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   response = MHD_create_response_from_buffer (strlen (page), (void *) page, MHD_RESPMEM_MUST_FREE );
   ret = MHD_queue_response (connection, MHD_HTTP_OK, response);
   MHD_destroy_response (response);
-  snprintf(buffer, MSGLENGTH, "End execution of angharad_rest_webservice, url: %s", url);
+  snprintf(buffer, MSGLENGTH, "End execution of angharad_rest_webservice, from %s, url: %s", inet_ntoa(((struct sockaddr_in *)so_client)->sin_addr), url);
   log_message(LOG_INFO, buffer);
   return ret;
 }
@@ -773,13 +804,27 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
  * Send a message to syslog
  * and prints the message to stdout if DEBUG mode
  */
-void log_message(int type, const char * message) {
-  openlog("Angharad", LOG_PID|LOG_CONS, LOG_USER);
-  syslog( type, message );
-  closelog();
-#ifdef DEBUG
-  fprintf(stdout, "%s\n", message);
-#endif
+void log_message(int type, const char * message, ...) {
+	va_list argp;
+  #ifdef DEBUG
+  char * out = NULL;
+  int out_len = 0;
+  #endif
+  
+  if (message != NULL) {
+    va_start(argp, message);
+    openlog("Angharad", LOG_PID|LOG_CONS, LOG_USER);
+    vsyslog( type, message, argp );
+    closelog();
+  #ifdef DEBUG
+    out_len = strlen(message)+1;
+    out = malloc(out_len+1);
+    snprintf(out, out_len+1, "%s\n", message);
+    vfprintf(stdout, out, argp);
+    free(out);
+  #endif
+    va_end(argp);
+  }
 }
 
 /**
@@ -875,6 +920,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_device->enabled=(0==strcmp("true", data))?1:0;
         }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_device->tags, MSGLENGTH, "%s", data);
+        }
       }
       break;
     case DATA_PIN:
@@ -906,6 +955,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "monitored_every")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_pin->monitored_every=strtol(data, NULL, 10);
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_pin->tags, MSGLENGTH, "%s", data);
         }
       }
       break;
@@ -939,6 +992,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_sensor->monitored_every=strtol(data, NULL, 10);
         }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_sensor->tags, MSGLENGTH, "%s", data);
+        }
       }
     break;
     case DATA_LIGHT:
@@ -958,6 +1015,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_light->enabled=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_light->tags, MSGLENGTH, "%s", data);
         }
       }
     break;
@@ -982,6 +1043,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "unit")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           snprintf(cur_heater->unit, WORDLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_heater->tags, MSGLENGTH, "%s", data);
         }
       }
     break;
@@ -1019,6 +1084,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= MSGLENGTH)) {
           snprintf(cur_action->params, MSGLENGTH, "%s", data);
         }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_action->tags, MSGLENGTH, "%s", data);
+        }
       }
       break;
     case DATA_SCRIPT:
@@ -1042,6 +1111,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "actions")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
           snprintf(cur_script->actions, MSGLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_script->tags, MSGLENGTH, "%s", data);
         }
       }
       break;
@@ -1082,6 +1155,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           snprintf(cur_schedule->device, WORDLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_schedule->tags, MSGLENGTH, "%s", data);
         }
       }
       break;

@@ -10,7 +10,7 @@
  */
 char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   char *tmp, *source, *saveptr, * overview_result_cpy = NULL, key[WORDLENGTH+1]={0}, value[WORDLENGTH+1]={0}, device[WORDLENGTH+1]={0}, tmp_value[WORDLENGTH+1], sanitized[WORDLENGTH+1], heater_value[WORDLENGTH+1]={0};
-  char one_element[MSGLENGTH+1], * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL;
+  char one_element[MSGLENGTH+1], * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL, * tags = NULL, ** tags_array = NULL;
   int i;
   pin * pins = NULL;
   sensor * sensors = NULL;
@@ -120,6 +120,8 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   str_pins = malloc(2*sizeof(char));
   strcpy(str_pins, "[");
   for (i=0; i<nb_pins; i++) {
+    tags_array = get_tags(sqlite3_db, device, DATA_PIN, pins[i].name);
+    tags = build_json_tags(tags_array);
     strcpy(one_element, "");
     if (i>0) {
       strncat(one_element, ",", MSGLENGTH);
@@ -148,9 +150,13 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
     strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
     snprintf(tmp_value, WORDLENGTH, "%ld", pins[i].monitored_next);
     strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, "}", MSGLENGTH);
-    str_pins = realloc(str_pins, strlen(str_pins)+strlen(one_element)+1);
+    strncat(one_element, ",\"tags\":", MSGLENGTH);
+    str_pins = realloc(str_pins, strlen(str_pins)+strlen(one_element)+strlen(tags)+2);
     strcat(str_pins, one_element);
+    strcat(str_pins, tags);
+    strcat(str_pins, "}");
+    free(tags);
+    free_tags(tags_array);
   }
   str_pins = realloc(str_pins, strlen(str_pins)+2);
   strcat(str_pins, "]");
@@ -158,6 +164,8 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   str_sensors = malloc(2*sizeof(char));
   strcpy(str_sensors, "[");
   for (i=0; i<nb_sensors; i++) {
+    tags_array = get_tags(sqlite3_db, device, DATA_SENSOR, sensors[i].name);
+    tags = build_json_tags(tags_array);
     strcpy(one_element, "");
     if (i>0) {
       strncat(one_element, ",", MSGLENGTH);
@@ -184,9 +192,13 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
     strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
     snprintf(tmp_value, WORDLENGTH, "%ld", sensors[i].monitored_next);
     strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, "}", MSGLENGTH);
-    str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+1);
+    strncat(one_element, ",\"tags\":", MSGLENGTH);
+    str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+strlen(tags)+2);
     strcat(str_sensors, one_element);
+    strcat(str_sensors, tags);
+    strcat(str_sensors, "}");
+    free(tags);
+    free_tags(tags_array);
   }
   str_sensors = realloc(str_sensors, strlen(str_sensors)+2);
   strcat(str_sensors, "]");
@@ -194,11 +206,17 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   str_heaters = malloc(2*sizeof(char));
   strcpy(str_heaters, "[");
   for (i=0; i<nb_heaters; i++) {
+    tags_array = get_tags(sqlite3_db, device, DATA_HEATER, heaters[i].name);
+    tags = build_json_tags(tags_array);
     strcpy(one_element, "");
     sanitize_json_string(heaters[i].name, tmp_value, WORDLENGTH);
-    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}", i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false", heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit);
-    str_heaters = realloc(str_heaters, strlen(str_heaters)+strlen(one_element)+1);
+    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\",\"tags\":", i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false", heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit);
+    str_heaters = realloc(str_heaters, strlen(str_heaters)+strlen(one_element)+strlen(tags)+2);
     strcat(str_heaters, one_element);
+    strcat(str_heaters, tags);
+    strcat(str_heaters, "}");
+    free(tags);
+    free_tags(tags_array);
   }
   str_heaters = realloc(str_heaters, strlen(str_heaters)+2);
   strcat(str_heaters, "]");
@@ -206,10 +224,16 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
   str_lights = malloc(2*sizeof(char));
   strcpy(str_lights, "[");
   for (i=0; i<nb_lights; i++) {
+    tags_array = get_tags(sqlite3_db, device, DATA_LIGHT, lights[i].name);
+    tags = build_json_tags(tags_array);
     strcpy(one_element, "");
-    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"on\":%s}", i>0?",":"", lights[i].name, lights[i].display, lights[i].enabled?"true":"false", lights[i].on?"true":"false");
-    str_lights = realloc(str_lights, strlen(str_lights)+strlen(one_element)+1);
+    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"on\":%s,\"tags\":", i>0?",":"", lights[i].name, lights[i].display, lights[i].enabled?"true":"false", lights[i].on?"true":"false");
+    str_lights = realloc(str_lights, strlen(str_lights)+strlen(one_element)+strlen(tags)+2);
     strcat(str_lights, one_element);
+    strcat(str_lights, tags);
+    strcat(str_lights, "}");
+    free(tags);
+    free_tags(tags_array);
   }
   str_lights = realloc(str_lights, strlen(str_lights)+2);
   strcat(str_lights, "]");
@@ -246,7 +270,7 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
 char * get_actions(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char cur_name[WORDLENGTH+1]={0}, cur_device[WORDLENGTH+1]={0}, cur_pin[WORDLENGTH+1]={0}, cur_sensor[WORDLENGTH+1]={0}, cur_heater[WORDLENGTH+1]={0}, cur_params[WORDLENGTH+1]={0};
+  char cur_name[WORDLENGTH+1]={0}, cur_device[WORDLENGTH+1]={0}, cur_pin[WORDLENGTH+1]={0}, cur_sensor[WORDLENGTH+1]={0}, cur_heater[WORDLENGTH+1]={0}, cur_params[WORDLENGTH+1]={0}, * tags = NULL, cur_action[WORDLENGTH+1], ** tags_array = NULL;
   char * actions = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], one_item[MSGLENGTH+1];
   
   if (device == NULL) {
@@ -263,6 +287,7 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
     row_result = sqlite3_step(stmt);
     strcpy(actions, "");
     while (row_result == SQLITE_ROW) {
+      snprintf(cur_action, WORDLENGTH, "%d", sqlite3_column_int(stmt, 0));
       if (strlen(actions) > 0) {
         actions = realloc(actions, (strlen(actions)+2)*sizeof(char));
         strcat(actions, ",");
@@ -273,7 +298,9 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
       sanitize_json_string((char*)sqlite3_column_text(stmt, 5)==NULL?"":(char*)sqlite3_column_text(stmt, 5), cur_sensor, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 6)==NULL?"":(char*)sqlite3_column_text(stmt, 6), cur_heater, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 7)==NULL?"":(char*)sqlite3_column_text(stmt, 7), cur_params, WORDLENGTH);
-      snprintf(one_item, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"heater\":\"%s\",\"params\":\"%s\"}",
+      tags_array = get_tags(sqlite3_db, NULL, DATA_ACTION, cur_action);
+      tags = build_json_tags(tags_array);
+      snprintf(one_item, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"heater\":\"%s\",\"params\":\"%s\",\"tags\":",
         sqlite3_column_int(stmt, 0),
         cur_name,
         sqlite3_column_int(stmt, 2),
@@ -282,9 +309,13 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
         cur_sensor,
         cur_heater,
         cur_params);
-      actions = realloc(actions, (strlen(actions)+strlen(one_item)+2)*sizeof(char));
+      actions = realloc(actions, (strlen(actions)+strlen(one_item)+strlen(tags)+3)*sizeof(char));
       strcat(actions, one_item);
+      strcat(actions, tags);
+      strcat(actions, "}");
       row_result = sqlite3_step(stmt);
+      free(tags);
+      free_tags(tags_array);
     }
     sqlite3_finalize(stmt);
     return actions;
@@ -297,9 +328,9 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
 char * get_scripts(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char cur_name[WORDLENGTH+1], device_name[WORDLENGTH+1];
+  char str_id[WORDLENGTH+1], cur_name[WORDLENGTH+1], device_name[WORDLENGTH+1], cur_script[WORDLENGTH+1];
   int cur_id, cur_enabled;
-  char * scripts = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], * one_item = NULL, * actions = NULL;
+  char * scripts = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], * one_item = NULL, * actions = NULL, * tags = NULL, ** tags_array = NULL;
   
   if (device == NULL) {
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id");
@@ -316,13 +347,17 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
     strcpy(scripts, "");
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
+      snprintf(cur_script, WORDLENGTH, "%d", sqlite3_column_int(stmt, 0));
       if (row_result == SQLITE_ROW) {
         if (strlen(scripts) > 0) {
           scripts = realloc(scripts, (strlen(scripts)+2)*sizeof(char));
           strcat(scripts, ",");
         }
         cur_id = sqlite3_column_int(stmt, 0);
+        snprintf(str_id, WORDLENGTH, "%d", cur_id);
         snprintf(cur_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
+        tags_array = get_tags(sqlite3_db, NULL, DATA_SCRIPT, str_id);
+        tags = build_json_tags(tags_array);
         cur_enabled = sqlite3_column_int(stmt, 2);
         if (sqlite3_column_text(stmt, 3) != NULL) {
           snprintf(device_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 3));
@@ -335,12 +370,16 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
         if (actions == NULL) {
           log_message(LOG_INFO, "Error getting actions from script");
         }
-        one_item = malloc((strlen(cur_name)+strlen(device_name)+strlen(actions)+60+num_digits(cur_id))*sizeof(char));
-        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"actions\":[%s]}", cur_id, cur_name, cur_enabled?"true":"false", device_name, actions);
-        scripts = realloc(scripts, (strlen(scripts)+strlen(one_item)+1)*sizeof(char));
+        one_item = malloc((strlen(cur_name)+strlen(device_name)+strlen(actions)+67+num_digits(cur_id))*sizeof(char));
+        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"actions\":[%s],\"tags\":", cur_id, cur_name, cur_enabled?"true":"false", device_name, actions);
+        scripts = realloc(scripts, (strlen(scripts)+strlen(one_item)+strlen(tags)+2)*sizeof(char));
         strcat(scripts, one_item);
+        strcat(scripts, tags);
+        strcat(scripts, "}");
         free(actions);
         free(one_item);
+        free(tags);
+        free_tags(tags_array);
       } else if (row_result == SQLITE_DONE) {
         break;
       } else {
@@ -362,7 +401,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   char sql_query[MSGLENGTH+1], ac_name[WORDLENGTH+1], * actions = malloc(sizeof(char)), one_item[MSGLENGTH+1];
-  int rank, ac_id;
+  int rank, ac_id, enabled;
   
   if (script_id == 0) {
     log_message(LOG_INFO, "Error getting action scripts, script_id is 0");
@@ -370,7 +409,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
     return NULL;
   }
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, aas.as_rank FROM an_action_script aas, an_action ac WHERE ac.ac_id=aas.ac_id AND aas.sc_id='%d' ORDER BY as_rank", script_id);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ac.ac_id, ac.ac_name, aas.as_rank, aas.as_enabled FROM an_action_script aas, an_action ac WHERE ac.ac_id=aas.ac_id AND aas.sc_id='%d' ORDER BY as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
@@ -390,7 +429,8 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
         snprintf(ac_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
         sanitize_json_string(ac_name, ac_name, WORDLENGTH);
         rank = sqlite3_column_int(stmt, 2);
-        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"rank\":%d}", ac_id, ac_name, rank);
+        enabled = sqlite3_column_int(stmt, 3);
+        sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"rank\":%d,\"enabled\":%s}", ac_id, ac_name, rank, enabled?"true":"false");
         actions = realloc(actions, (strlen(actions)+strlen(one_item)+1)*sizeof(char));
         strcat(actions, one_item);
       } else if (row_result == SQLITE_DONE) {
@@ -410,17 +450,17 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
 /**
  * get the selected script
  */
-int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview) {
+char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
   sqlite3_stmt *stmt;
   int sql_result, sc_id, sc_enabled, row_result;
-  char sql_query[MSGLENGTH+1], sc_name[WORDLENGTH+1], device[WORDLENGTH+1], tmp[WORDLENGTH*3];
+  char sql_query[MSGLENGTH+1], sc_name[WORDLENGTH+1], device[WORDLENGTH+1], tmp[WORDLENGTH*3], * to_return = NULL, * tags = NULL, ** tags_array = NULL;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id WHERE sc.sc_id = '%q'", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
     sqlite3_finalize(stmt);
-    return 0;
+    return NULL;
   } else {
     row_result = sqlite3_step(stmt);
     if (row_result == SQLITE_ROW) {
@@ -428,15 +468,29 @@ int get_script(sqlite3 * sqlite3_db, char * script_id, char * overview) {
       snprintf(sc_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
       sanitize_json_string(sc_name, sc_name, WORDLENGTH);
       sc_enabled = sqlite3_column_int(stmt, 2);
-      snprintf(device, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 3));
-      snprintf(overview, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", sc_id, sc_name, sc_enabled?"true":"false", (0==strcmp(device,"(null)"))?"":device);
+      if (sqlite3_column_text(stmt, 3) != NULL) {
+        snprintf(device, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 3));
+      } else {
+        strcpy(device, "");
+      }
+      if (with_tags) {
+        tags_array = get_tags(sqlite3_db, NULL, DATA_SCRIPT, script_id);
+        tags = build_json_tags(tags_array);
+        to_return = malloc((55+strlen(sc_name)+strlen(device)+strlen(tags)+num_digits(sc_id))*sizeof(char));
+        snprintf(to_return, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"tags\":%s}", sc_id, sc_name, sc_enabled?"true":"false", device, tags);
+        free(tags);
+        free_tags(tags_array);
+      } else {
+        to_return = malloc((46+strlen(sc_name)+strlen(device)+num_digits(sc_id))*sizeof(char));
+        snprintf(to_return, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", sc_id, sc_name, sc_enabled?"true":"false", device);
+      }
       sqlite3_finalize(stmt);
-      return 1;
+      return to_return;
     } else {
       snprintf(tmp, MSGLENGTH, "Script %s not found", script_id);
       log_message(LOG_INFO, tmp);
       sqlite3_finalize(stmt);
-      return 0;
+      return NULL;
     }
   }
 }
@@ -452,10 +506,10 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   char sql_query[MSGLENGTH+1];
   action ac;
     
-  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params, acs.as_result_condition, acs.as_value_condition, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id LEFT OUTER JOIN an_heater he on he.he_id = ac.he_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' order by acs.as_rank", script_id);
+  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id LEFT OUTER JOIN an_heater he on he.he_id = ac.he_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' AND NOT acs.as_enabled = 0 ORDER BY acs.as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_INFO, "Error preparing sql query");
+    log_message(LOG_INFO, "Error preparing sql query %s", sql_query);
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -496,7 +550,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
       } else {
         memset(ac.params, 0, MSGLENGTH*sizeof(char));;
       }
-      ac.id = sqlite3_column_int(stmt, 9);
+      ac.id = sqlite3_column_int(stmt, 7);
       if (!run_action(ac, terminal, nb_terminal, sqlite3_db, script_path)) {
         sqlite3_finalize(stmt);
         return 0;
@@ -512,7 +566,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
  * Run the specified action, evaluate the result and return if the result is valid
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path) {
-  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, jo_result[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
+  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
   int heat_set, sleep_val, toggle_set;
   float heat_max_value;
   device * cur_terminal;
@@ -622,7 +676,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       break;
   }
   snprintf(jo_command, MSGLENGTH, "run_action \"%s\" (id:%d, type:%d)", ac.name, ac.id, ac.type);
-  journal(sqlite3_db, "run_script", jo_command, jo_result);
+  journal(sqlite3_db, "run_script", jo_command, "");
   log_message(LOG_INFO, message_log);
   return 1;
 }
@@ -634,10 +688,10 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
 char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char sql_query[MSGLENGTH+1], * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1];
+  char sql_query[MSGLENGTH+1], * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1], cur_schedule[WORDLENGTH+1], * tags = NULL, ** tags_array = NULL;
   int cur_id, remove_after_done = 0;
   long next_time;
-  char script[MSGLENGTH+1], script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char));
+  char script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char)), * script = NULL;
   int enabled, repeat_schedule, repeat_schedule_value;
   
   if (device == NULL) {
@@ -648,7 +702,6 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
-    free(scripts);
     sqlite3_finalize(stmt);
     return NULL;
   } else {
@@ -660,6 +713,9 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
         strcat(scripts, ",");
       }
       cur_id = sqlite3_column_int(stmt, 0);
+      snprintf(cur_schedule, WORDLENGTH, "%d", cur_id);
+      tags_array = get_tags(sqlite3_db, NULL, DATA_SCHEDULE, cur_schedule);
+      tags = build_json_tags(tags_array);
       snprintf(cur_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 1));
       sanitize_json_string(cur_name, cur_name, WORDLENGTH);
       enabled = sqlite3_column_int(stmt, 2);
@@ -674,15 +730,20 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
       }
       remove_after_done = sqlite3_column_int(stmt, 8);
       sanitize_json_string(cur_device, cur_device, WORDLENGTH);
-      if (!get_script(sqlite3_db, script_id, script)) {
+      script = get_script(sqlite3_db, script_id, 0);
+      if (script == NULL) {
+        script = malloc(3*sizeof(char));
         strcpy(script, "{}");
       }
       sanitize_json_string(cur_name, cur_name, WORDLENGTH);
-      one_item = malloc((116+num_digits(cur_id)+strlen(cur_name)+num_digits(cur_id)+strlen(cur_device)+num_digits_l(next_time)+num_digits(repeat_schedule)+num_digits(repeat_schedule_value)+num_digits(remove_after_done)+strlen(script))*sizeof(char));
-      sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"remove_after_done\":%d,\"script\":%s}", cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value, remove_after_done, script);
+      one_item = malloc((124+num_digits(cur_id)+strlen(cur_name)+num_digits(cur_id)+strlen(cur_device)+num_digits_l(next_time)+num_digits(repeat_schedule)+num_digits(repeat_schedule_value)+num_digits(remove_after_done)+strlen(tags)+strlen(script))*sizeof(char));
+      sprintf(one_item, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"remove_after_done\":%d,\"tags\":%s,\"script\":%s}", cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value, remove_after_done, tags, script);
       scripts = realloc(scripts, (strlen(scripts)+strlen(one_item)+1)*sizeof(char));
       strcat(scripts, one_item);
       free(one_item);
+      free(script);
+      free(tags);
+      free_tags(tags_array);
       one_item = NULL;
       row_result = sqlite3_step(stmt);
     }
@@ -695,7 +756,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
  * Change the state of a schedule
  */
 int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char * command_result) {
-  char sql_query[MSGLENGTH+1], script[MSGLENGTH+1], script_id[WORDLENGTH+1];
+  char sql_query[MSGLENGTH+1], * script = NULL, script_id[WORDLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   struct _schedule cur_schedule;
@@ -722,12 +783,15 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
           log_message(LOG_INFO, "Error updating schedule on database");
         }
         snprintf(script_id, WORDLENGTH, "%d", sqlite3_column_int(stmt, 6));
-        if (!get_script(sqlite3_db, script_id, script)) {
+        script = get_script(sqlite3_db, script_id, 0);
+        if (script == NULL) {
+          script = malloc(3*sizeof(char));
           strcpy(script, "{}");
         }
         sanitize_json_string(cur_schedule.name, cur_schedule.name, WORDLENGTH);
         snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat\":%d,\"repeat_value\":%d,\"script\":%s}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, script);
         sqlite3_finalize(stmt);
+        free(script);
         return 1;
       } else {
         log_message(LOG_INFO, "Error getting schedule data");
@@ -745,98 +809,123 @@ int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char *
 /**
  * Change the display name and the enable settings for a device
  */
-int set_device_data(sqlite3 * sqlite3_db, device cur_device, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_device (de_id, de_name, de_display, de_active) VALUES ((SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_device.name, cur_device.name, cur_device.display, cur_device.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_device.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_DEVICE, cur_device.name, tags);
     sanitize_json_string(cur_device.name, cur_device.name, WORDLENGTH);
     sanitize_json_string(cur_device.display, cur_device.display, WORDLENGTH);
-    snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s}", cur_device.name, cur_device.display, cur_device.enabled?"true":"false");
-    return 1;
-  } else {
-    return 0;
+    str_len = (95+strlen(cur_device.name)+strlen(cur_device.display)+strlen(tags_json));
+    to_return = malloc((str_len+1)*sizeof(char));
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
   }
+  return to_return;
 }
 
 /**
  * Change the display name, the type and the enable settings for a device
  */
-int set_pin_data(sqlite3 * sqlite3_db, pin cur_pin, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+char * set_pin_data(sqlite3 * sqlite3_db, pin cur_pin) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), '%d', '%d', 0)", cur_pin.name, cur_pin.device, cur_pin.device, cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled, cur_pin.name, cur_pin.device, cur_pin.monitored, cur_pin.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_pin.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, cur_pin.device, DATA_PIN, cur_pin.name, tags);
     sanitize_json_string(cur_pin.name, cur_pin.name, WORDLENGTH);
     sanitize_json_string(cur_pin.display, cur_pin.display, WORDLENGTH);
-    snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s}", cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled?"true":"false");
-    return 1;
-  } else {
-    return 0;
+    str_len = 59+strlen(cur_pin.name)+strlen(cur_pin.display)+strlen(tags_json);
+    to_return = malloc(str_len+1*sizeof(char));
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s,\"tags\":%s}", cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
   }
+  return to_return;
 }
 
 /**
  * Change the display name and the enable settings for a device
  */
-int set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next) VALUES ((SELECT se_id FROM an_sensor where se_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d', 0)", cur_sensor.name, cur_sensor.device, cur_sensor.device, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled, cur_sensor.monitored, cur_sensor.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_sensor.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, cur_sensor.device, DATA_SENSOR, cur_sensor.name, tags);
     sanitize_json_string(cur_sensor.name, cur_sensor.name, WORDLENGTH);
     sanitize_json_string(cur_sensor.display, cur_sensor.display, WORDLENGTH);
     sanitize_json_string(cur_sensor.unit, cur_sensor.unit, WORDLENGTH);
-    snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s}", cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false");
-    return 1;
-  } else {
-    return 0;
+    str_len = 60+strlen(cur_sensor.name)+strlen(cur_sensor.display)+strlen(cur_sensor.unit)+strlen(tags_json);
+    to_return = malloc(str_len+1*sizeof(char));
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
   }
+  return to_return;
 }
 
 /**
  * Change the display name and the enable settings for a light
  */
-int set_light_data(sqlite3 * sqlite3_db, light cur_light, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+char * set_light_data(sqlite3 * sqlite3_db, light cur_light) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_light (li_id, de_id, li_name, li_display, li_enabled) VALUES ((SELECT li_id FROM an_light where li_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_light.name, cur_light.device, cur_light.device, cur_light.name, cur_light.display, cur_light.enabled);
-  log_message(LOG_INFO, sql_query);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_light.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, cur_light.device, DATA_LIGHT, cur_light.name, tags);
     sanitize_json_string(cur_light.name, cur_light.name, WORDLENGTH);
     sanitize_json_string(cur_light.display, cur_light.display, WORDLENGTH);
-    snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s}", cur_light.name, cur_light.display, cur_light.enabled?"true":"false");
-    return 1;
-  } else {
-    return 0;
+    str_len = 50+strlen(cur_light.name)+strlen(cur_light.display)+strlen(tags_json);
+    to_return = malloc(str_len+1*sizeof(char));
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_light.name, cur_light.display, cur_light.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
   }
+  return to_return;
 }
 
 /**
  * Change the display name, the unit and the enable settings for a heater
  */
-int set_heater_data(sqlite3 * sqlite3_db, heater cur_heater, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled) VALUES ((SELECT he_id FROM an_heater where he_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%q', '%d')", cur_heater.name, cur_heater.device, cur_heater.device, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_heater.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, cur_heater.device, DATA_HEATER, cur_heater.name, tags);
     sanitize_json_string(cur_heater.name, cur_heater.name, WORDLENGTH);
     sanitize_json_string(cur_heater.display, cur_heater.display, WORDLENGTH);
     sanitize_json_string(cur_heater.unit, cur_heater.unit, WORDLENGTH);
-    snprintf(command_result, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s}", cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false");
-    return 1;
-  } else {
-    return 0;
+    str_len = 60+strlen(cur_heater.name)+strlen(cur_heater.display)+strlen(cur_heater.unit)+strlen(tags_json);
+    to_return = malloc(str_len+1*sizeof(char));
+    snprintf(to_return, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
   }
+  return to_return;
 }
 
 /**
  * Add an action into the database
  */
 int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
-  sqlite3_stmt *stmt;
-  int sql_result, row_result;
+  char sql_query[MSGLENGTH+1], str_id[WORDLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL;
   
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
@@ -913,28 +1002,17 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
                 
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action (ac_name, ac_type, de_id, sw_id, se_id, he_id, ac_params) VALUES ('%q', '%d', (select de_id from an_device where de_name='%q'), (select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), '%q')", cur_action.name, cur_action.type, device, pin, device, sensor, device, heater, device, params);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    sprintf(sql_query, "SELECT last_insert_rowid()");
-    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      sqlite3_finalize(stmt);
-      return 0;
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        cur_action.id = sqlite3_column_int(stmt, 0);
-        snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\"}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params);
-        sqlite3_finalize(stmt);
-        return 1;
-      } else {
-        log_message(LOG_INFO, "Error getting last_insert_rowid()");
-        sqlite3_finalize(stmt);
-        return 0;
-      }
-    }
+    cur_action.id = (int)sqlite3_last_insert_rowid(sqlite3_db);
+    snprintf(str_id, WORDLENGTH, "%d", cur_action.id);
+    tags = build_tags_from_list(cur_action.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_ACTION, str_id, tags);
+    snprintf(command_result, 2*MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params, tags_json);
+    free(tags_json);
+    free_tags(tags);
+    return 1;
   } else {
     log_message(LOG_INFO, "Error inserting action");
-    sqlite3_finalize(stmt);
     return 0;
   }
 }
@@ -943,7 +1021,7 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
  * Modifies the specified action
  */
 int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
   
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
@@ -1022,7 +1100,13 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
                 
   sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_action SET ac_name='%q', ac_type='%d', de_id=(select de_id from an_device where de_name='%q'), sw_id=(select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), se_id=(select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), he_id=(select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), ac_params='%q' WHERE ac_id='%d'", cur_action.name, cur_action.type, device, pin, device, sensor, device, heater, device, params, cur_action.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\"}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params);
+    snprintf(str_id, WORDLENGTH, "%d", cur_action.id);
+    tags = build_tags_from_list(cur_action.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_ACTION, str_id, tags);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params, tags_json);
+    free(tags_json);
+    free_tags(tags);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating action");
@@ -1036,17 +1120,29 @@ int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
 int delete_action(sqlite3 * sqlite3_db, char * action_id) {
   char sql_query[MSGLENGTH+1];
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE ac_id='%q'", action_id);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag_element WHERE ac_id='%q'", action_id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action WHERE ac_id='%q'", action_id);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag WHERE ta_id NOT IN (SELECT DISTINCT (ta_id) FROM an_tag)");
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-      return 1;
+      sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE ac_id='%q'", action_id);
+      if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action WHERE ac_id='%q'", action_id);
+        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+          return 1;
+        } else {
+          log_message(LOG_INFO, "Error deleting action");
+          return 0;
+        }
+      } else {
+        log_message(LOG_INFO, "Error deleting action_script");
+        return 0;
+      }
     } else {
-      log_message(LOG_INFO, "Error deleting action");
+      log_message(LOG_INFO, "Error deleting tag");
       return 0;
     }
   } else {
-    log_message(LOG_INFO, "Error deleting action_script");
+    log_message(LOG_INFO, "Error deleting tag_element");
     return 0;
   }
 }
@@ -1055,54 +1151,41 @@ int delete_action(sqlite3 * sqlite3_db, char * action_id) {
  * Add a script into the database
  */
 int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
-  char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1];
-  sqlite3_stmt *stmt;
-  int sql_result, row_result, rank=0;
+  char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
+  int rank=0;
   
-  char * action_token, * action, * result_condition, * value_condition, * saveptr, * saveptr2;
+  char * action, * saveptr, * action_id, * enabled, * saveptr2;
   
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_INFO, "Error inserting script, wrong params"); return 0;}
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_script (sc_name, de_id, sc_enabled) VALUES ('%q', (SELECT de_id FROM an_device where de_name='%q'), '%d')", cur_script.name, cur_script.device, cur_script.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    sprintf(sql_query, "SELECT last_insert_rowid()");
-    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      sqlite3_finalize(stmt);
-      return 0;
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        cur_script.id = sqlite3_column_int(stmt, 0);
+    cur_script.id = (int)sqlite3_last_insert_rowid(sqlite3_db);
         
-        // Parsing actions, then insert into an_action_script
-        action_token = strtok_r(cur_script.actions, ";", &saveptr);
-        while (action_token != NULL) {
-          action = strtok_r(action_token, ",", &saveptr2);
-          result_condition = strtok_r(NULL, ",", &saveptr2);
-          value_condition = strtok_r(NULL, ",", &saveptr2);
-          
-          if (action != NULL && result_condition != NULL && (0 == strcmp("0", result_condition) || value_condition != NULL)) {
-            sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action_script (sc_id, ac_id, as_rank, as_result_condition, as_value_condition) VALUES ('%d', '%q', '%d', '%q', '%q')", cur_script.id, action, rank++, result_condition, value_condition==NULL?"":value_condition);
-            if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-              snprintf(tmp, MSGLENGTH, "Error inserting action (%d, %s, %d, %s, %s", cur_script.id, action, rank++, result_condition, value_condition);
-              log_message(LOG_INFO, tmp);
-            }
-          } else {
-            log_message(LOG_INFO, "Error inserting action, wrong parameters");
-          }
-          action_token = strtok_r(NULL, ";", &saveptr);
+    // Parsing actions, then insert into an_action_script
+    action = strtok_r(cur_script.actions, ";", &saveptr);
+    while (action != NULL) {
+      action_id = strtok_r(action, ",", &saveptr2);
+      enabled = strtok_r(NULL, ",", &saveptr2);
+      if (action_id != NULL && enabled != NULL) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action_script (sc_id, ac_id, as_enabled, as_rank) VALUES ('%d', '%q', '%s', '%d')", cur_script.id, action, enabled, rank++);
+        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+          snprintf(tmp, MSGLENGTH, "Error inserting action (%d, %s, %d)", cur_script.id, action, rank++);
+          log_message(LOG_INFO, tmp);
         }
-        snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device);
-        sqlite3_finalize(stmt);
-        return 1;
       } else {
-        log_message(LOG_INFO, "Error executing sql query last_insert_rowid()");
-        sqlite3_finalize(stmt);
-        return 0;
+        log_message(LOG_INFO, "Error inserting action list, wrong parameters");
       }
+      action = strtok_r(NULL, ";", &saveptr);
     }
+    snprintf(str_id, WORDLENGTH, "%d", cur_script.id);
+    tags = build_tags_from_list(cur_script.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_SCRIPT, str_id, tags);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"tags\":%s}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device, tags_json);
+    free(tags_json);
+    free_tags(tags);
+    return 1;
   } else {
     log_message(LOG_INFO, "Error inserting script");
     return 0;
@@ -1113,10 +1196,10 @@ int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
  * Modifies the specified script
  */
 int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
-  char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1], tmp[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
   int rank=0;
   
-  char * action_token, * action, * result_condition, * value_condition, * saveptr, * saveptr2;
+  char * action_token, * action_id, * enabled, * saveptr, * saveptr2;
   
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_INFO, "Error updating script, wrong params"); return 0;}
   if (cur_script.id == 0) {log_message(LOG_INFO, "Error updating script, wrong params"); return 0;}
@@ -1132,13 +1215,12 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
     // Parsing actions, then insert into an_action_script
     action_token = strtok_r(cur_script.actions, ";", &saveptr);
     while (action_token != NULL) {
-      action = strtok_r(action_token, ",", &saveptr2);
-      result_condition = strtok_r(NULL, ",", &saveptr2);
-      value_condition = strtok_r(NULL, ",", &saveptr2);
-      if (action != NULL && result_condition != NULL && (0 == strcmp("0", result_condition) || value_condition != NULL)) {
-        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action_script (sc_id, ac_id, as_rank, as_result_condition, as_value_condition) VALUES ('%d', '%q', '%d', '%q', '%q')", cur_script.id, action, rank++, result_condition, value_condition==NULL?"":value_condition);
+      action_id = strtok_r(action_token, ",", &saveptr2);
+      enabled = strtok_r(NULL, ",", &saveptr2);
+      if (action_id != NULL && enabled != NULL) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action_script (sc_id, ac_id, as_rank, as_enabled) VALUES ('%d', '%q', '%d', '%s')", cur_script.id, action_id, rank++, enabled);
         if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-          snprintf(tmp, MSGLENGTH, "Error updating action (%d, %s, %d, %s, %s", cur_script.id, action, rank++, result_condition, value_condition);
+          snprintf(tmp, MSGLENGTH, "Error updating action (%d, %s, %d)", cur_script.id, action_token, rank++);
           log_message(LOG_INFO, tmp);
         }
       } else {
@@ -1146,7 +1228,13 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
       }
       action_token = strtok_r(NULL, ";", &saveptr);
     }
-    snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\"}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device);
+    snprintf(str_id, WORDLENGTH, "%d", cur_script.id);
+    tags = build_tags_from_list(cur_script.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_SCRIPT, str_id, tags);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"device\":\"%s\",\"tags\":%s}", cur_script.id, cur_script.name, cur_script.enabled?"true":"false", cur_script.device, tags_json);
+    free(tags_json);
+    free_tags(tags);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating script");
@@ -1160,17 +1248,41 @@ int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result) {
 int delete_script(sqlite3 * sqlite3_db, char * script_id) {
   char sql_query[MSGLENGTH+1];
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE sc_id='%q'", script_id);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag_element WHERE sc_id='%q'", script_id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_script WHERE sc_id='%q'", script_id);
+    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag WHERE ta_id NOT IN (SELECT DISTINCT (ta_id) FROM an_tag)");
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-      return 1;
+      sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_scheduler WHERE sc_id='%q'", script_id);
+      if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+        sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action WHERE ac_type=%d AND ac_params='%q'", ACTION_SCRIPT, script_id);
+        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+          sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_action_script WHERE sc_id='%q'", script_id);
+          if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+            sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_script WHERE sc_id='%q'", script_id);
+            if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+              return 1;
+            } else {
+              log_message(LOG_INFO, "Error deleting script");
+              return 0;
+            }
+          } else {
+            log_message(LOG_INFO, "Error deleting action_script");
+            return 0;
+          }
+        } else {
+          log_message(LOG_INFO, "Error deleting action");
+          return 0;
+        }
+      } else {
+        log_message(LOG_INFO, "Error deleting schedules");
+        return 0;
+      }
     } else {
-      log_message(LOG_INFO, "Error deleting script");
+      log_message(LOG_INFO, "Error deleting tag");
       return 0;
     }
   } else {
-    log_message(LOG_INFO, "Error deleting action_script");
+    log_message(LOG_INFO, "Error deleting tag_element");
     return 0;
   }
 }
@@ -1179,36 +1291,23 @@ int delete_script(sqlite3 * sqlite3_db, char * script_id) {
  * Add a schedule into the database
  */
 int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result) {
-  char sql_query[MSGLENGTH+1];
-  sqlite3_stmt *stmt;
-  int sql_result, row_result;
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
   
   if (0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error inserting schedule, wrong params"); return 0;}
   
   sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_scheduler (sh_name, sh_enabled, sh_next_time, sh_repeat_schedule, sh_repeat_schedule_value, sh_remove_after_done, de_id, sc_id) VALUES ('%q', '%d', '%d', '%d', '%d', '%d', (SELECT de_id FROM an_device WHERE de_name='%q'), '%d')", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    sprintf(sql_query, "SELECT last_insert_rowid()");
-    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_INFO, "Error preparing sql query last_insert_rowid()");
-      sqlite3_finalize(stmt);
-      return 0;
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        cur_schedule.id = sqlite3_column_int(stmt, 0);
-        snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
-        sqlite3_finalize(stmt);
-        return 1;
-      } else {
-        log_message(LOG_INFO, "Error getting last_insert_rowid()");
-        sqlite3_finalize(stmt);
-        return 0;
-      }
-    }
+    cur_schedule.id = (int)sqlite3_last_insert_rowid(sqlite3_db);
+    snprintf(str_id, WORDLENGTH, "%d", cur_schedule.id);
+    tags = build_tags_from_list(cur_schedule.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_SCHEDULE, str_id, tags);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d,\"tags\":%s}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script, tags_json);
+    free(tags_json);
+    free_tags(tags);
+    return 1;
   } else {
     log_message(LOG_INFO, "Error inserting action");
-    sqlite3_finalize(stmt);
     return 0;
   }
 }
@@ -1217,13 +1316,19 @@ int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
  * Modifies the specified schedule
  */
 int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result) {
-  char sql_query[MSGLENGTH+1];
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
   
   if (cur_schedule.id == 0 || 0 == strcmp(cur_schedule.name, "") || (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || cur_schedule.script == 0) {log_message(LOG_INFO, "Error updating schedule, wrong params"); return 0;}
   
     sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_scheduler SET sh_name='%q', sh_enabled='%d', sh_next_time='%d', sh_repeat_schedule='%d', sh_repeat_schedule_value='%d', sh_remove_after_done='%d', de_id=(SELECT de_id FROM an_device WHERE de_name='%q'), sc_id='%d' WHERE sh_id='%d'", cur_schedule.name, cur_schedule.enabled, cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script, cur_schedule.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    snprintf(command_result, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script);
+    snprintf(str_id, WORDLENGTH, "%d", cur_schedule.id);
+    tags = build_tags_from_list(cur_schedule.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, NULL, DATA_SCHEDULE, str_id, tags);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"enabled\":%s,\"next_time\":%ld,\"repeat_schedule\":%d,\"repeat_schedule_value\":%d,\"remove_after_done\":%d,\"device\":\"%s\",\"script\":%d,\"tags\":%s}", cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", cur_schedule.next_time, cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, cur_schedule.device, cur_schedule.script, tags_json);
+    free(tags_json);
+    free_tags(tags);
     return 1;
   } else {
     log_message(LOG_INFO, "Error updating action");
@@ -1232,17 +1337,27 @@ int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_res
 }
 
 /**
- * Delete the specified script
+ * Delete the specified schedule
  */
 int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
   char sql_query[MSGLENGTH+1];
-  int sql_result;
   
   if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_INFO, "Error deleting schedule, wrong params"); return 0;}
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_scheduler where sh_id='%q'", schedule_id);
-  sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-  return ( sql_result == SQLITE_OK );
+  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag_element WHERE sh_id='%q'", schedule_id);
+  if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag WHERE ta_id NOT IN (SELECT DISTINCT (ta_id) FROM an_tag)");
+    if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+      sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_scheduler WHERE sh_id='%q'", schedule_id);
+      return ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
+    } else {
+      log_message(LOG_INFO, "Error deleting tag");
+      return 0;
+    }
+  } else {
+    log_message(LOG_INFO, "Error deleting tag_element");
+    return 0;
+  }
 }
 
 /**
@@ -1494,6 +1609,9 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, 
   return to_return;
 }
 
+/**
+ * archive the journal data from the main db to the archive db, until epoch_from, then vacuum the main db
+ */
 int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
   char sql_query[MSGLENGTH+1] = {0}, message[MSGLENGTH+1] = {0};
   sqlite3_stmt *stmt;
@@ -1521,22 +1639,25 @@ int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned
         }
         row_result = sqlite3_step(stmt);
       }
-	  sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
-	  sqlite3_finalize(stmt);
-	  if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-	    snprintf(message, MSGLENGTH, "End archiving journal, limit date %d", epoch_from);
-	    log_message(LOG_INFO, message);
-	    return 1;
-	  } else {
-	    log_message(LOG_INFO, "Error deleting old journal data");
-	    return 0;
-	  }
+    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
+    sqlite3_finalize(stmt);
+    if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+      snprintf(message, MSGLENGTH, "End archiving journal, limit date %d", epoch_from);
+      log_message(LOG_INFO, message);
+      return 1;
+    } else {
+      log_message(LOG_INFO, "Error deleting old journal data");
+      return 0;
+    }
     }
   } else {
     return 0;
   }
 }
 
+/**
+ * archive the monitor data from the main db to the archive db, until epoch_from, then vacuum the main db
+ */
 int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
   char sql_query[MSGLENGTH+1] = {0}, message[MSGLENGTH+1] = {0};
   sqlite3_stmt *stmt;
@@ -1563,7 +1684,7 @@ int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned
           sqlite3_finalize(stmt);
           return 0;
         }
-                row_result = sqlite3_step(stmt);
+        row_result = sqlite3_step(stmt);
       }
       sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_monitor WHERE mo_date < '%d'; vacuum", epoch_from);
       sqlite3_finalize(stmt);
@@ -1581,6 +1702,9 @@ int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned
   }
 }
 
+/**
+ * archive journal and monitor data from main db, until epoch_from
+ */
 int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_from) {
   int rc;
   sqlite3 * sqlite3_archive_db;
@@ -1597,5 +1721,227 @@ int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_fro
                 archive_monitor(sqlite3_db, sqlite3_archive_db, epoch_from);
     sqlite3_close(sqlite3_archive_db);
     return rc;
+  }
+}
+
+/**
+ * gets all the tags from an element
+ * return value must be freed after use
+ */
+char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element) {
+  char sql_query[MSGLENGTH+1] = {0}, where_element[MSGLENGTH+1] = {0}, cur_tag[WORDLENGTH+1], ** to_return = NULL;
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, nb_return=0;
+  switch(element_type) {
+    case DATA_DEVICE:
+      sqlite3_snprintf(MSGLENGTH, where_element, "de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')", element);
+      break;
+    case DATA_PIN:
+      sqlite3_snprintf(MSGLENGTH, where_element, "sw_id = (SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+      break;
+    case DATA_SENSOR:
+      sqlite3_snprintf(MSGLENGTH, where_element, "se_id = (SELECT se_id FROM an_sensor WHERE se_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+      break;
+    case DATA_LIGHT:
+      sqlite3_snprintf(MSGLENGTH, where_element, "li_id = (SELECT li_id FROM an_light WHERE li_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+      break;
+    case DATA_HEATER:
+      sqlite3_snprintf(MSGLENGTH, where_element, "he_id = (SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+      break;
+    case DATA_ACTION:
+      sqlite3_snprintf(MSGLENGTH, where_element, "ac_id = '%q'", element);
+      break;
+    case DATA_SCRIPT:
+      sqlite3_snprintf(MSGLENGTH, where_element, "sc_id = '%q'", element);
+      break;
+    case DATA_SCHEDULE:
+      sqlite3_snprintf(MSGLENGTH, where_element, "sh_id = '%q'", element);
+      break;
+  }
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ta_name FROM an_tag WHERE ta_id in (SELECT ta_id FROM an_tag_element WHERE %s)", where_element);
+  
+  sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  to_return = malloc(sizeof(char *));
+  to_return[0] = NULL;
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_INFO, "Error preparing sql query (get_tags)");
+    sqlite3_finalize(stmt);
+    return to_return;
+  } else {
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      snprintf(cur_tag, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+      to_return = realloc(to_return, (nb_return+2)*sizeof(char *));
+      to_return[nb_return] = malloc(strlen(cur_tag)+1);
+      strcpy(to_return[nb_return], cur_tag);
+      to_return[nb_return+1] = NULL;
+      nb_return++;
+      row_result = sqlite3_step(stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+  return to_return;
+}
+
+/**
+ * Builds the json output from the tags list given by get_tags (string built from an array of strings)
+ */
+char * build_json_tags(char ** tags) {
+  char * to_return = NULL, one_tag[(WORDLENGTH*2)+1] = {0};
+  int nb_tags=0;
+  to_return = malloc(2*sizeof(char));
+  strcpy(to_return, "[");
+  for (nb_tags=0; tags[nb_tags] != NULL; nb_tags++) {
+    sanitize_json_string(tags[nb_tags], one_tag, WORDLENGTH);
+    if (nb_tags ==0) {
+      to_return = realloc(to_return, strlen(to_return)+strlen(one_tag)+3);
+    } else {
+      to_return = realloc(to_return, strlen(to_return)+strlen(one_tag)+4);
+      strncat(to_return, ",", strlen(to_return)+1);
+    }
+    strncat(to_return, "\"", strlen(to_return)+strlen(one_tag)+3);
+    strncat(to_return, one_tag, strlen(to_return)+strlen(one_tag)+3);
+    strncat(to_return, "\"", strlen(to_return)+strlen(one_tag)+3);
+  }
+  to_return = realloc(to_return, (strlen(to_return)+2)*sizeof(char));
+  strncat(to_return, "]", strlen(to_return)+1);
+  return to_return;
+}
+
+/**
+ * Builds a tags array from a tag list (format x,y,z)
+ */
+char ** build_tags_from_list(char * tags) {
+  char ** to_return = NULL, *saveptr, * cur_tag;
+  int counter=0;
+  
+  to_return = malloc(sizeof(char *));
+  to_return[0] = NULL;
+  if (tags != NULL) {
+    cur_tag = strtok_r(tags, ",", &saveptr);
+    if (cur_tag != NULL) {
+      while (cur_tag != NULL) {
+        to_return = realloc(to_return, (counter+2)*sizeof(char *));
+        to_return[counter] = malloc((strlen(cur_tag)+1)*sizeof(char));
+        to_return[counter+1] = NULL;
+        snprintf(to_return[counter], strlen(cur_tag)+1, "%s", cur_tag);
+        cur_tag = strtok_r(NULL, ",", &saveptr);
+        counter++;
+      }
+    }
+  }
+  return to_return;
+}
+
+/**
+ * set all the tags for an element
+ */
+int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element, char ** tags) {
+  char sql_query[MSGLENGTH+1] = {0}, where_element[MSGLENGTH+1] = {0}, element_row[WORDLENGTH+1] = {0}, message[MSGLENGTH+1] = {0};
+  int counter = 0, cur_tag = -1;
+  
+  if (tags != NULL) {
+    switch(element_type) {
+      case DATA_DEVICE:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT de_id FROM an_device WHERE de_name = '%q')", element);
+        strcpy(element_row, "de_id");
+        break;
+      case DATA_PIN:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+        strcpy(element_row, "sw_id");
+        break;
+      case DATA_SENSOR:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT se_id FROM an_sensor WHERE se_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+        strcpy(element_row, "se_id");
+        break;
+      case DATA_LIGHT:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT li_id FROM an_light WHERE li_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+        strcpy(element_row, "li_id");
+        break;
+      case DATA_HEATER:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+        strcpy(element_row, "he_id");
+        break;
+      case DATA_ACTION:
+        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        strcpy(element_row, "ac_id");
+        break;
+      case DATA_SCRIPT:
+        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        strcpy(element_row, "sc_id");
+        break;
+      case DATA_SCHEDULE:
+        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        strcpy(element_row, "sh_id");
+        break;
+    }
+    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag_element WHERE %q = %s", element_row, where_element);
+    if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+      log_message(LOG_INFO, "Error deleting old tags (%s)", sql_query);
+      return -1;
+    } else {
+      while (tags[counter] != NULL) {
+        cur_tag = get_or_create_tag_id(sqlite3_db, tags[counter]);
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_tag_element (%s, ta_id) VALUES (%s, %d)", element_row, where_element, cur_tag);
+        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+          snprintf(message, MSGLENGTH, "Error inserting tag_element %s (%d)", tags[counter], cur_tag);
+          log_message(LOG_INFO, message);
+        }
+        counter++;
+      }
+      return counter;
+    }
+  } else {
+    return -1;
+  }
+}
+
+/**
+ * Get the tag id from the name or create it if it doesn't exist, then return the new id
+ */
+int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
+  char sql_query[MSGLENGTH+1] = {0};
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, to_return = -1;
+  
+  if (tag != NULL) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ta_id FROM an_tag WHERE ta_name = '%q'", tag);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_INFO, "Error preparing sql query (get_or_create_tag_id)");
+      sqlite3_finalize(stmt);
+    } else {
+      row_result = sqlite3_step(stmt);
+      if (row_result == SQLITE_ROW) {
+        to_return = sqlite3_column_int(stmt, 0);
+        sqlite3_finalize(stmt);
+      } else {
+        sqlite3_finalize(stmt);
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_tag (ta_name) VALUES ('%q')", tag);
+        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+          to_return = (int)sqlite3_last_insert_rowid(sqlite3_db);
+          sqlite3_finalize(stmt);
+        }
+      }
+    }
+  }
+  return to_return;
+}
+
+/**
+ * Free tags array
+ */
+int free_tags(char ** tags) {
+  int counter = 0;
+  if (tags != NULL) {
+    while (tags[counter] != NULL) {
+      free(tags[counter]);
+      tags[counter] = NULL;
+      counter++;
+    }
+    free(tags);
+    return counter;
+  } else {
+    return 0;
   }
 }
