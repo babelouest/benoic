@@ -17,6 +17,7 @@ Create the database:
 ```shell
 $ mkdir /var/cache/angharad
 $ sqlite3 /var/cache/angharad/angharad.db < angharad.sql
+$ sqlite3 /var/cache/angharad/archive.db < angharad-archive.sql
 ```
 
 Run the command 

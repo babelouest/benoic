@@ -9,7 +9,7 @@
  * get all the pin values in a table, the the sensor values in another table, then merge the results into json
  */
 char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
-  char *tmp, *source, *saveptr, * overview_result_cpy = NULL, key[WORDLENGTH+1]={0}, value[WORDLENGTH+1]={0}, device[WORDLENGTH+1]={0}, tmp_value[WORDLENGTH+1], sanitized[WORDLENGTH+1], heater_value[WORDLENGTH+1]={0};
+  char *tmp, *source, *saveptr, * overview_result_cpy = NULL, key[WORDLENGTH+1]={0}, value[WORDLENGTH+1]={0}, device[WORDLENGTH+1]={0}, tmp_value[WORDLENGTH+1]={0}, sanitized[WORDLENGTH+1]={0}, heater_value[WORDLENGTH+1]={0};
   char one_element[MSGLENGTH+1], * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL, * tags = NULL, ** tags_array = NULL;
   int i;
   pin * pins = NULL;
@@ -40,6 +40,11 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
       pins = realloc(pins, (nb_pins+1)*sizeof(struct _pin));
       snprintf(pins[nb_pins].name, WORDLENGTH, "%s", key);
       pins[nb_pins].status = strtol(value, NULL, 10);
+      // Default values
+      pins[nb_pins].type = 0;
+      pins[nb_pins].monitored = 0;
+      pins[nb_pins].monitored_every = 0;
+      pins[nb_pins].monitored_next = 0;
       sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_display, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
       if (sql_result != SQLITE_OK) {
@@ -87,9 +92,16 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
       parse_heater(sqlite3_db, device, key, heater_value, &heaters[nb_heaters]);
       nb_heaters++;
     } else {
+      // Default value
       sensors = realloc(sensors, (nb_sensors+1)*sizeof(struct _sensor));
       snprintf(sensors[nb_sensors].name, WORDLENGTH, "%s", key);
       snprintf(sensors[nb_sensors].value, WORDLENGTH, "%s", value);
+      snprintf(sensors[nb_sensors].display, WORDLENGTH, "%s", sensors[nb_sensors].name);
+      strcpy(sensors[nb_sensors].unit, "");
+      sensors[nb_sensors].enabled = 1;
+      sensors[nb_sensors].monitored = 0;
+      sensors[nb_sensors].monitored_every = 0;
+      sensors[nb_sensors].monitored_next = 0;
       sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
       if (sql_result != SQLITE_OK) {
@@ -103,11 +115,6 @@ char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
           sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 3);
           sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 4);
           sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 5);
-        } else {
-          // No result, default value
-          snprintf(sensors[nb_sensors].display, WORDLENGTH, "%s", sensors[nb_sensors].name);
-          strcpy(sensors[nb_sensors].unit, "");
-          sensors[nb_sensors].enabled = 1;
         }
       }
       sqlite3_finalize(stmt);
@@ -917,6 +924,8 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
     str_len = 60+strlen(cur_heater.name)+strlen(cur_heater.display)+strlen(cur_heater.unit)+strlen(tags_json);
     to_return = malloc(str_len+1*sizeof(char));
     snprintf(to_return, MSGLENGTH, "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
   }
   return to_return;
 }
@@ -1909,22 +1918,19 @@ int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_INFO, "Error preparing sql query (get_or_create_tag_id)");
-      sqlite3_finalize(stmt);
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
         to_return = sqlite3_column_int(stmt, 0);
-        sqlite3_finalize(stmt);
       } else {
-        sqlite3_finalize(stmt);
         sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_tag (ta_name) VALUES ('%q')", tag);
         if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
           to_return = (int)sqlite3_last_insert_rowid(sqlite3_db);
-          sqlite3_finalize(stmt);
         }
       }
     }
   }
+  sqlite3_finalize(stmt);
   return to_return;
 }
 

@@ -57,6 +57,7 @@ void * thread_scheduler_run(void * args) {
     }
   }
   sqlite3_finalize(stmt);
+  stmt = NULL;
   pthread_exit((void *)0);
   return NULL;
 }

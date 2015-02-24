@@ -15,82 +15,129 @@ int main (int argc, char **argv) {
   int status, nb_restart, server_result;
   char message[WORDLENGTH+1];
   
+  // Config variables
+  struct config_elements * config = malloc(sizeof(struct config_elements));
+  
+  global_handler_variable = ANGHARAD_RUNNING;
+
+  signal (SIGQUIT, exit_handler);
+  signal (SIGINT, exit_handler);
+  signal (SIGTERM, exit_handler);
+  signal (SIGHUP, exit_handler);
+
   if (argc>1) {
-    result = fork();
-    if(result == 0) {
-      server_result = server(argv[1]);
-      if (server_result) {
-        log_message(LOG_INFO, "Error running server");
+    log_message(LOG_INFO, "Starting angharad server");
+    if (!initialize(argv[1], message, config)) {
+      log_message(LOG_INFO, message);
+      exit_server(&config, ANGHARAD_ERROR);
+    }
+  
+    if (config->auto_restart) {
+      result = fork();
+      if(result == 0) {
+        server_result = server(config);
+        if (server_result) {
+          log_message(LOG_INFO, "Error running server");
+          exit_server(&config, ANGHARAD_ERROR);
+        }
       }
-    }
-    
-    if(result < 0) {
-      log_message(LOG_INFO, "Error initial fork");
-      exit(1);
-    }
-    
-    for(nb_restart=1;;nb_restart++) {
-      status = 0;
-      waitpid(-1, &status, 0);
-      if(!WIFEXITED(status)) {
-        result = fork();
-        if(result == 0) {
-          snprintf(message, WORDLENGTH, "Restarting server (%dth time)", nb_restart);
-          log_message(LOG_INFO, message);
-          server_result = server(argv[1]);
-          if (server_result) {
-            log_message(LOG_INFO, "Error running server");
+      
+      if(result < 0) {
+        log_message(LOG_INFO, "Error initial fork");
+        exit_server(&config, ANGHARAD_ERROR);
+      }
+      
+      for(nb_restart=1; global_handler_variable == ANGHARAD_RUNNING; nb_restart++) {
+        status = 0;
+        waitpid(-1, &status, 0);
+        if(!WIFEXITED(status)) {
+          sleep(5);
+          result = fork();
+          if(result == 0) {
+            snprintf(message, WORDLENGTH, "Restart server after unexpected exit (%dth time)", nb_restart);
+            log_message(LOG_INFO, message);
+            server_result = server(config);
+            if (server_result) {
+              log_message(LOG_INFO, "Error running server");
+              exit_server(&config, ANGHARAD_ERROR);
+            }
+          }
+          if(result < 0) {
+            log_message(LOG_INFO, "Server crashed and unable to restart");
+            exit_server(&config, ANGHARAD_ERROR);
           }
         }
-        if(result < 0) {
-          log_message(LOG_INFO, "Server crashed and unable to restart");
-          exit(1);
-        }
-      } else {
-        exit(0);
+      }
+    } else {
+      server_result = server(config);
+      if (server_result) {
+        log_message(LOG_INFO, "Error running server");
+        exit_server(&config, ANGHARAD_ERROR);
       }
     }
   } else {
     log_message(LOG_INFO, "No config file specified");
-    exit(-1);
+    exit_server(&config, ANGHARAD_ERROR);
   }
+  exit_server(&config, ANGHARAD_STOP);
   return 0;
+}
+
+/**
+ * handles signal catch to exit properly when ^C is used for example
+ */
+void exit_handler(int signal) {
+  log_message(LOG_INFO, "Angharad caught a stop or kill signal (%d), exiting", signal);
+  global_handler_variable = ANGHARAD_STOP;
+}
+
+/**
+ * Exit properly the server by closing opened connections, databases and files
+ */
+void exit_server(struct config_elements ** config, int exit_value) {
+  int i;
+  
+  if (config != NULL && *config != NULL) {
+    // Cleaning data
+    for (i=0; i<(*config)->nb_terminal; i++) {
+      pthread_mutex_destroy(&(*config)->terminal[i]->lock);
+      close_device((*config)->terminal[i]);
+      free((*config)->terminal[i]);
+      (*config)->terminal[i] = NULL;
+    }
+    free((*config)->terminal);
+    (*config)->terminal = NULL;
+    
+    sqlite3_close((*config)->sqlite3_db);
+    (*config)->sqlite3_db = NULL;
+    
+    MHD_stop_daemon ((*config)->daemon);
+    (*config)->daemon = NULL;
+
+    free(*config);
+    (*config) = NULL;
+  }
+  exit(exit_value);
 }
 
 /**
  * server function
  * initializes the application, run the http server and the scheduler
  */
-int server(char * config_file) {
+int server(struct config_elements * config) {
   
-  struct MHD_Daemon *daemon;
   char message[MSGLENGTH+1];
-  int i;
   time_t now;
   struct tm ts;
-  unsigned int duration;
   pthread_t thread_scheduler;
-  int thread_ret_scheduler, thread_detach_scheduler;
+  int thread_ret_scheduler = 0, thread_detach_scheduler = 0, duration = 0;
   
-  // Config variables
-  struct config_elements * config = malloc(sizeof(struct config_elements));
-
-  log_message(LOG_INFO, "Starting angharad server");
-  if (!initialize(config_file, message, config)) {
-    log_message(LOG_INFO, message);
-    for (i=0; i<config->nb_terminal; i++) {
-      free(config->terminal[i]);
-    }
-    free(config->terminal);
-    exit(-1);
-  }
-  
-  daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION, 
+  config->daemon = MHD_start_daemon (MHD_USE_THREAD_PER_CONNECTION, 
                               config->tcp_port, NULL, NULL, &angharad_rest_webservice, (void *)config, 
                               MHD_OPTION_NOTIFY_COMPLETED, request_completed, NULL, 
                               MHD_OPTION_END);
   
-  if (NULL == daemon) {
+  if (NULL == config->daemon) {
     snprintf(message, MSGLENGTH, "Error starting http daemon on port %d", config->tcp_port);
     log_message(LOG_INFO, message);
     return 1;
@@ -98,7 +145,8 @@ int server(char * config_file) {
     snprintf(message, MSGLENGTH, "Start listening on port %d", config->tcp_port);
     log_message(LOG_INFO, message);
   }
-  while (1) {
+
+  while (global_handler_variable == ANGHARAD_RUNNING) {
     thread_ret_scheduler = pthread_create(&thread_scheduler, NULL, thread_scheduler_run, (void *)config);
     thread_detach_scheduler = pthread_detach(thread_scheduler);
     if (thread_ret_scheduler || thread_detach_scheduler) {
@@ -110,17 +158,8 @@ int server(char * config_file) {
     duration = (unsigned int)(60-ts.tm_sec);
     sleep(duration);
   }
-  MHD_stop_daemon (daemon);
-  
-  for (i=0; i<config->nb_terminal; i++) {
-    pthread_mutex_destroy(&config->terminal[i]->lock);
-    close_device(config->terminal[i]);
-    free(config->terminal[i]);
-  }
-  sqlite3_close(config->sqlite3_db);
-  free(config->terminal);
-  free(config);
-  
+  exit_server(&config, global_handler_variable);
+    
   return (0);
 }
 
@@ -139,6 +178,13 @@ int initialize(char * config_file, char * message, struct config_elements * conf
   
   if (!config_read_file(&cfg, config_file)) {
     snprintf(message, MSGLENGTH, "\n%s:%d - %s\n", config_error_file(&cfg), config_error_line(&cfg), config_error_text(&cfg));
+    config_destroy(&cfg);
+    return 0;
+  }
+  
+  // Get auto_restart parameter
+  if (!config_lookup_bool(&cfg, "auto_restart", &config->auto_restart)) {
+    snprintf(message, MSGLENGTH, "Error config file, auto_restart not found\n");
     config_destroy(&cfg);
     return 0;
   }

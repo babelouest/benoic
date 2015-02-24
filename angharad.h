@@ -78,6 +78,10 @@
 #define ERROR_SENSOR -999.
 #define ERROR_SWITCH -1
 
+#define ANGHARAD_RUNNING  0
+#define ANGHARAD_STOP     1
+#define ANGHARAD_ERROR    2
+
 typedef struct _device {
   unsigned int    id;
   int             enabled;                    // Device enabled or not
@@ -196,8 +200,10 @@ struct connection_info_struct {
 };
 
 struct config_elements {
+  int auto_restart;
   int tcp_port;
   char url_prefix[WORDLENGTH+1];
+  struct MHD_Daemon *daemon;
   device ** terminal;
   unsigned int nb_terminal;
   sqlite3 * sqlite3_db;
@@ -206,8 +212,12 @@ struct config_elements {
 };
 
 // Init function
-int server(char * config_file);
+int server(struct config_elements * config);
 int initialize(char * config_file, char * message, struct config_elements * config);
+void exit_handler(int);
+void exit_server(struct config_elements ** config, int exit_value);
+int global_handler_variable;
+
 device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal);
 
 // Interface with the Arduinos
