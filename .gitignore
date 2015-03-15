@@ -21,6 +21,8 @@
 *.i*86
 *.x86_64
 *.hex
+
+# angharad specific
 angharad
 data.sql
 dump.sql

@@ -1,3 +1,19 @@
+/**
+ *
+ * Angharad server
+ *
+ * Environment used to control home devices (switches, sensors, heaters, etc)
+ * Using different protocols and controllers:
+ * - Arduino UNO
+ * - ZWave
+ *
+ * Copyright 2014-2015 Nicolas Mora <mail@babelouest.org>
+ * Gnu Public License V3 <http://fsf.org/>
+ *
+ * All functions that are not related to hardware calls
+ *
+ */
+
 #include "angharad.h"
 
 /**
@@ -5,279 +21,12 @@
  */
 
 /**
- * Parse the result of a command OVERVIEW or REFRESH
- * get all the pin values in a table, the the sensor values in another table, then merge the results into json
- */
-char * parse_overview(sqlite3 * sqlite3_db, char * overview_result) {
-  char *tmp, *source, *saveptr, * overview_result_cpy = NULL, key[WORDLENGTH+1]={0}, value[WORDLENGTH+1]={0}, device[WORDLENGTH+1]={0}, tmp_value[WORDLENGTH+1]={0}, sanitized[WORDLENGTH+1]={0}, heater_value[WORDLENGTH+1]={0};
-  char one_element[MSGLENGTH+1], * str_pins = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_lights = NULL, * output = NULL, * tags = NULL, ** tags_array = NULL;
-  int i;
-  pin * pins = NULL;
-  sensor * sensors = NULL;
-  heater * heaters = NULL;
-  light * lights = NULL;
-  int nb_pins = 0, nb_sensors = 0, nb_heaters = 0, nb_lights = 0;
-  
-  char sql_query[MSGLENGTH+1];
-  sqlite3_stmt *stmt;
-  int sql_result, row_result, output_len;
-  
-  overview_result_cpy = malloc(strlen(overview_result)*sizeof(char));
-  snprintf(overview_result_cpy, strlen(overview_result)-1, "%s", overview_result+1);
-  overview_result_cpy[strlen(overview_result_cpy) - 1] = '\0';
-  source = overview_result_cpy;
-  tmp = strtok_r( source, ",", &saveptr );
-  
-  while (NULL != tmp) {
-    i = strcspn(tmp, ":");
-    memset(key, 0, WORDLENGTH*sizeof(char));
-    memset(value, 0, WORDLENGTH*sizeof(char));
-    strncpy(key, tmp, i);
-    strncpy(value, tmp+i+1, WORDLENGTH);
-    if (0 == strncmp(key, "NAME", WORDLENGTH)) {
-      snprintf(device, WORDLENGTH, "%s", value);
-    } else if (0 == strncmp(key, "PIN", strlen("PIN"))) {
-      pins = realloc(pins, (nb_pins+1)*sizeof(struct _pin));
-      snprintf(pins[nb_pins].name, WORDLENGTH, "%s", key);
-      pins[nb_pins].status = strtol(value, NULL, 10);
-      // Default values
-      pins[nb_pins].type = 0;
-      pins[nb_pins].monitored = 0;
-      pins[nb_pins].monitored_every = 0;
-      pins[nb_pins].monitored_next = 0;
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_display, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
-      sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-      if (sql_result != SQLITE_OK) {
-        log_message(LOG_INFO, "Error preparing sql query");
-      } else {
-        row_result = sqlite3_step(stmt);
-        if (row_result == SQLITE_ROW) {
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 0), pins[nb_pins].display, WORDLENGTH);
-          pins[nb_pins].enabled = sqlite3_column_int(stmt, 1);
-          pins[nb_pins].type = sqlite3_column_int(stmt, 2);
-          pins[nb_pins].monitored = sqlite3_column_int(stmt, 3);
-          pins[nb_pins].monitored_every = sqlite3_column_int(stmt, 4);
-          pins[nb_pins].monitored_next = sqlite3_column_int(stmt, 5);
-        } else {
-          // No result, default value
-          snprintf(pins[nb_pins].display, WORDLENGTH, "%s", pins[nb_pins].name);
-          pins[nb_pins].enabled = 1;
-        }
-      }
-      sqlite3_finalize(stmt);
-      nb_pins++;
-    } else if (0 == strncmp(key, "LIGHT", strlen("LIGHT"))) {
-      lights = realloc(lights, (nb_lights+1)*sizeof(struct _light));
-      snprintf(lights[nb_lights].name, WORDLENGTH, "%s", key);
-      snprintf(lights[nb_lights].device, WORDLENGTH, "%s", device);
-      snprintf(lights[nb_lights].display, WORDLENGTH, "%s", key);
-      lights[nb_lights].enabled = 1;
-      lights[nb_lights].on = strncmp("1", value, 1)==0?1:0;
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT li_display, li_enabled from an_light where li_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
-      sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-      if (sql_result != SQLITE_OK) {
-        log_message(LOG_INFO, "Error preparing sql query");
-      } else {
-        row_result = sqlite3_step(stmt);
-        if (row_result == SQLITE_ROW) {
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 0), lights[nb_lights].display, WORDLENGTH);
-          lights[nb_lights].enabled = sqlite3_column_int(stmt, 1);
-        }
-      }
-      sqlite3_finalize(stmt);
-      nb_lights++;
-    } else if (0 == strncmp(key, "HEATER", strlen("HEATER"))) {
-      heaters = realloc(heaters, (nb_heaters+1)*sizeof(struct _heater));
-      snprintf(heater_value, WORDLENGTH, "%s", value);
-      parse_heater(sqlite3_db, device, key, heater_value, &heaters[nb_heaters]);
-      nb_heaters++;
-    } else {
-      // Default value
-      sensors = realloc(sensors, (nb_sensors+1)*sizeof(struct _sensor));
-      snprintf(sensors[nb_sensors].name, WORDLENGTH, "%s", key);
-      snprintf(sensors[nb_sensors].value, WORDLENGTH, "%s", value);
-      snprintf(sensors[nb_sensors].display, WORDLENGTH, "%s", sensors[nb_sensors].name);
-      strcpy(sensors[nb_sensors].unit, "");
-      sensors[nb_sensors].enabled = 1;
-      sensors[nb_sensors].monitored = 0;
-      sensors[nb_sensors].monitored_every = 0;
-      sensors[nb_sensors].monitored_next = 0;
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')", key, device);
-      sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-      if (sql_result != SQLITE_OK) {
-        log_message(LOG_INFO, "Error preparing sql query");
-      } else {
-        row_result = sqlite3_step(stmt);
-        if (row_result == SQLITE_ROW) {
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 0), sensors[nb_sensors].display, WORDLENGTH);
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 1), sensors[nb_sensors].unit, WORDLENGTH);
-          sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 2);
-          sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 3);
-          sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 4);
-          sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 5);
-        }
-      }
-      sqlite3_finalize(stmt);
-      nb_sensors++;
-    }
-    tmp = strtok_r( NULL, ",", &saveptr );
-  }
-  
-  // Arranging the results
-  str_pins = malloc(2*sizeof(char));
-  strcpy(str_pins, "[");
-  for (i=0; i<nb_pins; i++) {
-    tags_array = get_tags(sqlite3_db, device, DATA_PIN, pins[i].name);
-    tags = build_json_tags(tags_array);
-    strcpy(one_element, "");
-    if (i>0) {
-      strncat(one_element, ",", MSGLENGTH);
-    }
-    strncat(one_element, "{\"name\":\"", MSGLENGTH);
-    sanitize_json_string(pins[i].name, sanitized, WORDLENGTH);
-    strncat(one_element, sanitized, MSGLENGTH);
-    strncat(one_element, "\",\"display\":\"", MSGLENGTH);
-    sanitize_json_string(pins[i].display, sanitized, WORDLENGTH);
-    strncat(one_element, sanitized, MSGLENGTH);
-    strncat(one_element, "\",\"status\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%d", pins[i].status);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"type\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%d", pins[i].type);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"enabled\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%s", pins[i].enabled?"true":"false");
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%s", pins[i].monitored?"true":"false");
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored_every\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%d", pins[i].monitored_every);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%ld", pins[i].monitored_next);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"tags\":", MSGLENGTH);
-    str_pins = realloc(str_pins, strlen(str_pins)+strlen(one_element)+strlen(tags)+2);
-    strcat(str_pins, one_element);
-    strcat(str_pins, tags);
-    strcat(str_pins, "}");
-    free(tags);
-    free_tags(tags_array);
-  }
-  str_pins = realloc(str_pins, strlen(str_pins)+2);
-  strcat(str_pins, "]");
-  
-  str_sensors = malloc(2*sizeof(char));
-  strcpy(str_sensors, "[");
-  for (i=0; i<nb_sensors; i++) {
-    tags_array = get_tags(sqlite3_db, device, DATA_SENSOR, sensors[i].name);
-    tags = build_json_tags(tags_array);
-    strcpy(one_element, "");
-    if (i>0) {
-      strncat(one_element, ",", MSGLENGTH);
-    }
-    strncat(one_element, "{\"name\":\"", MSGLENGTH);
-    sanitize_json_string(sensors[i].name, sanitized, WORDLENGTH);
-    strncat(one_element, sanitized, MSGLENGTH);
-    strncat(one_element, "\",\"display\":\"", MSGLENGTH);
-    sanitize_json_string(sensors[i].display, sanitized, WORDLENGTH);
-    strncat(one_element, sanitized, MSGLENGTH);
-    strncat(one_element, "\",\"value\":", MSGLENGTH);
-    strncat(one_element, sensors[i].value, MSGLENGTH);
-    strncat(one_element, ",\"unit\":\"", MSGLENGTH);
-    strncat(one_element, sensors[i].unit, MSGLENGTH);
-    strncat(one_element, "\",\"enabled\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%s", sensors[i].enabled?"true":"false");
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%s", sensors[i].monitored?"true":"false");
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored_every\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%d", sensors[i].monitored_every);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"monitored_next\":", MSGLENGTH);
-    snprintf(tmp_value, WORDLENGTH, "%ld", sensors[i].monitored_next);
-    strncat(one_element, tmp_value, MSGLENGTH);
-    strncat(one_element, ",\"tags\":", MSGLENGTH);
-    str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+strlen(tags)+2);
-    strcat(str_sensors, one_element);
-    strcat(str_sensors, tags);
-    strcat(str_sensors, "}");
-    free(tags);
-    free_tags(tags_array);
-  }
-  str_sensors = realloc(str_sensors, strlen(str_sensors)+2);
-  strcat(str_sensors, "]");
-  
-  str_heaters = malloc(2*sizeof(char));
-  strcpy(str_heaters, "[");
-  for (i=0; i<nb_heaters; i++) {
-    tags_array = get_tags(sqlite3_db, device, DATA_HEATER, heaters[i].name);
-    tags = build_json_tags(tags_array);
-    strcpy(one_element, "");
-    sanitize_json_string(heaters[i].name, tmp_value, WORDLENGTH);
-    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\",\"tags\":", i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false", heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit);
-    str_heaters = realloc(str_heaters, strlen(str_heaters)+strlen(one_element)+strlen(tags)+2);
-    strcat(str_heaters, one_element);
-    strcat(str_heaters, tags);
-    strcat(str_heaters, "}");
-    free(tags);
-    free_tags(tags_array);
-  }
-  str_heaters = realloc(str_heaters, strlen(str_heaters)+2);
-  strcat(str_heaters, "]");
-  
-  str_lights = malloc(2*sizeof(char));
-  strcpy(str_lights, "[");
-  for (i=0; i<nb_lights; i++) {
-    tags_array = get_tags(sqlite3_db, device, DATA_LIGHT, lights[i].name);
-    tags = build_json_tags(tags_array);
-    strcpy(one_element, "");
-    snprintf(one_element, MSGLENGTH, "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"on\":%s,\"tags\":", i>0?",":"", lights[i].name, lights[i].display, lights[i].enabled?"true":"false", lights[i].on?"true":"false");
-    str_lights = realloc(str_lights, strlen(str_lights)+strlen(one_element)+strlen(tags)+2);
-    strcat(str_lights, one_element);
-    strcat(str_lights, tags);
-    strcat(str_lights, "}");
-    free(tags);
-    free_tags(tags_array);
-  }
-  str_lights = realloc(str_lights, strlen(str_lights)+2);
-  strcat(str_lights, "]");
-  
-  output_len = 53+strlen(device)+strlen(str_pins)+strlen(str_lights)+strlen(str_sensors)+strlen(str_heaters);
-  output = malloc(output_len*sizeof(char));
-  snprintf(output, output_len-1, "{\"name\":\"%s\",\"pins\":%s,\"lights\":%s,\"sensors\":%s,\"heaters\":%s}", device, str_pins, str_lights, str_sensors, str_heaters);
-  
-  // Free all allocated pointers before return
-  free(pins);
-  pins = NULL;
-  free(sensors);
-  sensors = NULL;
-  free(lights);
-  lights = NULL;
-  free(heaters);
-  heaters = NULL;
-  free(str_pins);
-  str_pins = NULL;
-  free(str_sensors);
-  str_sensors = NULL;
-  free(str_heaters);
-  str_heaters = NULL;
-  free(str_lights);
-  str_lights = NULL;
-  free(overview_result_cpy);
-  overview_result_cpy = NULL;
-  return output;
-}
-
-/**
  * Get the different actions for a specific device or for all devices
  */
 char * get_actions(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char cur_name[WORDLENGTH+1]={0}, cur_device[WORDLENGTH+1]={0}, cur_pin[WORDLENGTH+1]={0}, cur_sensor[WORDLENGTH+1]={0}, cur_heater[WORDLENGTH+1]={0}, cur_params[WORDLENGTH+1]={0}, * tags = NULL, cur_action[WORDLENGTH+1], ** tags_array = NULL;
+  char cur_name[WORDLENGTH+1]={0}, cur_device[WORDLENGTH+1]={0}, cur_switch[WORDLENGTH+1]={0}, cur_sensor[WORDLENGTH+1]={0}, cur_heater[WORDLENGTH+1]={0}, cur_params[WORDLENGTH+1]={0}, * tags = NULL, cur_action[WORDLENGTH+1], ** tags_array = NULL;
   char * actions = malloc(2*sizeof(char)), sql_query[MSGLENGTH+1], one_item[MSGLENGTH+1];
   
   if (device == NULL) {
@@ -301,18 +50,18 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
       }
       sanitize_json_string((char*)sqlite3_column_text(stmt, 1)==NULL?"":(char*)sqlite3_column_text(stmt, 1), cur_name, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 3)==NULL?"":(char*)sqlite3_column_text(stmt, 3), cur_device, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 4)==NULL?"":(char*)sqlite3_column_text(stmt, 4), cur_pin, WORDLENGTH);
+      sanitize_json_string((char*)sqlite3_column_text(stmt, 4)==NULL?"":(char*)sqlite3_column_text(stmt, 4), cur_switch, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 5)==NULL?"":(char*)sqlite3_column_text(stmt, 5), cur_sensor, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 6)==NULL?"":(char*)sqlite3_column_text(stmt, 6), cur_heater, WORDLENGTH);
       sanitize_json_string((char*)sqlite3_column_text(stmt, 7)==NULL?"":(char*)sqlite3_column_text(stmt, 7), cur_params, WORDLENGTH);
       tags_array = get_tags(sqlite3_db, NULL, DATA_ACTION, cur_action);
       tags = build_json_tags(tags_array);
-      snprintf(one_item, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"heater\":\"%s\",\"params\":\"%s\",\"tags\":",
+      snprintf(one_item, MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"switcher\":\"%s\",\"sensor\":\"%s\",\"heater\":\"%s\",\"params\":\"%s\",\"tags\":",
         sqlite3_column_int(stmt, 0),
         cur_name,
         sqlite3_column_int(stmt, 2),
         cur_device,
-        cur_pin,
+        cur_switch,
         cur_sensor,
         cur_heater,
         cur_params);
@@ -513,7 +262,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   char sql_query[MSGLENGTH+1];
   action ac;
     
-  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, se.se_name, he.he_name, ac.ac_params, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_sensor se on se.se_id = ac.se_id LEFT OUTER JOIN an_heater he on he.he_id = ac.he_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' AND NOT acs.as_enabled = 0 ORDER BY acs.as_rank", script_id);
+  snprintf(sql_query, MSGLENGTH, "SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, di.di_name, he.he_name, ac.ac_params, ac.ac_id FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de on de.de_id = ac.de_id LEFT OUTER JOIN an_switch sw on sw.sw_id = ac.sw_id LEFT OUTER JOIN an_dimmer di on di.di_id = ac.di_id LEFT OUTER JOIN an_heater he on he.he_id = ac.he_id WHERE ac.ac_id = acs.ac_id AND acs.sc_id = '%s' AND NOT acs.as_enabled = 0 ORDER BY acs.as_rank", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query %s", sql_query);
@@ -538,14 +287,14 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
         memset(ac.device, 0, WORDLENGTH*sizeof(char));;
       }
       if (sqlite3_column_type(stmt, 3) != SQLITE_NULL) {
-        snprintf(ac.pin, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 3));
+        snprintf(ac.switcher, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 3));
       } else {
-        memset(ac.pin, 0, WORDLENGTH*sizeof(char));;
+        memset(ac.switcher, 0, WORDLENGTH*sizeof(char));;
       }
       if (sqlite3_column_type(stmt, 4) != SQLITE_NULL) {
-        snprintf(ac.sensor, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 4));
+        snprintf(ac.dimmer, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 4));
       } else {
-        memset(ac.sensor, 0, WORDLENGTH*sizeof(char));;
+        memset(ac.dimmer, 0, WORDLENGTH*sizeof(char));;
       }
       if (sqlite3_column_type(stmt, 5) != SQLITE_NULL) {
         snprintf(ac.heater, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 5));
@@ -573,68 +322,50 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
  * Run the specified action, evaluate the result and return if the result is valid
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path) {
-  char str_result[MSGLENGTH+1] = {0}, tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
+  char tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
   int heat_set, sleep_val, toggle_set;
   float heat_max_value;
+  int dimmer_value;
   device * cur_terminal;
   FILE * command_stream;
   
   switch (ac.type) {
-    case ACTION_DEVICE:
-      snprintf(message_log, MSGLENGTH, "run_action: get_devices");
-      if (!get_devices(sqlite3_db, terminal, nb_terminal)) {
-        return 0;
-      }
-      break;
-    case ACTION_OVERVIEW:
-      snprintf(message_log, MSGLENGTH, "run_action: overview %s", ac.device);
-      if (ac.device != NULL) {
-        cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        if (!cur_terminal->enabled && get_overview(cur_terminal, str_result)) {
-          return 0;
-        }
-      } else {
-        return 0;
-      }
-      break;
-    case ACTION_REFRESH:
-      snprintf(message_log, MSGLENGTH, "run_action: refresh %s", ac.device);
-      if (ac.device != NULL) {
-        cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
-        if (!cur_terminal->enabled && get_refresh(cur_terminal, str_result)) {
-          return 0;
-        }
-      } else {
-        return 0;
-      }
-      break;
-    case ACTION_GET:
-      break;
-    case ACTION_SET:
-      snprintf(message_log, MSGLENGTH, "run_action: set_switch_state %s %s %s", ac.device, ac.pin, ac.params);
+    case ACTION_SET_SWITCH:
+      snprintf(message_log, MSGLENGTH, "run_action: set_switch_state %s %s %s", ac.device, ac.switcher, ac.params);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled) {
-          set_switch_state(cur_terminal, ac.pin+3, (0 == strcmp(ac.params, "1")));
-          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, (0 == strcmp(ac.params, "1")))) {
-            log_message(LOG_INFO, "Error saving pin status in the database");
+          set_switch_state(cur_terminal, ac.switcher, (0 == strcmp(ac.params, "1")));
+          if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, (0 == strcmp(ac.params, "1")))) {
+            log_message(LOG_INFO, "Error saving switcher status in the database");
           }
         }
       }
       break;
-    case ACTION_TOGGLE:
-      snprintf(message_log, MSGLENGTH, "run_action: toggle_switch_state %s %s", ac.device, ac.pin);
+    case ACTION_TOGGLE_SWITCH:
+      snprintf(message_log, MSGLENGTH, "run_action: toggle_switch_state %s %s", ac.device, ac.switcher);
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled) {
-          toggle_set = toggle_switch_state(cur_terminal, ac.pin+3);
-          if (!set_startup_pin_status(sqlite3_db, cur_terminal->name, ac.pin+3, toggle_set)) {
-            log_message(LOG_INFO, "Error saving pin status in the database");
+          toggle_set = toggle_switch_state(cur_terminal, ac.switcher);
+          if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, toggle_set)) {
+            log_message(LOG_INFO, "Error saving switcher status in the database");
           }
         }
       }
       break;
-    case ACTION_SENSOR:
+    case ACTION_DIMMER:
+      snprintf(message_log, MSGLENGTH, "run_action: set_dimmer_value %s %s %s", ac.device, ac.dimmer, ac.params);
+      if (ac.device != NULL) {
+        cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
+        if (cur_terminal->enabled) {
+          dimmer_value = strtol(ac.params, NULL, 10);
+          set_dimmer_value(cur_terminal, ac.dimmer, dimmer_value);
+          if (!save_startup_dimmer_value(sqlite3_db, cur_terminal->name, ac.dimmer, dimmer_value)) {
+            log_message(LOG_INFO, "Error saving dimmer status in the database");
+          }
+        }
+      }
       break;
     case ACTION_HEATER:
       snprintf(message_log, MSGLENGTH, "run_action: set_heater %s %s %s", ac.device, ac.heater, ac.params);
@@ -643,7 +374,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         heat_max_value = strtof(ac.params+2, NULL);
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal->enabled && set_heater(cur_terminal, ac.heater, heat_set, heat_max_value, tmp)) {
-          if (!set_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
+          if (!save_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
             log_message(LOG_INFO, "Error saving heater status in the database");
           }
         }
@@ -839,20 +570,20 @@ char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
 /**
  * Change the display name, the type and the enable settings for a device
  */
-char * set_pin_data(sqlite3 * sqlite3_db, pin cur_pin) {
+char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
   char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), '%d', '%d', 0)", cur_pin.name, cur_pin.device, cur_pin.device, cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled, cur_pin.name, cur_pin.device, cur_pin.monitored, cur_pin.monitored_every);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next) VALUES ((SELECT sw_id FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d', '%d', (SELECT sw_status FROM an_switch where sw_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), '%d', '%d', 0)", cur_switch.name, cur_switch.device, cur_switch.device, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled, cur_switch.name, cur_switch.device, cur_switch.monitored, cur_switch.monitored_every);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    tags = build_tags_from_list(cur_pin.tags);
+    tags = build_tags_from_list(cur_switch.tags);
     tags_json = build_json_tags(tags);
-    set_tags(sqlite3_db, cur_pin.device, DATA_PIN, cur_pin.name, tags);
-    sanitize_json_string(cur_pin.name, cur_pin.name, WORDLENGTH);
-    sanitize_json_string(cur_pin.display, cur_pin.display, WORDLENGTH);
-    str_len = 59+strlen(cur_pin.name)+strlen(cur_pin.display)+strlen(tags_json);
+    set_tags(sqlite3_db, cur_switch.device, DATA_SWITCH, cur_switch.name, tags);
+    sanitize_json_string(cur_switch.name, cur_switch.name, WORDLENGTH);
+    sanitize_json_string(cur_switch.display, cur_switch.display, WORDLENGTH);
+    str_len = 59+strlen(cur_switch.name)+strlen(cur_switch.display)+strlen(tags_json);
     to_return = malloc(str_len+1*sizeof(char));
-    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s,\"tags\":%s}", cur_pin.name, cur_pin.display, cur_pin.type, cur_pin.enabled?"true":"false", tags_json);
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s,\"tags\":%s}", cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
@@ -884,29 +615,6 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
 }
 
 /**
- * Change the display name and the enable settings for a light
- */
-char * set_light_data(sqlite3 * sqlite3_db, light cur_light) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
-  int str_len=0;
-  
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_light (li_id, de_id, li_name, li_display, li_enabled) VALUES ((SELECT li_id FROM an_light where li_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_light.name, cur_light.device, cur_light.device, cur_light.name, cur_light.display, cur_light.enabled);
-  if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-    tags = build_tags_from_list(cur_light.tags);
-    tags_json = build_json_tags(tags);
-    set_tags(sqlite3_db, cur_light.device, DATA_LIGHT, cur_light.name, tags);
-    sanitize_json_string(cur_light.name, cur_light.name, WORDLENGTH);
-    sanitize_json_string(cur_light.display, cur_light.display, WORDLENGTH);
-    str_len = 50+strlen(cur_light.name)+strlen(cur_light.display)+strlen(tags_json);
-    to_return = malloc(str_len+1*sizeof(char));
-    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_light.name, cur_light.display, cur_light.enabled?"true":"false", tags_json);
-    free(tags_json);
-    free_tags(tags);
-  }
-  return to_return;
-}
-
-/**
  * Change the display name, the unit and the enable settings for a heater
  */
 char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
@@ -931,92 +639,95 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
 }
 
 /**
+ * Change the display name and the enable settings for a dimmer
+ */
+char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
+  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  int str_len=0;
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active) VALUES ((SELECT di_id FROM an_dimmer where di_name='%q' and de_id in (SELECT de_id FROM an_device where de_name='%q')), (SELECT de_id FROM an_device where de_name='%q'), '%q', '%q', '%d')", cur_dimmer.name, cur_dimmer.device, cur_dimmer.device, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled);
+  if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+    tags = build_tags_from_list(cur_dimmer.tags);
+    tags_json = build_json_tags(tags);
+    set_tags(sqlite3_db, cur_dimmer.device, DATA_DIMMER, cur_dimmer.name, tags);
+    sanitize_json_string(cur_dimmer.name, cur_dimmer.name, WORDLENGTH);
+    sanitize_json_string(cur_dimmer.display, cur_dimmer.display, WORDLENGTH);
+    str_len = 50+strlen(cur_dimmer.name)+strlen(cur_dimmer.display)+strlen(tags_json);
+    to_return = malloc(str_len+1*sizeof(char));
+    snprintf(to_return, str_len, "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}", cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
+    free(tags_json);
+    free_tags(tags);
+  }
+  return to_return;
+}
+
+/**
  * Add an action into the database
  */
 int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char sql_query[MSGLENGTH+1], str_id[WORDLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL;
+  char sql_query[MSGLENGTH+1], str_id[WORDLENGTH+1], device[WORDLENGTH+1], switcher[WORDLENGTH+1], dimmer[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL;
   
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_OVERVIEW && 0 == strcmp(cur_action.device, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_REFRESH && 0 == strcmp(cur_action.device, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_GET && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SET && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.pin, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_DIMMER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.dimmer, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_TOGGLE && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   
-  if (cur_action.type == ACTION_DEVICE) {
-    strcpy(device, "");
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(params, "");
-  }
-
-  if (cur_action.type == ACTION_REFRESH) {
+  if (cur_action.type == ACTION_SET_SWITCH) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(params, "");
-  }
-  
-  if (cur_action.type == ACTION_GET) {
-    snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
+    snprintf(switcher, WORDLENGTH, "%s", cur_action.switcher);
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_SET) {
+  if (cur_action.type == ACTION_TOGGLE_SWITCH) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
+    snprintf(switcher, WORDLENGTH, "%s", cur_action.switcher);
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
-    snprintf(params, WORDLENGTH, "%s", cur_action.params);
+    strcpy(params, "");
   }
   
-  if (cur_action.type == ACTION_SENSOR) {
+  if (cur_action.type == ACTION_DIMMER) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
-    snprintf(sensor, WORDLENGTH, "%s", cur_action.sensor);
+    strcpy(switcher, "");
+    snprintf(dimmer, WORDLENGTH, "%s", cur_action.dimmer);
+    strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
   if (cur_action.type == ACTION_HEATER) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
+    strcpy(switcher, "");
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     snprintf(heater, WORDLENGTH, "%s", cur_action.heater);
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_TOGGLE) {
-    snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    strcpy(params, "");
-  }
-  
-  if ((cur_action.type == ACTION_SYSTEM) || (cur_action.type == ACTION_SLEEP) || (cur_action.type == ACTION_SCRIPT)) {
+  if (cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) {
     strcpy(device, "");
-    strcpy(pin, "");
+    strcpy(switcher, "");
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
-                
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action (ac_name, ac_type, de_id, sw_id, se_id, he_id, ac_params) VALUES ('%q', '%d', (select de_id from an_device where de_name='%q'), (select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), '%q')", cur_action.name, cur_action.type, device, pin, device, sensor, device, heater, device, params);
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_action (ac_name, ac_type, de_id, sw_id, di_id, se_id, he_id, ac_params) VALUES ('%q', '%d', (select de_id from an_device where de_name='%q'), (select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select di_id from an_dimmer where di_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), (select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), '%q')", cur_action.name, cur_action.type, device, switcher, device, dimmer, device, sensor, device, heater, device, params);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     cur_action.id = (int)sqlite3_last_insert_rowid(sqlite3_db);
     snprintf(str_id, WORDLENGTH, "%d", cur_action.id);
     tags = build_tags_from_list(cur_action.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, NULL, DATA_ACTION, str_id, tags);
-    snprintf(command_result, 2*MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params, tags_json);
+    snprintf(command_result, 2*MSGLENGTH, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"switcher\":\"%s\",\"dimmer\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, switcher, dimmer, sensor, params, tags_json);
     free(tags_json);
     free_tags(tags);
     return 1;
@@ -1030,90 +741,68 @@ int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
  * Modifies the specified action
  */
 int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result) {
-  char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], pin[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
+  char sql_query[MSGLENGTH+1], device[WORDLENGTH+1], switcher[WORDLENGTH+1], dimmer[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1];
   
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_OVERVIEW && 0 == strcmp(cur_action.device, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_REFRESH && 0 == strcmp(cur_action.device, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_GET && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SET && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.pin, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_SENSOR && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.sensor, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) || 0 == strcmp(cur_action.params, ""))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
+  if (cur_action.type == ACTION_DIMMER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.dimmer, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") || (0 == strcmp(cur_action.params, "")))) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
-  if (cur_action.type == ACTION_TOGGLE && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.pin, ""))) {log_message(LOG_INFO, "Error inserting action, wrong params"); return 0;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) && 0 == strcmp(cur_action.params, "")) {log_message(LOG_INFO, "Error updating action, wrong params"); return 0;}
   
-  if (cur_action.type == ACTION_DEVICE) {
-    strcpy(device, "");
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    strcpy(params, "");
-  }
-
-  if (cur_action.type == ACTION_REFRESH) {
+  if (cur_action.type == ACTION_SET_SWITCH) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    strcpy(params, "");
-  }
-  
-  if (cur_action.type == ACTION_GET) {
-    snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
+    snprintf(switcher, WORDLENGTH, "%s", cur_action.switcher);
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_SET) {
+  if (cur_action.type == ACTION_TOGGLE_SWITCH) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
+    snprintf(switcher, WORDLENGTH, "%s", cur_action.switcher);
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
-    snprintf(params, WORDLENGTH, "%s", cur_action.params);
+    strcpy(params, "");
   }
   
-  if (cur_action.type == ACTION_SENSOR) {
+  if (cur_action.type == ACTION_DIMMER) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
-    snprintf(sensor, WORDLENGTH, "%s", cur_action.sensor);
+    strcpy(switcher, "");
+    snprintf(dimmer, WORDLENGTH, "%s", cur_action.dimmer);
+    strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
   if (cur_action.type == ACTION_HEATER) {
     snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    strcpy(pin, "");
+    strcpy(switcher, "");
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     snprintf(heater, WORDLENGTH, "%s", cur_action.heater);
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
   
-  if (cur_action.type == ACTION_TOGGLE) {
-    snprintf(device, WORDLENGTH, "%s", cur_action.device);
-    snprintf(pin, WORDLENGTH, "%s", cur_action.pin);
-    strcpy(sensor, "");
-    strcpy(heater, "");
-    strcpy(params, "");
-  }
-  
   if (cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) {
     strcpy(device, "");
-    strcpy(pin, "");
+    strcpy(switcher, "");
+    strcpy(dimmer, "");
     strcpy(sensor, "");
     strcpy(heater, "");
     snprintf(params, WORDLENGTH, "%s", cur_action.params);
   }
-                
-  sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_action SET ac_name='%q', ac_type='%d', de_id=(select de_id from an_device where de_name='%q'), sw_id=(select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), se_id=(select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), he_id=(select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), ac_params='%q' WHERE ac_id='%d'", cur_action.name, cur_action.type, device, pin, device, sensor, device, heater, device, params, cur_action.id);
+  
+  sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_action SET ac_name='%q', ac_type='%d', de_id=(select de_id from an_device where de_name='%q'), sw_id=(select sw_id from an_switch where sw_name='%q' and de_id in (select de_id from an_device where de_name='%q')), di_id=(select di_id from an_dimmer where di_name='%q' and de_id in (select de_id from an_device where de_name='%q')), se_id=(select se_id from an_sensor where se_name='%q' and de_id in (select de_id from an_device where de_name='%q')), he_id=(select he_id from an_heater where he_name='%q' and de_id in (select de_id from an_device where de_name='%q')), ac_params='%q' WHERE ac_id='%d'", cur_action.name, cur_action.type, device, switcher, device, dimmer, device, sensor, device, heater, device, params, cur_action.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     snprintf(str_id, WORDLENGTH, "%d", cur_action.id);
     tags = build_tags_from_list(cur_action.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, NULL, DATA_ACTION, str_id, tags);
-    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, pin, sensor, params, tags_json);
+    snprintf(command_result, MSGLENGTH*2, "{\"id\":%d,\"name\":\"%s\",\"type\":%d,\"device\":\"%s\",\"switcher\":\"%s\",\"dimmer\":\"%s\",\"sensor\":\"%s\",\"params\":\"%s\",\"tags\":%s}", cur_action.id, cur_action.name, cur_action.type, device, switcher, dimmer, sensor, params, tags_json);
     free(tags_json);
     free_tags(tags);
     return 1;
@@ -1378,9 +1067,9 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
   int sql_result, row_result;
   char sql_query[MSGLENGTH+1];
   
-  heatSet = strtok_r(source, ";", &saveptr);
-  heatOn = strtok_r(NULL, ";", &saveptr);
-  heatMaxValue = strtok_r(NULL, ";", &saveptr);
+  heatSet = strtok_r(source, "|", &saveptr);
+  heatOn = strtok_r(NULL, "|", &saveptr);
+  heatMaxValue = strtok_r(NULL, "|", &saveptr);
   if (heatSet == NULL || heatOn == NULL || heatMaxValue == NULL) {
     log_message(LOG_INFO, "Error parsing heater data");
     return 0;
@@ -1422,7 +1111,7 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
 /**
  * Save the heat status in the database for startup init
  */
-int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater_name, int heat_enabled, float max_heat_value) {
+int save_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater_name, int heat_enabled, float max_heat_value) {
   char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result, he_id;
@@ -1448,14 +1137,14 @@ int set_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heater
 }
 
 /**
- * Save the heat status in the database for startup init
+ * Save the switch status in the database for startup init
  */
-int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int status) {
+int save_startup_switch_status(sqlite3 * sqlite3_db, char * device, char * switcher, int status) {
   char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_id FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_name = 'PIN%q'", device, pin);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_id FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_name = '%q'", device, switcher);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
     log_message(LOG_INFO, "Error preparing sql query");
@@ -1465,40 +1154,106 @@ int set_startup_pin_status(sqlite3 * sqlite3_db, char * device, char * pin, int 
     row_result = sqlite3_step(stmt);
     if (row_result == SQLITE_ROW) {
       sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_switch SET sw_status='%d' WHERE sw_id='%d'", status, sqlite3_column_int(stmt, 0));
+      sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
+      sqlite3_finalize(stmt);
+      return ( sql_result == SQLITE_OK );
     } else {
-      sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_switch (de_id, sw_name, sw_display, sw_status) VALUES ((SELECT de_id FROM an_device where de_name='%q'), 'PIN%q', 'PIN%q', '%d')", device, pin, pin, status);
+      return 0;
     }
-    sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
-    sqlite3_finalize(stmt);
-    return ( sql_result == SQLITE_OK );
   }
 }
 
-int set_startup_pin_on(sqlite3 * sqlite3_db, device * cur_device) {
-  char sql_query[MSGLENGTH+1], log[MSGLENGTH+1], pin_name[WORDLENGTH+1];
+/**
+ * Save the dimmer value in the database for startup init
+ */
+int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer, int value) {
+  char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
-  int sql_result, row_result, state_result=1;
+  int sql_result, row_result;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_name FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_status = '1'", cur_device->name);
+  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT di_id FROM an_dimmer WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND di_name = '%q'", device, dimmer);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_INFO, "Error preparing sql query set_startup_pin_on");
+    log_message(LOG_INFO, "Error preparing sql query");
     sqlite3_finalize(stmt);
     return 0;
   } else {
     row_result = sqlite3_step(stmt);
-    while (row_result == SQLITE_ROW) {
-      snprintf(pin_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0)+3);
-      if (set_switch_state(cur_device, pin_name, 1) != 1) {
-        snprintf(log, MSGLENGTH, "Error setting pin %s on device %s", pin_name, cur_device->name);
-        log_message(LOG_INFO, log);
-        state_result = 0;
-      }
-      row_result = sqlite3_step(stmt);
+    if (row_result == SQLITE_ROW) {
+      sqlite3_snprintf(MSGLENGTH, sql_query, "UPDATE an_dimmer SET di_value='%d' WHERE di_id='%d'", value, sqlite3_column_int(stmt, 0));
+      sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
+      sqlite3_finalize(stmt);
+      return ( sql_result == SQLITE_OK );
+    } else {
+      return 0;
     }
-    sqlite3_finalize(stmt);
-    return state_result;
   }
+}
+
+/**
+ * Set all the switch to on if their status is on in the database
+ */
+int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device) {
+  char sql_query[MSGLENGTH+1], log[MSGLENGTH+1], switch_name[WORDLENGTH+1];
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, state_result=1;
+  
+  // Do not initiate elements on device connect, because it takes a few seconds to pair elements
+  if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_name, sw_status FROM an_switch WHERE de_id in (SELECT de_id FROM an_device where de_name='%q') AND sw_status = 1", cur_device->name);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_INFO, "Error preparing sql query set_startup_all_switch");
+      sqlite3_finalize(stmt);
+      state_result = 0;
+    } else {
+      row_result = sqlite3_step(stmt);
+      while (row_result == SQLITE_ROW) {
+        snprintf(switch_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+        if (set_switch_state(cur_device, switch_name, sqlite3_column_int(stmt, 1)) == ERROR_SWITCH) {
+          snprintf(log, MSGLENGTH, "Error setting switcher %s on device %s", switch_name, cur_device->name);
+          log_message(LOG_INFO, log);
+          state_result = 0;
+        }
+        row_result = sqlite3_step(stmt);
+      }
+      sqlite3_finalize(stmt);
+    }
+  }
+  return state_result;
+}
+
+/**
+ * Set all the dimmers values if their status is on in the database
+ */
+int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device) {
+  char sql_query[MSGLENGTH+1], log[MSGLENGTH+1], dimmer_name[WORDLENGTH+1];
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, result=1;
+  
+  // Do not initiate elements on device connect, because it takes a few seconds to pair elements
+  if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
+    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT di_name, di_value FROM an_dimmer WHERE de_id in (SELECT de_id FROM an_device where de_name='%q')", cur_device->name);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_INFO, "Error preparing sql query set_startup_all_dimmer");
+      sqlite3_finalize(stmt);
+      result = 0;
+    } else {
+      row_result = sqlite3_step(stmt);
+      while (row_result == SQLITE_ROW) {
+        snprintf(dimmer_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+        if (set_dimmer_value(cur_device, dimmer_name, sqlite3_column_int(stmt, 1)) == ERROR_DIMMER) {
+          snprintf(log, MSGLENGTH, "Error setting dimmer %s on device %s", dimmer_name, cur_device->name);
+          log_message(LOG_INFO, log);
+          result = 0;
+        }
+        row_result = sqlite3_step(stmt);
+      }
+      sqlite3_finalize(stmt);
+    }
+  }
+  return result;
 }
 
 /**
@@ -1535,14 +1290,14 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
 }
 
 /**
- * Initialize the device with the stored init values (heater and pins)
+ * Initialize the device with the stored init values (heater and switches)
  */
 int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
   heater * heaters;
   int heat_status=1, i=0;
   char output[WORDLENGTH+1];
   
-  if (cur_device->enabled) {
+  if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
     heaters = get_startup_heater_status(sqlite3_db, cur_device->name);
     for (i=0; heaters[i].id != -1; i++) {
       if (!set_heater(cur_device, heaters[i].name, heaters[i].set, heaters[i].heat_max_value, output)) {
@@ -1550,7 +1305,7 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
       }
     }
     free(heaters);
-    return (heat_status && set_startup_pin_on(sqlite3_db, cur_device));
+    return (heat_status && set_startup_all_switch(sqlite3_db, cur_device) && set_startup_all_dimmer_value(sqlite3_db, cur_device));
   } else {
     return 1;
   }
@@ -1559,16 +1314,16 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
 /**
  * Gets the monitored value using the given filters
  */
-char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, const char * sensor, const char * start_date) {
+char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * switcher, const char * sensor, const char * start_date) {
   char sql_query[MSGLENGTH+1];
   sqlite3_stmt *stmt;
   int sql_result, row_result, first_result = 1, t_len;
-  char p_device[WORDLENGTH+1], p_pin[WORDLENGTH+1], p_sensor[WORDLENGTH+1], p_start_date[WORDLENGTH+1], where_switch[MSGLENGTH+1], where_sensor[MSGLENGTH+1], monitor_date[WORDLENGTH+1], monitor_value[WORDLENGTH+1], one_item[WORDLENGTH*2 + 1];
+  char p_device[WORDLENGTH+1], p_switch[WORDLENGTH+1], p_sensor[WORDLENGTH+1], p_start_date[WORDLENGTH+1], where_switch[MSGLENGTH+1], where_sensor[MSGLENGTH+1], monitor_date[WORDLENGTH+1], monitor_value[WORDLENGTH+1], one_item[WORDLENGTH*2 + 1];
   time_t yesterday;
   char * to_return = NULL;
   
   snprintf(p_device, WORDLENGTH, "%s", device);
-  snprintf(p_pin, WORDLENGTH, "%s", pin);
+  snprintf(p_switch, WORDLENGTH, "%s", switcher);
   snprintf(p_sensor, WORDLENGTH, "%s", sensor);
   if (start_date == NULL) {
     time(&yesterday);
@@ -1578,10 +1333,10 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, 
     snprintf(p_start_date, WORDLENGTH, "%s", start_date);
   }
   
-  if (pin != NULL && 0 != strcmp("0", pin)) {
-    sqlite3_snprintf(MSGLENGTH, where_switch, "AND mo.sw_id = (SELECT sw_id FROM an_switch WHERE sw_name='%q' AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_pin, p_device);
+  if (switcher != NULL && 0 != strcmp("0", switcher)) {
+    sqlite3_snprintf(MSGLENGTH, where_switch, "AND mo.sw_id = (SELECT sw_id FROM an_switch WHERE sw_name='%q' AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_switch, p_device);
   } else {
-    strcpy(p_pin, "");
+    strcpy(p_switch, "");
     strcpy(where_switch, "");
   }
   
@@ -1599,9 +1354,9 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * pin, 
     sqlite3_finalize(stmt);
     return 0;
   } else {
-    t_len = (63 + strlen(device) + strlen(p_pin) + strlen(p_sensor) + strlen(p_start_date));
+    t_len = (67 + strlen(device) + strlen(p_switch) + strlen(p_sensor) + strlen(p_start_date));
     to_return = malloc(t_len * sizeof(char));
-    snprintf(to_return, t_len, "{\"device\":\"%s\",\"pin\":\"%s\",\"sensor\":\"%s\",\"start_date\":\"%s\",\"values\":[", device, p_pin, p_sensor, p_start_date);
+    snprintf(to_return, t_len, "{\"device\":\"%s\",\"switcher\":\"%s\",\"sensor\":\"%s\",\"start_date\":\"%s\",\"values\":[", device, p_switch, p_sensor, p_start_date);
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
       snprintf(monitor_date, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
@@ -1741,21 +1496,21 @@ char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_
   char sql_query[MSGLENGTH+1] = {0}, where_element[MSGLENGTH+1] = {0}, cur_tag[WORDLENGTH+1], ** to_return = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, nb_return=0;
-  switch(element_type) {
+  switch (element_type) {
     case DATA_DEVICE:
       sqlite3_snprintf(MSGLENGTH, where_element, "de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')", element);
       break;
-    case DATA_PIN:
+    case DATA_SWITCH:
       sqlite3_snprintf(MSGLENGTH, where_element, "sw_id = (SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_SENSOR:
       sqlite3_snprintf(MSGLENGTH, where_element, "se_id = (SELECT se_id FROM an_sensor WHERE se_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
-    case DATA_LIGHT:
-      sqlite3_snprintf(MSGLENGTH, where_element, "li_id = (SELECT li_id FROM an_light WHERE li_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
-      break;
     case DATA_HEATER:
       sqlite3_snprintf(MSGLENGTH, where_element, "he_id = (SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+      break;
+    case DATA_DIMMER:
+      sqlite3_snprintf(MSGLENGTH, where_element, "di_id = (SELECT di_id FROM an_dimmer WHERE di_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_ACTION:
       sqlite3_snprintf(MSGLENGTH, where_element, "ac_id = '%q'", element);
@@ -1850,12 +1605,12 @@ int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type
   int counter = 0, cur_tag = -1;
   
   if (tags != NULL) {
-    switch(element_type) {
+    switch (element_type) {
       case DATA_DEVICE:
         sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT de_id FROM an_device WHERE de_name = '%q')", element);
         strcpy(element_row, "de_id");
         break;
-      case DATA_PIN:
+      case DATA_SWITCH:
         sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "sw_id");
         break;
@@ -1863,13 +1618,13 @@ int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type
         sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT se_id FROM an_sensor WHERE se_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "se_id");
         break;
-      case DATA_LIGHT:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT li_id FROM an_light WHERE li_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
-        strcpy(element_row, "li_id");
-        break;
       case DATA_HEATER:
         sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "he_id");
+        break;
+      case DATA_DIMMER:
+        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT di_id FROM an_dimmer WHERE di_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
+        strcpy(element_row, "di_id");
         break;
       case DATA_ACTION:
         sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
