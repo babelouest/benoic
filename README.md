@@ -3,6 +3,8 @@ angharad
 
 Angharad server with JSON/REST interface to command domotic devices
 
+Clients available: [Angharadweb](https://github.com/babelouest/angharadweb )
+
 Installation
 ============
 
@@ -45,5 +47,3 @@ To use angharad as a Daemon, install the init file as root:
 # update-rc.d angharad defaults
 # service angharad start
 ```
-
-Clients available: angharadweb
