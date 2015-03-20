@@ -1,3 +1,18 @@
+--
+--
+-- Angharad server
+--
+-- Environment used to control home devices (switches, sensors, heaters, etc)
+-- Using different protocols and controllers:
+-- - Arduino UNO
+-- - ZWave
+--
+-- Copyright 2014-2015 Nicolas Mora <mail@babelouest.org>
+-- Gnu Public License V3 <http://fsf.org/>
+--
+-- main database creation script
+--
+
 BEGIN;
 
 CREATE TABLE an_device(
@@ -14,7 +29,7 @@ CREATE TABLE an_switch(
   sw_name TEXT NOT NULL,
   sw_display TEXT,
   sw_type INT DEFAULT 0, -- 0 Normally Open, 1 Normally Closed, 2 Three-way
-  sw_active INT,
+  sw_active INT DEFAULT 1,
   sw_status INT DEFAULT 0,
   sw_monitored INT DEFAULT 0,
   sw_monitored_every INT DEFAULT 0,
@@ -29,7 +44,7 @@ CREATE TABLE an_sensor(
   se_name TEXT NOT NULL,
   se_display TEXT,
   se_unit TEXT,
-  se_active INT,
+  se_active INT DEFAULT 1,
   se_monitored INT DEFAULT 0,
   se_monitored_every INT DEFAULT 0,
   se_monitored_next TEXT DEFAULT 0,
@@ -46,34 +61,43 @@ CREATE TABLE an_heater(
   he_set INT DEFAULT 0,
   he_max_heat_value FLOAT DEFAULT 0,
   he_unit TEXT,
+  he_active DEFAULT 1,
+  he_monitored INT DEFAULT 0,
+  he_monitored_every INT DEFAULT 0,
+  he_monitored_next TEXT DEFAULT 0,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id)
 );
 CREATE INDEX iheater ON an_heater(he_id);
 
-CREATE TABLE an_light(
-  li_id INTEGER PRIMARY KEY AUTOINCREMENT,
+CREATE TABLE an_dimmer(
+  di_id INTEGER PRIMARY KEY AUTOINCREMENT,
   de_id INT NOT NULL,
-  li_name TEXT NOT NULL,
-  li_display TEXT,
-  li_enabled INT NOT NULL,
-  li_set INT DEFAULT 0,
+  di_name TEXT NOT NULL,
+  di_display TEXT,
+  di_active INT DEFAULT 1,
+  di_value INT DEFAULT 0,
+  di_monitored INT DEFAULT 0,
+  di_monitored_every INT DEFAULT 0,
+  di_monitored_next TEXT DEFAULT 0,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id)
 );
-CREATE INDEX ilight ON an_light(li_id);
+CREATE INDEX idimmer ON an_dimmer(di_id);
 
 CREATE TABLE an_action(
   ac_id INTEGER PRIMARY KEY AUTOINCREMENT,
   ac_name TEXT NOT NULL,
-  ac_type INT NOT NULL, -- 0: DEVICES, 1: OVERVIEW, 2: REFRESH, 3: GET, 4: SET, 5: SENSOR, 6: HEATER, 77: SCRIPT, 88: SLEEP, 99: SYSTEM
+  ac_type INT NOT NULL, -- 0: SET, 1: TOGGLE, 2: DIMMER, 3: HEATER, 77: SCRIPT, 88: SLEEP, 99: SYSTEM
   de_id INT,
   sw_id INT,
   se_id INT,
   he_id INT,
-  ac_params TEXT NOT NULL,
+  di_id INT,
+  ac_params TEXT,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id),
   FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
   FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
   FOREIGN KEY(he_id) REFERENCES an_heater(he_id)
+  FOREIGN KEY(di_id) REFERENCES an_dimmer(di_id)
 );
 CREATE INDEX iaction ON an_action(ac_id);
 
@@ -129,10 +153,14 @@ CREATE TABLE an_monitor(
   de_id INT NOT NULL,
   sw_id INT,
   se_id INT,
+  he_id INT,
+  di_id INT,
   mo_result TEXT NOT NULL,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id),
   FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
   FOREIGN KEY(se_id) REFERENCES an_sensor(se_id)
+  FOREIGN KEY(he_id) REFERENCES an_heater(he_id)
+  FOREIGN KEY(di_id) REFERENCES an_dimmer(di_id)
 );
 CREATE INDEX imonitor ON an_monitor(mo_id);
 CREATE INDEX imonitordate ON an_monitor(mo_date);
@@ -150,7 +178,7 @@ CREATE TABLE an_tag_element(
   sw_id INT DEFAULT 0,
   se_id INT DEFAULT 0,
   he_id INT DEFAULT 0,
-  li_id INT DEFAULT 0,
+  di_id INT DEFAULT 0,
   ac_id INT DEFAULT 0,
   sc_id INT DEFAULT 0,
   sh_id INT DEFAULT 0,
@@ -158,7 +186,7 @@ CREATE TABLE an_tag_element(
   FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
   FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
   FOREIGN KEY(he_id) REFERENCES an_heater(he_id),
-  FOREIGN KEY(li_id) REFERENCES an_light(li_id),
+  FOREIGN KEY(di_id) REFERENCES an_dimmer(di_id),
   FOREIGN KEY(ac_id) REFERENCES an_action(ac_id),
   FOREIGN KEY(sc_id) REFERENCES an_script(sc_id),
   FOREIGN KEY(sh_id) REFERENCES an_scheduler(sh_id)

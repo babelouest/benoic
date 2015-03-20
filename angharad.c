@@ -1,3 +1,19 @@
+/**
+ *
+ * Angharad server
+ *
+ * Environment used to control home devices (switches, sensors, heaters, etc)
+ * Using different protocols and controllers:
+ * - Arduino UNO
+ * - ZWave
+ *
+ * Copyright 2014-2015 Nicolas Mora <mail@babelouest.org>
+ * Gnu Public License V3 <http://fsf.org/>
+ *
+ * Entry point file
+ *
+ */
+
 #include "angharad.h"
 
 /**
@@ -102,6 +118,8 @@ void exit_server(struct config_elements ** config, int exit_value) {
     for (i=0; i<(*config)->nb_terminal; i++) {
       pthread_mutex_destroy(&(*config)->terminal[i]->lock);
       close_device((*config)->terminal[i]);
+      free((*config)->terminal[i]->element);
+      (*config)->terminal[i]->element = NULL;
       free((*config)->terminal[i]);
       (*config)->terminal[i] = NULL;
     }
@@ -171,8 +189,10 @@ int server(struct config_elements * config) {
 int initialize(char * config_file, char * message, struct config_elements * config) {
   config_t cfg;
   config_setting_t *root, *cfg_devices;
-  const char * cur_prefix, * cur_name, * cur_dbpath, * cur_uri, * cur_type, * cur_scriptpath;
+  const char * cur_prefix, * cur_name, * cur_dbpath, * cur_uri, * cur_type, * cur_scriptpath, * cur_config_path, * cur_user_path, * cur_command_line, * cur_log_path;
   int count, i, serial_baud, rc;
+
+  pthread_mutexattr_t mutexattr;
   
   config_init(&cfg);
   
@@ -251,29 +271,59 @@ int initialize(char * config_file, char * message, struct config_elements * conf
         }
         
         config->terminal[config->nb_terminal] = malloc(sizeof(device));
-        config->terminal[config->nb_terminal]->id = 0;
         config->terminal[config->nb_terminal]->enabled = 0;
         config->terminal[config->nb_terminal]->display[0] = 0;
         config->terminal[config->nb_terminal]->type = TYPE_NONE;
         config->terminal[config->nb_terminal]->uri[0] = 0;
         snprintf(config->terminal[config->nb_terminal]->name, WORDLENGTH, "%s", cur_name);
+
+        // Set up mutual exclusion so that this thread has priority
+        pthread_mutexattr_init ( &mutexattr );
+        pthread_mutexattr_settype( &mutexattr, PTHREAD_MUTEX_RECURSIVE );
+        pthread_mutex_init( &config->terminal[config->nb_terminal]->lock, &mutexattr );
+        pthread_mutexattr_destroy( &mutexattr );
         
         if (pthread_mutex_init(&config->terminal[config->nb_terminal]->lock, NULL) != 0) {
           snprintf(message, MSGLENGTH, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
           log_message(LOG_INFO, message);
         }
         
-        config->terminal[config->nb_terminal]->serial_baud = 0;
-        config->terminal[config->nb_terminal]->serial_fd = -1;
-        memset(config->terminal[config->nb_terminal]->serial_file, '\0', WORDLENGTH+1);
-        
+        snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH, "%s", cur_uri);
+
         if (0 == strncmp("serial", cur_type, WORDLENGTH)) {
+          config->terminal[config->nb_terminal]->element = malloc(sizeof(struct _arduino_device));
+          
+          ((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_baud = 0;
+          ((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_fd = -1;
+          memset(((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_file, '\0', WORDLENGTH+1);
+          
           config->terminal[config->nb_terminal]->type = TYPE_SERIAL;
           config_setting_lookup_int(cfg_device, "baud", &serial_baud);
-          config->terminal[config->nb_terminal]->serial_baud = serial_baud;
+          ((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_baud = serial_baud;
+          
+        } else if (0 == strncmp("zwave", cur_type, WORDLENGTH)) {
+          config->terminal[config->nb_terminal]->type = TYPE_ZWAVE;
+          
+          config->terminal[config->nb_terminal]->element = malloc(sizeof(struct _zwave_device));
+          ((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->home_id = UNDEFINED_HOME_ID;
+          ((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->init_failed = 0;
+          ((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->nodes_list = NULL;
+          
+          config_setting_lookup_string(cfg_device, "config_path", &cur_config_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->config_path, WORDLENGTH, "%s", cur_config_path);
+          
+          config_setting_lookup_string(cfg_device, "user_path", &cur_user_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->user_path, WORDLENGTH, "%s", cur_user_path);
+          
+          config_setting_lookup_string(cfg_device, "command_line", &cur_command_line);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->command_line, WORDLENGTH, "%s", cur_command_line);
+          
+          config_setting_lookup_string(cfg_device, "log_path", &cur_log_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->log_path, WORDLENGTH, "%s", cur_log_path);
+          
+          memset(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->usb_file, '\0', WORDLENGTH+1);
         }
 
-        snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH, "%s", cur_uri);
         if (connect_device(config->terminal[config->nb_terminal], config->terminal, config->nb_terminal) == -1) {
           snprintf(message, MSGLENGTH, "Error connecting device %s, using uri: %s", config->terminal[config->nb_terminal]->name, config->terminal[config->nb_terminal]->uri);
           log_message(LOG_INFO, message);
@@ -306,9 +356,9 @@ int initialize(char * config_file, char * message, struct config_elements * conf
  * url format: /PREFIX/COMMAND/DEVICE[/PARAM1[/PARAM2[/1]]]
  * examples:
  * Get indoor temperature on sensor 0 from device DEV1: /PREFIX/SENSOR/DEV1/TEMPINT/0
- * Set pin 3 to ON on DEV1 : /PREFIX/SETPIN/DEV1/3/1
- * Get pin 2 state on DEV2 : /PREFIX/GETPIN/DEV2/2
- * Get forced pin 2 state on DEV2 : /PREFIX/GETPIN/DEV2/2/1
+ * Set switcher 3 to ON on DEV1 : /PREFIX/SETSWITCH/DEV1/3/1
+ * Get switcher 2 state on DEV2 : /PREFIX/GETSWITCH/DEV2/2
+ * Get forced switcher 2 state on DEV2 : /PREFIX/GETSWITCH/DEV2/2/1
  * etc.
  */
 int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
@@ -318,7 +368,11 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   
   char delim[] = "/";
   char * prefix = NULL;
-  char * command = NULL, * device = NULL, * sensor = NULL, * pin = NULL, * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, * light_name = NULL, * light_on = NULL, * to_free = NULL, * start_date = NULL, * epoch_from_str = NULL;
+  char * command = NULL, * device = NULL, * sensor = NULL, * switcher = NULL, 
+    * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, 
+    * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, 
+    * dimmer_name = NULL, * dimmer_value = NULL, * to_free = NULL, 
+    * start_date = NULL, * epoch_from_str = NULL;
   char * page = NULL, buffer[2*MSGLENGTH+1];
   char * saveptr;
   heater heat_status;
@@ -331,6 +385,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   int i_heat_enabled;
   int epoch_from;
   float f_heat_value;
+  int i_dimmer_value;
   struct _device * cur_terminal = NULL;
   struct connection_info_struct *con_info = *con_cls;
   struct sockaddr *so_client = MHD_get_connection_info (connection, MHD_CONNECTION_INFO_CLIENT_ADDRESS)->client_addr;
@@ -341,10 +396,10 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   
   // Post data structs
   struct _device * cur_device;
-  struct _pin * cur_pin;
+  struct _switcher * cur_switch;
   struct _sensor * cur_sensor;
-  struct _light * cur_light;
   struct _heater * cur_heater;
+  struct _dimmer * cur_dimmer;
   struct _action * cur_action;
   struct _script * cur_script;
   struct _schedule * cur_schedule;
@@ -364,30 +419,30 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         con_info_post->data = malloc(sizeof(struct _device));
         memset(((struct _device *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_DEVICE;
-      } else if (0 == strcmp("SETPINDATA", command)) {
-        con_info_post->data = malloc(sizeof(struct _pin));
-        memset(((struct _pin *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
-        con_info_post->data_type = DATA_PIN;
+      } else if (0 == strcmp("SETSWITCHDATA", command)) {
+        con_info_post->data = malloc(sizeof(struct _switcher));
+        memset(((struct _switcher *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
+        con_info_post->data_type = DATA_SWITCH;
       } else if (0 == strcmp("SETSENSORDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _sensor));
         memset(((struct _sensor *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SENSOR;
-      } else if (0 == strcmp("SETLIGHTDATA", command)) {
-        con_info_post->data = malloc(sizeof(struct _light));
-        memset(((struct _light *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
-        con_info_post->data_type = DATA_LIGHT;
       } else if (0 == strcmp("SETHEATERDATA", command)) {
         con_info_post->data = malloc(sizeof(struct _heater));
         memset(((struct _heater *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
         con_info_post->data_type = DATA_HEATER;
+      } else if (0 == strcmp("SETDIMMERDATA", command)) {
+        con_info_post->data = malloc(sizeof(struct _dimmer));
+        memset(((struct _dimmer *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
+        con_info_post->data_type = DATA_DIMMER;
       } else if (0 == strcmp("SETACTION", command) || 0 == strcmp("ADDACTION", command)) {
         con_info_post->data = malloc(sizeof(struct _action));
         ((struct _action *)con_info_post->data)->id = 0;
         memset(((struct _action *)con_info_post->data)->name, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->device, 0, WORDLENGTH*sizeof(char));
-        memset(((struct _action *)con_info_post->data)->pin, 0, WORDLENGTH*sizeof(char));
-        memset(((struct _action *)con_info_post->data)->sensor, 0, WORDLENGTH*sizeof(char));
+        memset(((struct _action *)con_info_post->data)->switcher, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->heater, 0, WORDLENGTH*sizeof(char));
+        memset(((struct _action *)con_info_post->data)->dimmer, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->params, 0, MSGLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->tags, 0, WORDLENGTH*sizeof(char));
@@ -583,39 +638,58 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 sanitize_json_string(device, sanitized, WORDLENGTH);
                 snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"name\",\"device\":\"%s\",\"response\":\"%s\"}}", sanitized, buffer);
               } else if ( 0 == strcmp("OVERVIEW", command) ) {
-                get_overview(cur_terminal, buffer);
                 free(page);
                 page = NULL;
-                page = parse_overview(config->sqlite3_db, buffer);
+                page = get_overview(config->sqlite3_db, cur_terminal);
               } else if ( 0 == strcmp("REFRESH", command) ) {
-                get_refresh(cur_terminal, buffer);
                 free(page);
                 page = NULL;
-                page = parse_overview(config->sqlite3_db, buffer);
-              } else if ( 0 == strcmp("GETPIN", command) ) {
-                pin = strtok_r( NULL, delim, &saveptr );
+                page = get_refresh(config->sqlite3_db, cur_terminal);
+              } else if ( 0 == strcmp("GETSWITCH", command) ) {
+                switcher = strtok_r( NULL, delim, &saveptr );
                 force = strtok_r( NULL, delim, &saveptr );
                 iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
-                if (pin != NULL) {
-                  result = get_switch_state(cur_terminal, pin, iforce);
-                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"get_status\",\"device\":\"%s\",\"pin\":\"%s\",\"response\":%d}}", device, pin, result);
+                if (switcher != NULL) {
+                  result = get_switch_state(cur_terminal, switcher, iforce);
+                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"get_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"response\":%d}}", device, switcher, result);
                 } else {
-                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"no pin specified\",\"command\":\"%s\"}}", command);
+                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"no switcher specified\",\"command\":\"%s\"}}", command);
                 }
-              } else if ( 0 == strcmp("SETPIN", command) ) {
-                pin = strtok_r( NULL, delim, &saveptr );
+              } else if ( 0 == strcmp("SETSWITCH", command) ) {
+                switcher = strtok_r( NULL, delim, &saveptr );
                 status = strtok_r( NULL, delim, &saveptr );
-                result = set_switch_state(cur_terminal, pin, (status != NULL && (0 == strcmp("1", status))?1:0));
-                snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_status\",\"device\":\"%s\",\"pin\":\"%s\",\"status\":\"%s\",\"response\":%d}}", device, pin, status, result);
-                if (!set_startup_pin_status(config->sqlite3_db, cur_terminal->name, pin, (status != NULL && (0 == strcmp("1", status))?1:0))) {
-                  log_message(LOG_INFO, "Error saving pin status in the database");
+                result = set_switch_state(cur_terminal, switcher, (status != NULL && (0 == strcmp("1", status))?1:0));
+                snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"status\":\"%s\",\"response\":%d}}", device, switcher, status, result);
+                if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher, (status != NULL && (0 == strcmp("1", status))?1:0))) {
+                  log_message(LOG_INFO, "Error saving switcher status in the database");
                 }
-              } else if ( 0 == strcmp("TOGGLEPIN", command) ) {
-                pin = strtok_r( NULL, delim, &saveptr );
-                result = toggle_switch_state(cur_terminal, pin);
-                snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"toggle_status\",\"device\":\"%s\",\"pin\":\"%s\",\"response\":%d}}", device, pin, result);
-                if (!set_startup_pin_status(config->sqlite3_db, cur_terminal->name, pin, result)) {
-                  log_message(LOG_INFO, "Error saving pin status in the database");
+              } else if ( 0 == strcmp("TOGGLESWITCH", command) ) {
+                switcher = strtok_r( NULL, delim, &saveptr );
+                result = toggle_switch_state(cur_terminal, switcher);
+                snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"toggle_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"response\":%d}}", device, switcher, result);
+                if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher, result)) {
+                  log_message(LOG_INFO, "Error saving switcher status in the database");
+                }
+              } else if ( 0 == strncmp("SETDIMMER", command, strlen("SETDIMMER")) ) {
+                dimmer_name = strtok_r( NULL, delim, &saveptr );
+                dimmer_value = strtok_r( NULL, delim, &saveptr );
+                if (dimmer_name != NULL && dimmer_value != NULL) {
+                  i_dimmer_value = strtol(dimmer_value, NULL, 10);
+                  result = set_dimmer_value(cur_terminal, dimmer_name, i_dimmer_value);
+                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_dimmer\",\"device\":\"%s\",\"response\":%d}}", cur_terminal->name, result);
+                  if (!save_startup_dimmer_value(config->sqlite3_db, cur_terminal->name, dimmer_name, i_dimmer_value)) {
+                    log_message(LOG_INFO, "Error saving switcher status in the database");
+                  }
+                } else {
+                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
+                }
+              } else if ( 0 == strncmp("GETDIMMER", command, strlen("GETDIMMER")) ) {
+                dimmer_name = strtok_r( NULL, delim, &saveptr );
+                if (dimmer_name != NULL) {
+                  i_dimmer_value = get_dimmer_value(cur_terminal, dimmer_name);
+                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"get_dimmer\",\"device\":\"%s\",\"response\":%d}}", cur_terminal->name, i_dimmer_value);
+                } else {
+                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
                 }
               } else if ( 0 == strcmp("SENSOR", command) ) {
                 sensor = strtok_r( NULL, delim, &saveptr );
@@ -656,7 +730,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   f_heat_value = strtof(heat_value, NULL);
                   if (set_heater(cur_terminal, heater_name, i_heat_enabled, f_heat_value, buffer)) {
                     if (parse_heater(config->sqlite3_db, cur_terminal->name, heater_name, buffer, &heat_status)) {
-                      if (!set_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {
+                      if (!save_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {
                         log_message(LOG_INFO, "Error saving heater status in the database");
                       }
                       snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_heater\",\"device\":\"%s\",\"response\":{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}}}", cur_terminal->name, heat_status.name, heat_status.display, heat_status.enabled?"true":"false", heat_status.on?"true":"false", heat_status.set?"true":"false", heat_status.heat_max_value, heat_status.unit);
@@ -669,28 +743,11 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 } else {
                   snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
                 }
-              } else if ( 0 == strncmp("SETLIGHT", command, strlen("SETLIGHT")) ) {
-                light_name = strtok_r( NULL, delim, &saveptr );
-                light_on = strtok_r( NULL, delim, &saveptr );
-                if (light_name != NULL && light_on != NULL && (light_on[0] == '0' || light_on[0] == '1')) {
-                  result = set_light(cur_terminal, light_name, (light_on[0] == '1'));
-                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"set_light\",\"device\":\"%s\",\"response\":%d}}", cur_terminal->name, result);
-                } else {
-                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
-                }
-              } else if ( 0 == strncmp("GETLIGHT", command, strlen("GETLIGHT")) ) {
-                light_name = strtok_r( NULL, delim, &saveptr );
-                if (light_name != NULL) {
-                  result = get_light(cur_terminal, light_name);
-                  snprintf(page, MSGLENGTH, "{\"result\":{\"command\":\"get_light\",\"device\":\"%s\",\"response\":%d}}", cur_terminal->name, result);
-                } else {
-                  snprintf(page, MSGLENGTH, "{\"syntax_error\":{\"message\":\"wrong command\"}}");
-                }
               } else if ( 0 == strncmp("MONITOR", command, strlen("MONITOR")) ) {
-                pin = strtok_r( NULL, delim, &saveptr );
+                switcher = strtok_r( NULL, delim, &saveptr );
                 sensor = strtok_r( NULL, delim, &saveptr );
                 start_date = strtok_r( NULL, delim, &saveptr );
-                to_free = get_monitor(config->sqlite3_db, device, pin, sensor, start_date);
+                to_free = get_monitor(config->sqlite3_db, device, switcher, sensor, start_date);
                 if (to_free != NULL) {
                   tf_len = strlen(to_free);
                   free(page);
@@ -735,16 +792,16 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting device\"}");
             }
-          } else if (0 == strcmp("SETPINDATA", command)) {
-            cur_pin = (struct _pin *)con_info->data;
-            to_free = set_pin_data(config->sqlite3_db, *cur_pin);
+          } else if (0 == strcmp("SETSWITCHDATA", command)) {
+            cur_switch = (struct _switcher *)con_info->data;
+            to_free = set_switch_data(config->sqlite3_db, *cur_switch);
             if (to_free != NULL) {
               free(page);
-              page = malloc((9+strlen(to_free))*sizeof(char));
-              snprintf(page, 9+strlen(to_free), "{\"pin\":%s}", to_free);
+              page = malloc((14+strlen(to_free))*sizeof(char));
+              snprintf(page, 14+strlen(to_free), "{\"switcher\":%s}", to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting pin\"}");
+              snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting switcher\"}");
             }
           } else if (0 == strcmp("SETSENSORDATA", command)) {
             cur_sensor = (struct _sensor *)con_info->data;
@@ -757,17 +814,6 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting sensor\"}");
             }
-          } else if (0 == strcmp("SETLIGHTDATA", command)) {
-            cur_light = (struct _light *)con_info->data;
-            to_free = set_light_data(config->sqlite3_db, *cur_light);
-            if (to_free != NULL) {
-              free(page);
-              page = malloc((11+strlen(to_free))*sizeof(char));
-              snprintf(page, 11+strlen(to_free), "{\"light\":%s}", to_free);
-              free(to_free);
-            } else {
-              snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting light\"}");
-            }
           } else if (0 == strcmp("SETHEATERDATA", command)) {
             cur_heater = (struct _heater *)con_info->data;
             to_free = set_heater_data(config->sqlite3_db, *cur_heater);
@@ -778,6 +824,17 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
               free(to_free);
             } else {
               snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting heater\"}");
+            }
+          } else if (0 == strcmp("SETDIMMERDATA", command)) {
+            cur_dimmer = (struct _dimmer *)con_info->data;
+            to_free = set_dimmer_data(config->sqlite3_db, *cur_dimmer);
+            if (to_free != NULL) {
+              free(page);
+              page = malloc((12+strlen(to_free))*sizeof(char));
+              snprintf(page, 12+strlen(to_free), "{\"dimmer\":%s}", to_free);
+              free(to_free);
+            } else {
+              snprintf(page, MSGLENGTH, "{\"result\":\"error\",\"message\":\"Error setting dimmer\"}");
             }
           } else if (0 == strcmp("ADDACTION", command)) {
             cur_action = (struct _action *)con_info->data;
@@ -943,10 +1000,10 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
               size_t size) {
   struct connection_info_struct *con_info = coninfo_cls;
   device    * cur_device;
-  pin       * cur_pin;
+  switcher       * cur_switch;
   sensor    * cur_sensor;
-  light     * cur_light;
   heater    * cur_heater;
+  dimmer    * cur_dimmer;
   action    * cur_action;
   script    * cur_script;
   schedule  * cur_schedule;
@@ -972,39 +1029,39 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         }
       }
       break;
-    case DATA_PIN:
-      cur_pin = (struct _pin*)con_info->data;
+    case DATA_SWITCH:
+      cur_switch = (struct _switcher *)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_pin->name, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->name, WORDLENGTH, "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_pin->device, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->device, WORDLENGTH, "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_pin->display, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->display, WORDLENGTH, "%s", data);
         }
       } else if (0 == strcmp (key, "type")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_pin->type=strtol(data, NULL, 10);
+          cur_switch->type=strtol(data, NULL, 10);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_pin->enabled=(0==strcmp("true", data))?1:0;
+          cur_switch->enabled=(0==strcmp("true", data))?1:0;
         }
       } else if (0 == strcmp (key, "monitored")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_pin->monitored=(0==strcmp("true", data))?1:0;
+          cur_switch->monitored=(0==strcmp("true", data))?1:0;
         }
       } else if (0 == strcmp (key, "monitored_every")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_pin->monitored_every=strtol(data, NULL, 10);
+          cur_switch->monitored_every=strtol(data, NULL, 10);
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_pin->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_switch->tags, MSGLENGTH, "%s", data);
         }
       }
       break;
@@ -1044,30 +1101,6 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         }
       }
     break;
-    case DATA_LIGHT:
-      cur_light = (struct _light*)con_info->data;
-      if (0 == strcmp (key, "name")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_light->name, WORDLENGTH, "%s", data);
-        }
-      } else if (0 == strcmp (key, "device")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_light->device, WORDLENGTH, "%s", data);
-        }
-      } else if (0 == strcmp (key, "display")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_light->display, WORDLENGTH, "%s", data);
-        }
-      } else if (0 == strcmp (key, "enabled")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_light->enabled=(0==strcmp("true", data))?1:0;
-        }
-      } else if (0 == strcmp (key, "tags")) {
-        if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_light->tags, MSGLENGTH, "%s", data);
-        }
-      }
-    break;
     case DATA_HEATER:
       cur_heater = (struct _heater*)con_info->data;
       if (0 == strcmp (key, "name")) {
@@ -1096,6 +1129,30 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         }
       }
     break;
+    case DATA_DIMMER:
+      cur_dimmer = (struct _dimmer*)con_info->data;
+      if (0 == strcmp (key, "name")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_dimmer->name, WORDLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "device")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_dimmer->device, WORDLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "display")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_dimmer->display, WORDLENGTH, "%s", data);
+        }
+      } else if (0 == strcmp (key, "enabled")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_dimmer->enabled=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "tags")) {
+        if ((size > 0) && (size <= MSGLENGTH)) {
+          snprintf(cur_dimmer->tags, MSGLENGTH, "%s", data);
+        }
+      }
+    break;
     case DATA_ACTION:
       cur_action = (struct _action*)con_info->data;
       if (0 == strcmp (key, "id")) {
@@ -1114,13 +1171,13 @@ int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind, const char *key,
         if ((size > 0) && (size <= WORDLENGTH)) {
           snprintf(cur_action->device, WORDLENGTH, "%s", data);
         }
-      } else if (0 == strcmp (key, "pin")) {
+      } else if (0 == strcmp (key, "switcher")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->pin, WORDLENGTH, "%s", data);
+          snprintf(cur_action->switcher, WORDLENGTH, "%s", data);
         }
-      } else if (0 == strcmp (key, "sensor")) {
+      } else if (0 == strcmp (key, "dimmer")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->sensor, WORDLENGTH, "%s", data);
+          snprintf(cur_action->dimmer, WORDLENGTH, "%s", data);
         }
       } else if (0 == strcmp (key, "heater")) {
         if ((size > 0) && (size <= WORDLENGTH)) {

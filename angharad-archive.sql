@@ -1,3 +1,19 @@
+--
+--
+-- Angharad server
+--
+-- Environment used to control home devices (switches, sensors, heaters, etc)
+-- Using different protocols and controllers:
+-- - Arduino UNO
+-- - ZWave
+--
+-- Copyright 2014-2015 Nicolas Mora <mail@babelouest.org>
+-- Gnu Public License V3 <http://fsf.org/>
+--
+-- archive database creation script
+-- will store the archived journal and monitored entries
+--
+
 BEGIN;
 
 CREATE TABLE an_journal(
