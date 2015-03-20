@@ -30,17 +30,35 @@ CPP=g++
 
 all: angharad
 
-static: angharad.o arduino-serial-lib.o nondevice-commands.o scheduler.o control-meta.o control-arduino.o control-zwave.o
-	$(CPP) $(LDFLAGSSTATIC) -o angharad angharad.o nondevice-commands.o control-meta.o control-arduino.o control-zwave.o scheduler.o arduino-serial-lib.o
+static: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
+	$(CPP) $(LDFLAGSSTATIC) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
 
-angharad: angharad.o arduino-serial-lib.o nondevice-commands.o scheduler.o control-meta.o control-arduino.o control-zwave.o
-	$(CPP) $(LIBS) $(LDFLAGS) -o angharad angharad.o nondevice-commands.o control-meta.o control-arduino.o control-zwave.o scheduler.o arduino-serial-lib.o
+angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
+	$(CPP) $(LIBS) $(LDFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o
 
 angharad.o: angharad.c angharad.h
 	$(CC) $(CFLAGS) $(FLAGS) angharad.c
 
-nondevice-commands.o: nondevice-commands.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) nondevice-commands.c
+webserver.o: angharad.h webserver.c
+	$(CC) $(CFLAGS) $(FLAGS) webserver.c
+
+set-data.o: angharad.h set-data.c
+	$(CC) $(CFLAGS) $(FLAGS) set-data.c
+
+actions.o: angharad.h actions.c
+	$(CC) $(CFLAGS) $(FLAGS) actions.c
+
+scripts.o: angharad.h scripts.c
+	$(CC) $(CFLAGS) $(FLAGS) scripts.c
+
+tags.o: angharad.h tags.c
+	$(CC) $(CFLAGS) $(FLAGS) tags.c
+
+tools.o: angharad.h tools.c
+	$(CC) $(CFLAGS) $(FLAGS) tools.c
+
+misc.o: angharad.h misc.c
+	$(CC) $(CFLAGS) $(FLAGS) misc.c
 
 control-meta.o: control-meta.c angharad.h
 	$(CC) $(CFLAGS) $(FLAGS) control-meta.c
@@ -71,15 +89,21 @@ install: angharad
 	
 run: angharad stop install start
 
-debug: angharad.c angharad.h nondevice-commands.c control-meta.c control-arduino.c control-zwave.c scheduler.c arduino-serial-lib.c arduino-serial-lib.h
+debug: clean
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) angharad.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) webserver.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) set-data.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) actions.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) scripts.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) tags.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) tools.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) misc.c
+	$(CC) $(CFLAGS) $(DEBUGFLAGS) scheduler.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) arduino-serial-lib.c
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) nondevice-commands.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) control-meta.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) control-arduino.c
 	$(CPP) $(CFLAGS) $(DEBUGFLAGS) $(OZINCLUDES) control-zwave.c
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) scheduler.c
-	$(CC) $(CFLAGS) $(DEBUGFLAGS) angharad.c
-	$(CPP) $(LIBS) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o nondevice-commands.o control-meta.o control-arduino.o control-zwave.o scheduler.o arduino-serial-lib.o
+	$(CPP) $(LIBS) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o
 	
 test: debug
 	./angharad ./angharad.conf

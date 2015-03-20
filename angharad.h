@@ -17,10 +17,6 @@
 #ifndef __ANGHARAD_H__
 #define __ANGHARAD_H__
 
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <unistd.h>
@@ -43,17 +39,12 @@ extern "C" {
 
 #include "arduino-serial-lib.h"
 
-#define MARCO 0
-#define TEMP  1
-#define GET   2
-#define SET   3
+#define MSGLENGTH   2047
+#define WORDLENGTH  63
 
 #define TEMPEXT "TEMPEXT"
 #define TEMPINT "TEMPINT"
-#define HUMINT "HUMINT"
-
-#define MSGLENGTH 2047
-#define WORDLENGTH 64
+#define HUMINT  "HUMINT"
 
 #define TYPE_NONE   0
 #define TYPE_SERIAL 1
@@ -102,6 +93,9 @@ extern "C" {
 #define ANGHARAD_STOP     1
 #define ANGHARAD_ERROR    2
 
+/**
+ * Structures used to represent elements
+ */
 typedef struct _device {
   int             enabled;                    // Device enabled or not
   char            name[WORDLENGTH+1];         // Name of the device on the commands
@@ -159,6 +153,35 @@ typedef struct _sensor {
   char tags[MSGLENGTH+1];
 } sensor;
 
+typedef struct _heater {
+  unsigned int id;
+  char name[WORDLENGTH+1];
+  char display[WORDLENGTH+1];
+  char device[WORDLENGTH+1];
+  unsigned int enabled;
+  unsigned int set;
+  unsigned int on;
+  float heat_max_value;
+  char unit[WORDLENGTH+1];
+  int monitored;
+  int monitored_every;
+  time_t monitored_next;
+  char tags[MSGLENGTH+1];
+} heater;
+
+typedef struct _dimmer {
+  unsigned int id;
+  char name[WORDLENGTH+1];
+  char display[WORDLENGTH+1];
+  char device[WORDLENGTH+1];
+  unsigned int enabled;
+  unsigned int value;
+  int monitored;
+  int monitored_every;
+  time_t monitored_next;
+  char tags[MSGLENGTH+1];
+} dimmer;
+
 typedef struct _action {
   unsigned int id;
   char name[WORDLENGTH+1];
@@ -193,35 +216,6 @@ typedef struct _schedule {
   char tags[MSGLENGTH+1];
 } schedule;
 
-typedef struct _heater {
-  unsigned int id;
-  char name[WORDLENGTH+1];
-  char display[WORDLENGTH+1];
-  char device[WORDLENGTH+1];
-  unsigned int enabled;
-  unsigned int set;
-  unsigned int on;
-  float heat_max_value;
-  char unit[WORDLENGTH+1];
-  int monitored;
-  int monitored_every;
-  time_t monitored_next;
-  char tags[MSGLENGTH+1];
-} heater;
-
-typedef struct _dimmer {
-  unsigned int id;
-  char name[WORDLENGTH+1];
-  char display[WORDLENGTH+1];
-  char device[WORDLENGTH+1];
-  unsigned int enabled;
-  unsigned int value;
-  int monitored;
-  int monitored_every;
-  time_t monitored_next;
-  char tags[MSGLENGTH+1];
-} dimmer;
-
 typedef struct _monitor {
   unsigned int id;
   time_t date;
@@ -232,6 +226,9 @@ typedef struct _monitor {
   char tags[MSGLENGTH+1];
 } monitor;
 
+/**
+ * Structures used to facilitate data manipulations
+ */
 struct connection_info_struct {
   int connectiontype;
   unsigned int data_type;
@@ -251,16 +248,17 @@ struct config_elements {
   char script_path[MSGLENGTH+1];
 };
 
-// Init function
+// angharad.c
 int server(struct config_elements * config);
-int initialize(char * config_file, char * message, struct config_elements * config);
+int build_config(char * config_file, struct config_elements * config);
 void exit_handler(int);
 void exit_server(struct config_elements ** config, int exit_value);
 int global_handler_variable;
 
-device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal);
 
 // General hardware interface
+// control-meta.c
+device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal);
 int send_heartbeat(device * terminal);
 int is_connected(device * terminal);
 int connect_device(device * terminal, device ** terminals, unsigned int nb_terminal);
@@ -272,6 +270,7 @@ int toggle_switch_state(device * terminal, char * switcher);
 float get_sensor_value(device * terminal, char * sensor, int force);
 char * get_overview(sqlite3 * sqlite3_db, device * terminal);
 char * get_refresh(sqlite3 * sqlite3_db, device * terminal);
+char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher * switchers, int nb_switchers, sensor * sensors, int nb_sensors, heater * heaters, int nb_heaters, dimmer * dimmers, int nb_dimmers);
 int get_name(device * terminal, char * output);
 char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
 int get_heater(device * terminal, char * heat_id, char * buffer);
@@ -281,6 +280,7 @@ int get_dimmer_value(device * terminal, char * dimmer);
 int set_dimmer_value(device * terminal, char * dimmer, int value);
 
 // Interface with the Arduinos
+// control-arduino.c
 int is_connected_arduino(device * terminal);
 int connect_device_arduino(device * terminal, device ** terminals, unsigned int nb_terminal);
 int reconnect_device_arduino(device * terminal, device ** terminals, unsigned int nb_terminal);
@@ -301,6 +301,7 @@ int get_dimmer_value_arduino(device * terminal, char * dimmer);
 int set_dimmer_value_arduino(device * terminal, char * dimmer, int value);
 
 // Interface with the zwave network
+// control-zwave.c
 int is_connected_zwave(device * terminal);
 int connect_device_zwave(device * terminal, device ** terminals, unsigned int nb_terminal);
 int reconnect_device_zwave(device * terminal, device ** terminals, unsigned int nb_terminal);
@@ -319,6 +320,7 @@ int get_dimmer_value_zwave(device * terminal, char * dimmer);
 int set_dimmer_value_zwave(device * terminal, char * dimmer, int value);
 
 // System functions
+// misc.c
 void log_message(int type, const char * message, ...);
 int str_replace(char * source, char * target, size_t len, char * needle, char * haystack);
 int sanitize_json_string(char * source, char * target, size_t len);
@@ -354,7 +356,15 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * switc
 // Archive
 int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
 int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
-int archive(sqlite3 * sqlite3_db, char * db_archive_path, unsigned int epoch_from);
+int archive(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
+unsigned int get_last_archive(char * db_archive_path);
+int is_archive_running(char * db_archive_path);
+void * thread_archive_run(void * args);
+struct archive_args {
+  sqlite3 * sqlite3_db;
+  char db_archive_path[MSGLENGTH+1];
+  unsigned int epoch_from;
+};
 
 // add/modify/remove elements
 char * set_device_data(sqlite3 * sqlite3_db, device cur_device);
@@ -383,7 +393,7 @@ int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer
 int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device);
 
 // libmicrohttpd functions
-int iterate_post (void *coninfo_cls, enum MHD_ValueKind kind,
+int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind,
                          const char *key, const char *filename,
                          const char *content_type,
                          const char *transfer_encoding,
@@ -404,9 +414,5 @@ char ** build_tags_from_list(char * tags);
 int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element, char ** tags);
 int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag);
 int free_tags(char ** tags);
-
-#ifdef __cplusplus
-}
-#endif
 
 #endif //__ANGHARAD_H__

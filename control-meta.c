@@ -16,6 +16,17 @@
 
 #include "angharad.h"
 
+static const char json_template_control_meta_getdevices[] = "{\"name\":\"%s\",\"display\":\"%s\",\"connected\":%s,\"enabled\":%s,\"tags\":%s}";
+static const char json_template_control_meta_overview_final[] = "{\"name\":\"%s\",\"switches\":%s,\"sensors\":%s,\"heaters\":%s,\"dimmers\":%s}";
+static const char json_template_control_meta_overview_switcher[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"type\":%d,\"status\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_overview_sensor[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"value\":%s,\"unit\":\"%s\",\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_overview_heater[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\",\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_overview_dimmer[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"value\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_empty[] = "{}";
+
+/**
+ * Connect the specified device
+ */
 int connect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -31,6 +42,9 @@ int connect_device(device * terminal, device ** terminals, unsigned int nb_termi
   }
 }
 
+/**
+ * Reconnect the specified device
+ */
 int reconnect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -46,6 +60,9 @@ int reconnect_device(device * terminal, device ** terminals, unsigned int nb_ter
   }
 }
 
+/**
+ * Close the specified device
+ */
 int close_device(device * terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -61,6 +78,9 @@ int close_device(device * terminal) {
   }
 }
 
+/**
+ * Check if the specified device is connected
+ */
 int is_connected(device * terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -97,71 +117,69 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   sqlite3_stmt *stmt;
   int sql_result, row_result;
 	char sql_query[MSGLENGTH+1];
-  char cur_name[WORDLENGTH+1] = {0}, sanitized[WORDLENGTH+1] = {0};
-	char * output = malloc(2*sizeof(char)), one_item[2*MSGLENGTH+1], * tags = NULL, ** tags_array = NULL;
+  char cur_name[WORDLENGTH+1] = {0}, cur_display[WORDLENGTH+1] = {0}, cur_active[WORDLENGTH+1] = {0};
+	char * output = malloc(sizeof(char)), * one_item = NULL, * tags = NULL, ** tags_array = NULL;
+  int str_len;
 
   strcpy(output, "");
   for (i=0; i<nb_terminal; i++) {
     strcpy(cur_name, "");
-    strcpy(one_item, "");
     sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT de_display, de_active FROM an_device WHERE de_name = '%q'", terminal[i]->name);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_INFO, "Error preparing sql query");
+      log_message(LOG_INFO, "Error preparing sql query (get_devices)");
+      one_item = malloc(3*sizeof(char));
+      strcpy(one_item, json_template_control_meta_empty);
       sqlite3_finalize(stmt);
-      free(output);
-      return NULL;
     } else {
       row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        snprintf(cur_name, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
-        if (strlen(output) > 0) {
-          strncat(one_item, ",", MSGLENGTH);
-        }
-        tags_array = get_tags(sqlite3_db, NULL, DATA_DEVICE, terminal[i]->name);
-        tags = build_json_tags(tags_array);
-        strncat(one_item, "{\"name\":\"", MSGLENGTH);
-        sanitize_json_string(terminal[i]->name, sanitized, WORDLENGTH);
-        strncat(one_item, sanitized, MSGLENGTH);
-        strncat(one_item, "\",\"display\":\"", MSGLENGTH);
-        sanitize_json_string(cur_name, sanitized, WORDLENGTH);
-        strncat(one_item, sanitized, MSGLENGTH);
-        strncat(one_item, "\",\"connected\":", MSGLENGTH);
-        strncat(one_item, (is_connected(terminal[i]))?"true":"false", MSGLENGTH);
-        strncat(one_item, ",\"enabled\":", MSGLENGTH);
-        strncat(one_item, sqlite3_column_int(stmt, 1)==1?"true":"false", MSGLENGTH);
-        strncat(one_item, ",\"tags\":", MSGLENGTH);
-        strncat(one_item, tags, MSGLENGTH);
-        strncat(one_item, "}", MSGLENGTH);
-        free(tags);
-        free_tags(tags_array);
-      } else {
-        if (strlen(output) > 0) {
-          strncat(one_item, ",", MSGLENGTH);
-        }
-        strncat(one_item, "{\"name\":\"", MSGLENGTH);
-        sanitize_json_string(terminal[i]->name, sanitized, WORDLENGTH);
-        strncat(one_item, sanitized, MSGLENGTH);
-        strncat(one_item, "\",\"display\":\"", MSGLENGTH);
-        strncat(one_item, sanitized, MSGLENGTH);
-        strncat(one_item, "\",\"enabled\":", MSGLENGTH);
-        strncat(one_item, (is_connected(terminal[i]))?"true":"false", MSGLENGTH);
-        strncat(one_item, "}", MSGLENGTH);
-        
+      if (row_result != SQLITE_ROW) {
         // Creating default value
-        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)", terminal[i]->name, terminal[i]->name);
+        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)",
+                        terminal[i]->name, terminal[i]->name);
         if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
           log_message(LOG_INFO, "Error inserting an_device %s", sql_query);
         }
+        strncpy(cur_name, terminal[i]->name, WORDLENGTH);
+        strncpy(cur_display, terminal[i]->name, WORDLENGTH);
+        strcpy(cur_active, "true");
+      } else {
+        strncpy(cur_name, terminal[i]->name, WORDLENGTH);
+        sanitize_json_string((char*)sqlite3_column_text(stmt, 0), cur_display, WORDLENGTH);
+        strcpy(cur_active, sqlite3_column_int(stmt, 1)==1?"true":"false");
       }
+      
+      tags_array = get_tags(sqlite3_db, NULL, DATA_DEVICE, terminal[i]->name);
+      tags = build_json_tags(tags_array);
+      
+      str_len = snprintf(NULL, 0, json_template_control_meta_getdevices, cur_name, cur_display, 
+                        (is_connected(terminal[i]))?"true":"false", cur_active, tags);
+
+      one_item = malloc((str_len+1)*sizeof(char));
+      
+      snprintf(one_item, (str_len+1), json_template_control_meta_getdevices, 
+                cur_name, cur_display, (is_connected(terminal[i]))?"true":"false", cur_active, tags);
+      
+      free(tags);
+      free_tags(tags_array);
     }
     sqlite3_finalize(stmt);
-    output = realloc(output, strlen(output)+strlen(one_item)+1);
-    strcat(output, one_item);
+    if (strlen(output) > 0) {
+      output = realloc(output, strlen(output)+strlen(one_item)+2);
+      strcat(output, ",");
+      strcat(output, one_item);
+    } else {
+      output = realloc(output, strlen(output)+strlen(one_item)+1);
+      strcat(output, one_item);
+    }
+    free(one_item);
   }
   return output;
 }
 
+/**
+ * Check if the device is alive by sending a command that expects a specific answer
+ */
 int send_heartbeat(device * terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -177,6 +195,9 @@ int send_heartbeat(device * terminal) {
   }
 }
 
+/**
+ * set the status of a switch
+ */
 int set_switch_state(device * terminal, char * switcher, int status) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -192,6 +213,9 @@ int set_switch_state(device * terminal, char * switcher, int status) {
   }
 }
 
+/**
+ * get the status of a switch
+ */
 int get_switch_state(device * terminal, char * switcher, int force) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -207,6 +231,9 @@ int get_switch_state(device * terminal, char * switcher, int force) {
   }
 }
 
+/**
+ * toggle the status of a switch
+ */
 int toggle_switch_state(device * terminal, char * switcher) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -222,6 +249,9 @@ int toggle_switch_state(device * terminal, char * switcher) {
   }
 }
 
+/**
+ * Return the value of a sensor
+ */
 float get_sensor_value(device * terminal, char * sensor, int force) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -237,6 +267,9 @@ float get_sensor_value(device * terminal, char * sensor, int force) {
   }
 }
 
+/**
+ * Returns an overview of all zwave devices connected and their last status
+ */
 char * get_overview(sqlite3 * sqlite3_db, device * terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -252,6 +285,9 @@ char * get_overview(sqlite3 * sqlite3_db, device * terminal) {
   }
 }
 
+/**
+ * Refresh the zwave devices values
+ */
 char * get_refresh(sqlite3 * sqlite3_db, device * terminal) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -267,6 +303,139 @@ char * get_refresh(sqlite3 * sqlite3_db, device * terminal) {
   }
 }
 
+/**
+ * Builds the overview output based on all the elements given in parameter
+ */
+char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher * switchers, int nb_switchers, sensor * sensors, int nb_sensors, heater * heaters, int nb_heaters, dimmer * dimmers, int nb_dimmers) {
+  char * str_switches = NULL, * str_sensors = NULL, * str_heaters = NULL, * str_dimmers = NULL, * one_element = NULL;
+  char * tags = NULL, ** tags_array = NULL;
+  char * output = NULL;
+
+  int i, output_len, str_len;
+  
+  // Arranging the results of an overview
+  
+  // Build switchers string
+  str_switches = malloc(2*sizeof(char));
+  strcpy(str_switches, "[");
+  for (i=0; i<nb_switchers; i++) {
+    tags_array = get_tags(sqlite3_db, device_name, DATA_SWITCH, switchers[i].name);
+    tags = build_json_tags(tags_array);
+
+    str_len = snprintf(NULL, 0, json_template_control_meta_overview_switcher, 
+                        i>0?",":"", switchers[i].name, switchers[i].display, switchers[i].enabled?"true":"false", switchers[i].type, switchers[i].status,
+                        switchers[i].monitored?"true":"false", switchers[i].monitored_every, switchers[i].monitored_next, tags);
+    
+    one_element = malloc((str_len+1)*sizeof(char));
+    snprintf(one_element, MSGLENGTH, json_template_control_meta_overview_switcher,
+                        i>0?",":"", switchers[i].name, switchers[i].display, switchers[i].enabled?"true":"false", switchers[i].type, switchers[i].status,
+                        switchers[i].monitored?"true":"false", switchers[i].monitored_every, switchers[i].monitored_next, tags);
+    
+    str_switches = realloc(str_switches, strlen(str_switches)+strlen(one_element)+1);
+    strcat(str_switches, one_element);
+    free(tags);
+    free_tags(tags_array);
+    free(one_element);
+  }
+  str_switches = realloc(str_switches, strlen(str_switches)+2);
+  strcat(str_switches, "]");
+  
+  // Build sensors string
+  str_sensors = malloc(2*sizeof(char));
+  strcpy(str_sensors, "[");
+  for (i=0; i<nb_sensors; i++) {
+    tags_array = get_tags(sqlite3_db, device_name, DATA_SENSOR, sensors[i].name);
+    tags = build_json_tags(tags_array);
+
+    str_len = snprintf(NULL, 0, json_template_control_meta_overview_sensor, 
+                        i>0?",":"", sensors[i].name, sensors[i].display, sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit,
+                        sensors[i].monitored?"true":"false", sensors[i].monitored_every, sensors[i].monitored_next, tags);
+    
+    one_element = malloc((str_len+1)*sizeof(char));
+    snprintf(one_element, MSGLENGTH, json_template_control_meta_overview_sensor,
+                        i>0?",":"", sensors[i].name, sensors[i].display, sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit,
+                        sensors[i].monitored?"true":"false", sensors[i].monitored_every, sensors[i].monitored_next, tags);
+    
+    str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+1);
+    strcat(str_sensors, one_element);
+    free(tags);
+    free_tags(tags_array);
+    free(one_element);
+  }
+  str_sensors = realloc(str_sensors, strlen(str_sensors)+2);
+  strcat(str_sensors, "]");
+  
+  // Build heaters string
+  str_heaters = malloc(2*sizeof(char));
+  strcpy(str_heaters, "[");
+  for (i=0; i<nb_heaters; i++) {
+    tags_array = get_tags(sqlite3_db, device_name, DATA_HEATER, heaters[i].name);
+    tags = build_json_tags(tags_array);
+    
+    str_len = snprintf(NULL, 0, json_template_control_meta_overview_heater, 
+                        i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false",
+                        heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit,
+                        heaters[i].monitored?"true":"false", heaters[i].monitored_every, heaters[i].monitored_next, tags);
+    
+    one_element = malloc((str_len+1)*sizeof(char));
+    snprintf(one_element, MSGLENGTH, json_template_control_meta_overview_heater,
+              i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false",
+              heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit,
+              heaters[i].monitored?"true":"false", heaters[i].monitored_every, heaters[i].monitored_next, tags);
+    
+    str_heaters = realloc(str_heaters, strlen(str_heaters)+strlen(one_element)+1);
+    strcat(str_heaters, one_element);
+    free(tags);
+    free_tags(tags_array);
+    free(one_element);
+  }
+  str_heaters = realloc(str_heaters, strlen(str_heaters)+2);
+  strcat(str_heaters, "]");
+  
+  // Build dimmers string
+  str_dimmers = malloc(2*sizeof(char));
+  strcpy(str_dimmers, "[");
+  for (i=0; i<nb_dimmers; i++) {
+    tags_array = get_tags(sqlite3_db, device_name, DATA_DIMMER, heaters[i].name);
+    tags = build_json_tags(tags_array);
+
+    str_len = snprintf(NULL, 0, json_template_control_meta_overview_dimmer,
+                        i>0?",":"", dimmers[i].name, dimmers[i].display, dimmers[i].enabled?"true":"false", dimmers[i].value, 
+                        dimmers[i].monitored?"true":"false", dimmers[i].monitored_every, dimmers[i].monitored_next, tags);
+    
+    one_element = malloc((str_len+1)*sizeof(char));
+    snprintf(one_element, MSGLENGTH, json_template_control_meta_overview_dimmer,
+                        i>0?",":"", dimmers[i].name, dimmers[i].display, dimmers[i].enabled?"true":"false", dimmers[i].value, 
+                        dimmers[i].monitored?"true":"false", dimmers[i].monitored_every, dimmers[i].monitored_next, tags);
+    
+    str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+1);
+    strcat(str_sensors, one_element);
+    free(tags);
+    free_tags(tags_array);
+    free(one_element);
+  }
+  str_dimmers = realloc(str_dimmers, strlen(str_dimmers)+2);
+  strcat(str_dimmers, "]");
+  
+  output_len = snprintf(NULL, 0, json_template_control_meta_overview_final, device_name, str_switches, str_sensors, str_heaters, str_dimmers);
+  output = malloc((output_len+1)*sizeof(char));
+  snprintf(output, (output_len+1), json_template_control_meta_overview_final, device_name, str_switches, str_sensors, str_heaters, str_dimmers);
+  
+  // Free all allocated pointers before return
+  free(str_switches);
+  str_switches = NULL;
+  free(str_sensors);
+  str_sensors = NULL;
+  free(str_heaters);
+  str_heaters = NULL;
+  free(str_dimmers);
+  str_dimmers = NULL;
+  return output;
+}
+
+/**
+ * Return the name of the device
+ */
 int get_name(device * terminal, char * output) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -282,6 +451,9 @@ int get_name(device * terminal, char * output) {
   }
 }
 
+/**
+ * Get the current heater command
+ */
 int get_heater(device * terminal, char * heat_id, char * buffer) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -297,6 +469,9 @@ int get_heater(device * terminal, char * heat_id, char * buffer) {
   }
 }
 
+/**
+ * Change the heater command
+ */
 int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * buffer) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -312,6 +487,9 @@ int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_he
   }
 }
 
+/**
+ * Get the dimmer value (obviously)
+ */
 int get_dimmer_value(device * terminal, char * dimmer) {
   switch (terminal->type) {
     case TYPE_SERIAL:
@@ -327,6 +505,9 @@ int get_dimmer_value(device * terminal, char * dimmer) {
   }
 }
 
+/**
+ * Change the dimmer value
+ */
 int set_dimmer_value(device * terminal, char * dimmer, int value) {
   switch (terminal->type) {
     case TYPE_SERIAL:

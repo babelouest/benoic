@@ -15,7 +15,7 @@
 #
 
 # does the server restarts by itself when a crash occurs ?
-auto_restart=false
+auto_restart=true
 
 # what port to listen to for the webserver ?
 port=1473
