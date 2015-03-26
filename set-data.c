@@ -26,10 +26,10 @@ static const char json_template_set_data_setdevicedata[] = "{\"name\":\"%s\",\"d
  * Change the display name and the enable settings for a device
  */
 char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_device (de_id, de_name, de_display, de_active)\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_device (de_id, de_name, de_display, de_active)\
                     VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d')",
                     cur_device.name, cur_device.name, cur_device.display, cur_device.enabled);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
@@ -40,10 +40,11 @@ char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
     sanitize_json_string(cur_device.display, cur_device.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setdevicedata, cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1), json_template_set_data_setdevicedata, cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdevicedata, cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
+  sqlite3_free(sql_query);
   return to_return;
 }
 
@@ -51,10 +52,10 @@ char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
  * Change the display name, the type and the enable settings for a device
  */
 char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_switch\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_switch\
                     (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next)\
                     VALUES ((SELECT sw_id FROM an_switch WHERE sw_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', '%d',\
@@ -70,10 +71,11 @@ char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
     sanitize_json_string(cur_switch.display, cur_switch.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1), json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
+  sqlite3_free(sql_query);
   return to_return;
 }
 
@@ -81,10 +83,10 @@ char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
  * Change the display name and the enable settings for a device
  */
 char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active,\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_active,\
                     se_monitored, se_monitored_every, se_monitored_next) VALUES\
                     ((SELECT se_id FROM an_sensor WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d', 0)",
@@ -100,10 +102,11 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
     sanitize_json_string(cur_sensor.unit, cur_sensor.unit, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1), json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
+  sqlite3_free(sql_query);
   return to_return;
 }
 
@@ -111,10 +114,10 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
  * Change the display name, the unit and the enable settings for a heater
  */
 char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled)\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled)\
                     VALUES ((SELECT he_id FROM an_heater WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', '%d')",
                     cur_heater.name, cur_heater.device, cur_heater.device, cur_heater.name, cur_heater.display, cur_heater.unit,
@@ -129,10 +132,11 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
     sanitize_json_string(cur_heater.unit, cur_heater.unit, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1), json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
+  sqlite3_free(sql_query);
   return to_return;
 }
 
@@ -140,10 +144,10 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
  * Change the display name and the enable settings for a dimmer
  */
 char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
-  char sql_query[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, * to_return = NULL;
+  char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active)\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active)\
                     VALUES ((SELECT di_id FROM an_dimmer WHERE di_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d')",
                     cur_dimmer.name, cur_dimmer.device, cur_dimmer.device, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled);
@@ -156,9 +160,10 @@ char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
     sanitize_json_string(cur_dimmer.display, cur_dimmer.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1), json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
     free(tags_json);
     free_tags(tags);
   }
+  sqlite3_free(sql_query);
   return to_return;
 }

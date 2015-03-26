@@ -30,12 +30,13 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
   sensor * sensors = NULL;
   heater * heaters = NULL;
   int nb_switchers = 0, nb_sensors = 0, nb_heaters = 0;
+  char * to_return = NULL;
   
-  char sql_query[MSGLENGTH+1];
+  char * sql_query = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
-  overview_result_cpy = malloc(strlen(overview_result)*sizeof(char));
+  overview_result_cpy = malloc(strlen(overview_result));
   snprintf(overview_result_cpy, strlen(overview_result)-1, "%s", overview_result+1);
   overview_result_cpy[strlen(overview_result_cpy) - 1] = '\0';
   source = overview_result_cpy;
@@ -48,22 +49,25 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
       i = strcspn(datas, ":");
       memset(key, 0, WORDLENGTH*sizeof(char));
       memset(value, 0, WORDLENGTH*sizeof(char));
-      strncpy(key, datas, i);
-      strncpy(value, datas+i+1, WORDLENGTH);
-      snprintf(device_name, WORDLENGTH, "%s", value);
-      sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT de_id FROM an_device WHERE de_name='%q'", device_name);
+      strncpy(key, datas, i*sizeof(char));
+      strncpy(value, datas+i+1, WORDLENGTH*sizeof(char));
+      snprintf(device_name, WORDLENGTH*sizeof(char), "%s", value);
+      sql_query = sqlite3_mprintf("SELECT de_id FROM an_device WHERE de_name='%q'", device_name);
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+      sqlite3_free(sql_query);
       if (sql_result != SQLITE_OK) {
         log_message(LOG_WARNING, "Error preparing sql query (parse_overview_arduino)");
       } else {
         row_result = sqlite3_step(stmt);
         if (row_result != SQLITE_ROW) {
-          sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)", device_name, device_name);
+          sql_query = sqlite3_mprintf("INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)", device_name, device_name);
           if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-            log_message(LOG_WARNING, "Error inserting an_device %s", sql_query);
+            log_message(LOG_WARNING, "Error inserting Device");
           }
+          sqlite3_free(sql_query);
         }
       }
+      sqlite3_finalize(stmt);
       
     } else if (0 == strncmp(datas, "SWITCHES", strlen("SWITCHES"))) {
       data = strtok_r( datas, ",", &saveptr2); // SWITCHES title
@@ -73,11 +77,11 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         i = strcspn(data, ":");
         memset(key, 0, WORDLENGTH*sizeof(char));
         memset(value, 0, WORDLENGTH*sizeof(char));
-        strncpy(key, data, i);
-        strncpy(value, data+i+1, WORDLENGTH);
+        strncpy(key, data, i*sizeof(char));
+        strncpy(value, data+i+1, WORDLENGTH*sizeof(char));
         
         switchers = realloc(switchers, (nb_switchers+1)*sizeof(struct _switcher));
-        snprintf(switchers[nb_switchers].name, WORDLENGTH, "%s", key);
+        snprintf(switchers[nb_switchers].name, WORDLENGTH*sizeof(char), "%s", key);
         switchers[nb_switchers].status = strtol(value, NULL, 10);
         
         // Default values
@@ -85,9 +89,10 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         switchers[nb_switchers].monitored = 0;
         switchers[nb_switchers].monitored_every = 0;
         switchers[nb_switchers].monitored_next = 0;
-        sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT sw_display, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next\
+        sql_query = sqlite3_mprintf("SELECT sw_display, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next\
                           FROM an_switch WHERE sw_name='%q' AND de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", key, device_name);
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+        sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
           log_message(LOG_WARNING, "Error preparing sql query switch fetch");
         } else {
@@ -101,17 +106,18 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
             switchers[nb_switchers].monitored_next = sqlite3_column_int(stmt, 5);
           } else {
             // No result, default value
-            snprintf(switchers[nb_switchers].display, WORDLENGTH, "%s", switchers[nb_switchers].name);
+            snprintf(switchers[nb_switchers].display, WORDLENGTH*sizeof(char), "%s", switchers[nb_switchers].name);
             switchers[nb_switchers].enabled = 1;
             
             // Creating data in database
-            sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_switch\
+            sql_query = sqlite3_mprintf("INSERT INTO an_switch\
                              (de_id, sw_name, sw_display, sw_status, sw_active, sw_type, sw_monitored, sw_monitored_every, sw_monitored_next)\
                              VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', 1, 0, 0, 0, 0)",
                              device_name, key, key, value);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_switch %s", sql_query);
+              log_message(LOG_WARNING, "Error inserting an_switch");
             }
+            sqlite3_free(sql_query);
           }
         }
         sqlite3_finalize(stmt);
@@ -126,21 +132,22 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         i = strcspn(data, ":");
         memset(key, 0, WORDLENGTH*sizeof(char));
         memset(value, 0, WORDLENGTH*sizeof(char));
-        strncpy(key, data, i);
-        strncpy(value, data+i+1, WORDLENGTH);
+        strncpy(key, data, i*sizeof(char));
+        strncpy(value, data+i+1, WORDLENGTH*sizeof(char));
 
         sensors = realloc(sensors, (nb_sensors+1)*sizeof(struct _sensor));
-        snprintf(sensors[nb_sensors].name, WORDLENGTH, "%s", key);
-        snprintf(sensors[nb_sensors].value, WORDLENGTH, "%s", value);
-        snprintf(sensors[nb_sensors].display, WORDLENGTH, "%s", sensors[nb_sensors].name);
+        snprintf(sensors[nb_sensors].name, WORDLENGTH*sizeof(char), "%s", key);
+        snprintf(sensors[nb_sensors].value, WORDLENGTH*sizeof(char), "%s", value);
+        snprintf(sensors[nb_sensors].display, WORDLENGTH*sizeof(char), "%s", sensors[nb_sensors].name);
         strcpy(sensors[nb_sensors].unit, "");
         sensors[nb_sensors].enabled = 1;
         sensors[nb_sensors].monitored = 0;
         sensors[nb_sensors].monitored_every = 0;
         sensors[nb_sensors].monitored_next = 0;
-        sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next\
+        sql_query = sqlite3_mprintf("SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next\
                         FROM an_sensor WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", key, device_name);
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+        sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
           log_message(LOG_WARNING, "Error preparing sql query sensor fetch");
         } else {
@@ -154,13 +161,14 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
             sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 5);
           } else {
             // Creating data in database
-            sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_sensor\
+            sql_query = sqlite3_mprintf("INSERT INTO an_sensor\
                               (de_id, se_name, se_display, se_active, se_unit, se_monitored, se_monitored_every, se_monitored_next)\
                               VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', 1, '', 0, 0, 0)",
                               device_name, key, key);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
               log_message(LOG_WARNING, "Error inserting an_sensor %s", sql_query);
             }
+            sqlite3_free(sql_query);
           }
         }
         sqlite3_finalize(stmt);
@@ -176,10 +184,10 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         memset(key, 0, WORDLENGTH*sizeof(char));
         memset(value, 0, WORDLENGTH*sizeof(char));
         strncpy(key, data, i);
-        strncpy(value, data+i+1, WORDLENGTH);
+        strncpy(value, data+i+1, WORDLENGTH*sizeof(char));
         
         heaters = realloc(heaters, (nb_heaters+1)*sizeof(struct _heater));
-        snprintf(heater_value, WORDLENGTH, "%s", value);
+        snprintf(heater_value, WORDLENGTH*sizeof(char), "%s", value);
         parse_heater(sqlite3_db, device_name, key, heater_value, &heaters[nb_heaters]);
         nb_heaters++;
         data = strtok_r( NULL, ",", &saveptr2);
@@ -187,8 +195,13 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
     }
     datas = strtok_r( NULL, ";", &saveptr );
   }
-    
-  return build_overview_output(sqlite3_db, device_name, switchers, nb_switchers, sensors, nb_sensors, heaters, nb_heaters, NULL, 0);
+  
+  to_return = build_overview_output(sqlite3_db, device_name, switchers, nb_switchers, sensors, nb_sensors, heaters, nb_heaters, NULL, 0);
+  free(switchers);
+  free(sensors);
+  free(heaters);
+  free(overview_result_cpy);
+  return to_return;
 }
 
 /**
@@ -217,16 +230,15 @@ int connect_device_arduino(device * terminal, device ** terminals, unsigned int 
     return -1;
   } else {
     for (i=0; i<128; i++) {
-      snprintf(filename, WORDLENGTH, "%s%d", terminal->uri, i);
+      snprintf(filename, WORDLENGTH*sizeof(char), "%s%d", terminal->uri, i);
       if (!is_file_opened_arduino(filename, terminals, nb_terminal) && access(filename, F_OK) != -1) {
         ((struct _arduino_device *) terminal->element)->serial_fd = serialport_init(filename, ((struct _arduino_device *) terminal->element)->serial_baud);
         if (((struct _arduino_device *) terminal->element)->serial_fd != -1) {
           serialport_flush(((struct _arduino_device *) terminal->element)->serial_fd);
           get_name_arduino(terminal, cur_name);
-          cur_name[strlen(cur_name) - 1] = '\0';
-          if (0 == strncmp(cur_name+1, terminal->name, WORDLENGTH)) {
+          if (0 == strncmp(cur_name, terminal->name, WORDLENGTH)) {
             terminal->enabled=1;
-            snprintf(((struct _arduino_device *) terminal->element)->serial_file, WORDLENGTH, "%s", filename);
+            snprintf(((struct _arduino_device *) terminal->element)->serial_file, WORDLENGTH*sizeof(char), "%s", filename);
             return ((struct _arduino_device *) terminal->element)->serial_fd;
           } else {
             close_device(terminal);
@@ -292,18 +304,18 @@ int set_switch_state_arduino(device * terminal, char * switcher, int status) {
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
-  int result=ERROR_SWITCH;
+  int result = ERROR_SWITCH;
   char * read_cpy, * end_ptr;
 
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
-  snprintf(serial_command, WORDLENGTH, "SETSWITCH,%s,%d\n", switcher, status);
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "SETSWITCH,%s,%d\n", switcher, status);
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    read_cpy = malloc((strlen(serial_read)+1));
     strcpy(read_cpy, serial_read+1);
     result = strtol(read_cpy, &end_ptr, 10);
     if (read_cpy == end_ptr) {
@@ -330,12 +342,12 @@ int toggle_switch_state_arduino(device * terminal, char * switcher) {
     if (pthread_mutex_lock(&terminal->lock)) {
       return result;
     }
-    snprintf(serial_command, WORDLENGTH, "TOGGLESWITCH,%s\n", switcher);
+    snprintf(serial_command, WORDLENGTH*sizeof(char), "TOGGLESWITCH,%s\n", switcher);
     serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
     if (serial_result != -1) {
       serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
       serial_read[strlen(serial_read) - 1] = '\0';
-      read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+      read_cpy = malloc(strlen(serial_read)+1);
       strcpy(read_cpy, serial_read+1);
       result = strtol(read_cpy, &end_ptr, 10);
       if (read_cpy == end_ptr) {
@@ -363,15 +375,15 @@ int get_switch_state_arduino(device * terminal, char * switcher, int force) {
     return result;
   }
   if (force) {
-    snprintf(serial_command, WORDLENGTH, "GETSWITCH,%s,1\n", switcher);
+    snprintf(serial_command, WORDLENGTH*sizeof(char), "GETSWITCH,%s,1\n", switcher);
   } else {
-    snprintf(serial_command, WORDLENGTH, "GETSWITCH,%s\n", switcher);
+    snprintf(serial_command, WORDLENGTH*sizeof(char), "GETSWITCH,%s\n", switcher);
   }
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    read_cpy = malloc((strlen(serial_read)+1));
     strcpy(read_cpy, serial_read+1);
     result = strtol(read_cpy, &end_ptr, 10);
     if (read_cpy == end_ptr) {
@@ -398,15 +410,15 @@ float get_sensor_value_arduino(device * terminal, char * sensor, int force) {
     return result;
   }
   if (force) {
-    snprintf(serial_command, WORDLENGTH, "SENSOR,%s,1\n", sensor);
+    snprintf(serial_command, WORDLENGTH*sizeof(char), "SENSOR,%s,1\n", sensor);
   } else {
-    snprintf(serial_command, WORDLENGTH, "SENSOR,%s\n", sensor);
+    snprintf(serial_command, WORDLENGTH*sizeof(char), "SENSOR,%s\n", sensor);
   }
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    read_cpy = malloc((strlen(serial_read)+1)*sizeof(char));
+    read_cpy = malloc((strlen(serial_read)+1));
     strcpy(read_cpy, serial_read+1);
     result = strtof(read_cpy, &end_ptr);
     if (read_cpy == end_ptr) {
@@ -438,7 +450,7 @@ int send_heartbeat_arduino(device * terminal) {
     return result;
   }
   
-  snprintf(serial_command, WORDLENGTH, "MARCO\n");
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "MARCO\n");
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
@@ -460,12 +472,12 @@ char * get_overview_arduino(sqlite3 * sqlite3_db, device * terminal) {
   char serial_command[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
-  char output[MSGLENGTH+1];
+  char output[MSGLENGTH+1] = {0};
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
-  snprintf(serial_command, WORDLENGTH, "OVERVIEW\n");
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "OVERVIEW\n");
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, output, eolchar, MSGLENGTH, timeout);
@@ -487,7 +499,7 @@ char * get_refresh_arduino(sqlite3 * sqlite3_db, device * terminal) {
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
-  snprintf(serial_command, WORDLENGTH, "REFRESH\n");
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "REFRESH\n");
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, output, eolchar, MSGLENGTH, timeout);
@@ -504,14 +516,20 @@ int get_name_arduino(device * terminal, char * output) {
   char serial_command[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
+  char buffer[WORDLENGTH+1];
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
-  snprintf(serial_command, WORDLENGTH, "NAME\n");
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "NAME\n");
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
-    serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, output, eolchar, WORDLENGTH, timeout);
+    serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, buffer, eolchar, WORDLENGTH, timeout);
+    if (output != NULL) {
+      // Remove first and last character and copy to output
+      strncpy(output, buffer+1, WORDLENGTH);
+      output[strlen(output) - 1] = '\0';
+    }
   }
   pthread_mutex_unlock(&terminal->lock);
   return (serial_result != -1);
@@ -520,47 +538,65 @@ int get_name_arduino(device * terminal, char * output) {
 /**
  * Get the Heater current status
  */
-int get_heater_arduino(device * terminal, char * heat_id, char * output) {
+heater * get_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
   char eolchar = '}';
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
+  heater * cur_heater = malloc(sizeof(heater));
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
-  snprintf(serial_command, WORDLENGTH, "GETHEATER,%s\n", heat_id);
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "GETHEATER,%s\n", heat_id);
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    snprintf(output, WORDLENGTH, "%s", serial_read+1);
+    if (parse_heater(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
+      pthread_mutex_unlock(&terminal->lock);
+      return cur_heater;
+    } else {
+      free(cur_heater);
+      pthread_mutex_unlock(&terminal->lock);
+      return NULL;
+    }
   }
+  free(cur_heater);
   pthread_mutex_unlock(&terminal->lock);
-  return (serial_result != -1);
+  return NULL;
 }
 
 /**
  * Set the Heater current status
  */
-int set_heater_arduino(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * output) {
+heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value) {
   char eolchar = '}';
   char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
   int serial_result;
   int timeout = TIMEOUT;
+  heater * cur_heater = malloc(sizeof(heater));
   
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
-  snprintf(serial_command, WORDLENGTH, "SETHEATER,%s,%d,%.2f\n", heat_id, heat_enabled, max_heat_value);
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "SETHEATER,%s,%d,%.2f\n", heat_id, heat_enabled, max_heat_value);
   serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    snprintf(output, WORDLENGTH, "%s", serial_read+1);
+    if (parse_heater(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
+      pthread_mutex_unlock(&terminal->lock);
+      return cur_heater;
+    } else {
+      free(cur_heater);
+      pthread_mutex_unlock(&terminal->lock);
+      return NULL;
+    }
   }
+  free(cur_heater);
   pthread_mutex_unlock(&terminal->lock);
-  return (serial_result != -1);
+  return NULL;
 }
 
 /**
@@ -585,26 +621,33 @@ int set_dimmer_value_arduino(device * terminal, char * dimmer, int value) {
  * Parse the get heater results
  */
 int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater) {
-  char * heatSet, * heatOn, * heatMaxValue, * saveptr;
+  char * heat_set, * heat_on, * heat_max_value, * saveptr;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
-  char sql_query[MSGLENGTH+1];
+  char * sql_query = NULL;
   
-  heatSet = strtok_r(source, "|", &saveptr);
-  heatOn = strtok_r(NULL, "|", &saveptr);
-  heatMaxValue = strtok_r(NULL, "|", &saveptr);
-  if (heatSet == NULL || heatOn == NULL || heatMaxValue == NULL) {
+  heat_set = strtok_r(source, "|", &saveptr);
+  heat_on = strtok_r(NULL, "|", &saveptr);
+  heat_max_value = strtok_r(NULL, "|", &saveptr);
+  if (heat_set == NULL || heat_on == NULL || heat_max_value == NULL || cur_heater == NULL) {
     log_message(LOG_WARNING, "Error parsing heater data");
     return 0;
   } else {
     sanitize_json_string(heater_name, cur_heater->name, WORDLENGTH);
+    sanitize_json_string(heater_name, cur_heater->display, WORDLENGTH);
     sanitize_json_string(device, cur_heater->device, WORDLENGTH);
-    cur_heater->set = strcmp(heatSet,"1")==0?1:0;
-    cur_heater->on = strcmp(heatOn,"1")==0?1:0;
-    cur_heater->heat_max_value = strtof(heatMaxValue, NULL);
-    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT he_display, he_enabled, he_unit FROM an_heater WHERE he_name='%q'\
+    cur_heater->set = strcmp(heat_set,"1")==0?1:0;
+    cur_heater->on = strcmp(heat_on,"1")==0?1:0;
+    cur_heater->heat_max_value = strtof(heat_max_value, NULL);
+    strcpy(cur_heater->unit, "");
+    cur_heater->monitored = 0;
+    cur_heater->monitored_every = 0;
+    cur_heater->monitored_next = 0;
+    
+    sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_monitored, he_monitored_every, he_monitored_next FROM an_heater WHERE he_name='%q'\
                       and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heater_name, device);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_WARNING, "Error preparing sql query (parse_heater)");
     } else {
@@ -612,17 +655,17 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
       if (row_result == SQLITE_ROW) {
         if (sqlite3_column_text(stmt, 0) != NULL) {
           sanitize_json_string((char*)sqlite3_column_text(stmt, 0), cur_heater->display, WORDLENGTH);
-        } else {
-          snprintf(cur_heater->display, WORDLENGTH, "%s", heater_name);
         }
         cur_heater->enabled = sqlite3_column_int(stmt, 1);
         if (sqlite3_column_text(stmt, 2) != NULL) {
           sanitize_json_string((char*)sqlite3_column_text(stmt, 2), cur_heater->unit, WORDLENGTH);
-        } else {
-          strcpy(cur_heater->unit, "");
         }
+        cur_heater->monitored = sqlite3_column_int(stmt, 3);
+        cur_heater->monitored_every = sqlite3_column_int(stmt, 4);
+        cur_heater->monitored_next = sqlite3_column_int(stmt, 5);
+        
       } else {
-        snprintf(cur_heater->display, WORDLENGTH, "%s", heater_name);
+        snprintf(cur_heater->display, WORDLENGTH*sizeof(char), "%s", heater_name);
         cur_heater->enabled = 1;
         strcpy(cur_heater->unit, "");
       }

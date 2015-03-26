@@ -21,52 +21,52 @@
  * return value must be freed after use
  */
 char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element) {
-  char sql_query[MSGLENGTH+1] = {0}, where_element[MSGLENGTH+1] = {0}, cur_tag[WORDLENGTH+1], ** to_return = NULL;
+  char * sql_query = NULL, * where_element = NULL, cur_tag[WORDLENGTH+1], ** to_return = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, nb_return=0;
   switch (element_type) {
     case DATA_DEVICE:
-      sqlite3_snprintf(MSGLENGTH, where_element, "de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')", element);
+      where_element = sqlite3_mprintf("de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')", element);
       break;
     case DATA_SWITCH:
-      sqlite3_snprintf(MSGLENGTH, where_element, "sw_id = (SELECT sw_id FROM an_switch WHERE sw_name = '%q'\
+      where_element = sqlite3_mprintf("sw_id = (SELECT sw_id FROM an_switch WHERE sw_name = '%q'\
                         AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_SENSOR:
-      sqlite3_snprintf(MSGLENGTH, where_element, "se_id = (SELECT se_id FROM an_sensor WHERE se_name = '%q'\
+      where_element = sqlite3_mprintf("se_id = (SELECT se_id FROM an_sensor WHERE se_name = '%q'\
                         AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_HEATER:
-      sqlite3_snprintf(MSGLENGTH, where_element, "he_id = (SELECT he_id FROM an_heater WHERE he_name = '%q'\
+      where_element = sqlite3_mprintf("he_id = (SELECT he_id FROM an_heater WHERE he_name = '%q'\
                         AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_DIMMER:
-      sqlite3_snprintf(MSGLENGTH, where_element, "di_id = (SELECT di_id FROM an_dimmer WHERE di_name = '%q'\
+      where_element = sqlite3_mprintf("di_id = (SELECT di_id FROM an_dimmer WHERE di_name = '%q'\
                         AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
       break;
     case DATA_ACTION:
-      sqlite3_snprintf(MSGLENGTH, where_element, "ac_id = '%q'", element);
+      where_element = sqlite3_mprintf("ac_id = '%q'", element);
       break;
     case DATA_SCRIPT:
-      sqlite3_snprintf(MSGLENGTH, where_element, "sc_id = '%q'", element);
+      where_element = sqlite3_mprintf("sc_id = '%q'", element);
       break;
     case DATA_SCHEDULE:
-      sqlite3_snprintf(MSGLENGTH, where_element, "sh_id = '%q'", element);
+      where_element = sqlite3_mprintf("sh_id = '%q'", element);
       break;
   }
-  sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ta_name FROM an_tag WHERE ta_id IN (SELECT ta_id FROM an_tag_element WHERE %s)", where_element);
+  sql_query = sqlite3_mprintf("SELECT ta_name FROM an_tag WHERE ta_id IN (SELECT ta_id FROM an_tag_element WHERE %s)", where_element);
   
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  sqlite3_free(where_element);
   to_return = malloc(sizeof(char *));
   to_return[0] = NULL;
   if (sql_result != SQLITE_OK) {
     log_message(LOG_WARNING, "Error preparing sql query (get_tags)");
-    sqlite3_finalize(stmt);
-    return to_return;
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
-      snprintf(cur_tag, WORDLENGTH, "%s", (char*)sqlite3_column_text(stmt, 0));
+      snprintf(cur_tag, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 0));
       to_return = realloc(to_return, (nb_return+2)*sizeof(char *));
       to_return[nb_return] = malloc(strlen(cur_tag)+1);
       strcpy(to_return[nb_return], cur_tag);
@@ -118,9 +118,9 @@ char ** build_tags_from_list(char * tags) {
     if (cur_tag != NULL) {
       while (cur_tag != NULL) {
         to_return = realloc(to_return, (counter+2)*sizeof(char *));
-        to_return[counter] = malloc((strlen(cur_tag)+1)*sizeof(char));
+        to_return[counter] = malloc((strlen(cur_tag)+1));
         to_return[counter+1] = NULL;
-        snprintf(to_return[counter], strlen(cur_tag)+1, "%s", cur_tag);
+        snprintf(to_return[counter], strlen(cur_tag)+sizeof(char), "%s", cur_tag);
         cur_tag = strtok_r(NULL, ",", &saveptr);
         counter++;
       }
@@ -133,79 +133,81 @@ char ** build_tags_from_list(char * tags) {
  * set all the tags for an element
  */
 int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type, char * element, char ** tags) {
-  char sql_query[MSGLENGTH+1] = {0}, where_element[MSGLENGTH+1] = {0}, element_row[WORDLENGTH+1] = {0};
-  int counter = 0, cur_tag = -1;
+  char * sql_query = NULL, * sql_query2 = NULL, * where_element = NULL, element_row[WORDLENGTH+1] = {0};
+  int counter = 0, cur_tag = -1, result = -1;
   
   if (tags != NULL) {
     switch (element_type) {
       case DATA_DEVICE:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT de_id FROM an_device WHERE de_name = '%q')", element);
+        where_element = sqlite3_mprintf("(SELECT de_id FROM an_device WHERE de_name = '%q')", element);
         strcpy(element_row, "de_id");
         break;
       case DATA_SWITCH:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT sw_id FROM an_switch WHERE sw_name = '%q'\
+        where_element = sqlite3_mprintf("(SELECT sw_id FROM an_switch WHERE sw_name = '%q'\
                           AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "sw_id");
         break;
       case DATA_SENSOR:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT se_id FROM an_sensor WHERE se_name = '%q'\
+        where_element = sqlite3_mprintf("(SELECT se_id FROM an_sensor WHERE se_name = '%q'\
                           AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "se_id");
         break;
       case DATA_HEATER:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT he_id FROM an_heater WHERE he_name = '%q'\
+        where_element = sqlite3_mprintf("(SELECT he_id FROM an_heater WHERE he_name = '%q'\
                           AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "he_id");
         break;
       case DATA_DIMMER:
-        sqlite3_snprintf(MSGLENGTH, where_element, "(SELECT di_id FROM an_dimmer WHERE di_name = '%q'\
+        where_element = sqlite3_mprintf("(SELECT di_id FROM an_dimmer WHERE di_name = '%q'\
                           AND de_id = (SELECT de_id FROM an_device WHERE de_name='%q'))", element, device_name);
         strcpy(element_row, "di_id");
         break;
       case DATA_ACTION:
-        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        where_element = sqlite3_mprintf("'%q'", element);
         strcpy(element_row, "ac_id");
         break;
       case DATA_SCRIPT:
-        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        where_element = sqlite3_mprintf("'%q'", element);
         strcpy(element_row, "sc_id");
         break;
       case DATA_SCHEDULE:
-        sqlite3_snprintf(MSGLENGTH, where_element, "'%q'", element);
+        where_element = sqlite3_mprintf("'%q'", element);
         strcpy(element_row, "sh_id");
         break;
     }
-    sqlite3_snprintf(MSGLENGTH, sql_query, "DELETE FROM an_tag_element WHERE %q = %s", element_row, where_element);
+    sql_query = sqlite3_mprintf("DELETE FROM an_tag_element WHERE %q = %s", element_row, where_element);
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-      log_message(LOG_WARNING, "Error deleting old tags (%s)", sql_query);
-      return -1;
+      log_message(LOG_WARNING, "Error deleting old tags");
     } else {
       while (tags[counter] != NULL) {
         cur_tag = get_or_create_tag_id(sqlite3_db, tags[counter]);
-        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_tag_element (%s, ta_id) VALUES (%s, %d)", element_row, where_element, cur_tag);
-        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
+        sql_query2 = sqlite3_mprintf("INSERT INTO an_tag_element (%s, ta_id) VALUES (%s, %d)", element_row, where_element, cur_tag);
+        if ( sqlite3_exec(sqlite3_db, sql_query2, NULL, NULL, NULL) != SQLITE_OK ) {
           log_message(LOG_WARNING, "Error inserting tag_element %s (%d)", tags[counter], cur_tag);
         }
+        sqlite3_free(sql_query2);
         counter++;
       }
-      return counter;
+      result = counter;
     }
-  } else {
-    return -1;
+    sqlite3_free(where_element);
+    sqlite3_free(sql_query);
   }
+  return result;
 }
 
 /**
  * Get the tag id from the name or create it if it doesn't exist, then return the new id
  */
 int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
-  char sql_query[MSGLENGTH+1] = {0};
+  char * sql_query = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, to_return = -1;
   
   if (tag != NULL) {
-    sqlite3_snprintf(MSGLENGTH, sql_query, "SELECT ta_id FROM an_tag WHERE ta_name = '%q'", tag);
+    sql_query = sqlite3_mprintf("SELECT ta_id FROM an_tag WHERE ta_name = '%q'", tag);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
       log_message(LOG_WARNING, "Error preparing sql query (get_or_create_tag_id)");
     } else {
@@ -213,10 +215,11 @@ int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
       if (row_result == SQLITE_ROW) {
         to_return = sqlite3_column_int(stmt, 0);
       } else {
-        sqlite3_snprintf(MSGLENGTH, sql_query, "INSERT INTO an_tag (ta_name) VALUES ('%q')", tag);
+        sql_query = sqlite3_mprintf("INSERT INTO an_tag (ta_name) VALUES ('%q')", tag);
         if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
           to_return = (int)sqlite3_last_insert_rowid(sqlite3_db);
         }
+        sqlite3_free(sql_query);
       }
     }
   }

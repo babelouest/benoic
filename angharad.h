@@ -85,7 +85,6 @@
 #define ERROR_SENSOR  -999.
 #define ERROR_SWITCH  -1
 #define ERROR_DIMMER  -1
-#define ERROR_HEATER  0
 
 #define UNDEFINED_HOME_ID 0
 
@@ -102,7 +101,7 @@ typedef struct _device {
   char            display[WORDLENGTH+1];      // Display name of the device
   int             type;                       // Device type (Serial, USB, network, etc.)
   void *          element;                    // Device pointer
-  char            tags[MSGLENGTH+1];
+  char            tags[MSGLENGTH+1];          // Tags of the device
   char            uri[WORDLENGTH+1];          // URI of the device ('/dev/ttyACM0', 'xxx:xxxx', '192.168.1.1:888', etc.)
   
   pthread_mutex_t lock;                       // Mutex lock to avoid simultaneous access of the device
@@ -271,16 +270,16 @@ float get_sensor_value(device * terminal, char * sensor, int force);
 char * get_overview(sqlite3 * sqlite3_db, device * terminal);
 char * get_refresh(sqlite3 * sqlite3_db, device * terminal);
 char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher * switchers, int nb_switchers, sensor * sensors, int nb_sensors, heater * heaters, int nb_heaters, dimmer * dimmers, int nb_dimmers);
-int get_name(device * terminal, char * output);
 char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
-int get_heater(device * terminal, char * heat_id, char * buffer);
-int set_heater(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * buffer);
+heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
+heater * set_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
 int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater);
 int get_dimmer_value(device * terminal, char * dimmer);
 int set_dimmer_value(device * terminal, char * dimmer, int value);
 
 // Interface with the Arduinos
 // control-arduino.c
+int get_name_arduino(device * terminal, char * output);
 int is_connected_arduino(device * terminal);
 int connect_device_arduino(device * terminal, device ** terminals, unsigned int nb_terminal);
 int reconnect_device_arduino(device * terminal, device ** terminals, unsigned int nb_terminal);
@@ -293,9 +292,8 @@ float get_sensor_value_arduino(device * terminal, char * sensor, int force);
 char * get_overview_arduino(sqlite3 * sqlite3_db, device * terminal);
 char * get_refresh_arduino(sqlite3 * sqlite3_db, device * terminal);
 char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result);
-int get_name_arduino(device * terminal, char * output);
-int get_heater_arduino(device * terminal, char * heat_id, char * buffer);
-int set_heater_arduino(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * buffer);
+heater * get_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
+heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
 int is_file_opened_arduino(char * serial_file, device ** terminal, unsigned int nb_terminal);
 int get_dimmer_value_arduino(device * terminal, char * dimmer);
 int set_dimmer_value_arduino(device * terminal, char * dimmer, int value);
@@ -313,9 +311,8 @@ int toggle_switch_state_zwave(device * terminal, char * switcher);
 float get_sensor_value_zwave(device * terminal, char * sensor, int force);
 char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal);
 char * get_refresh_zwave(sqlite3 * sqlite3_db, device * terminal);
-int get_name_zwave(device * terminal, char * output);
-int get_heater_zwave(device * terminal, char * heat_id, char * buffer);
-int set_heater_zwave(device * terminal, char * heat_id, int heat_enabled, float max_heat_value, char * buffer);
+heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
+heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
 int get_dimmer_value_zwave(device * terminal, char * dimmer);
 int set_dimmer_value_zwave(device * terminal, char * dimmer, int value);
 
@@ -345,7 +342,7 @@ int update_schedule(sqlite3 * sqlite3_db, schedule * sc);
 int update_schedule_db(sqlite3 * sqlite3_db, schedule sc);
 int remove_schedule_db(sqlite3 * sqlite3_db, schedule sc);
 time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule_value);
-int enable_schedule(sqlite3 * sqlite3_db, char * schedule, char * status, char * command_result);
+char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status);
 
 // Monitor
 int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, switcher p);
@@ -373,14 +370,14 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor);
 char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater);
 char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer);
 
-int add_action(sqlite3 * sqlite3_db, action cur_action, char * command_result);
-int set_action(sqlite3 * sqlite3_db, action cur_action, char * command_result);
+char * add_action(sqlite3 * sqlite3_db, action cur_action);
+char * set_action(sqlite3 * sqlite3_db, action cur_action);
 int delete_action(sqlite3 * sqlite3_db, char * action_id);
-int add_script(sqlite3 * sqlite3_db, script cur_script, char * command_result);
-int set_script(sqlite3 * sqlite3_db, script cur_script, char * command_result);
+char * add_script(sqlite3 * sqlite3_db, script cur_script);
+char * set_script(sqlite3 * sqlite3_db, script cur_script);
 int delete_script(sqlite3 * sqlite3_db, char * script_id);
-int add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result);
-int set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule, char * command_result);
+char * add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule);
+char * set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule);
 int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id);
 
 // Startup status functions
@@ -392,6 +389,7 @@ int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device);
 int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer, int value);
 int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device);
 
+char * get_json_list_commands();
 // libmicrohttpd functions
 int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind,
                          const char *key, const char *filename,

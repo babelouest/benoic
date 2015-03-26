@@ -16,127 +16,143 @@
 
 #include "angharad.h"
 
-// JSON templates
-static const char json_template_webserver_wrong_url[] = "{\"syntax_error\":{\"message\":\"can not parse url\",\"url\":\"%s\",\"size\":%d}}";
-static const char json_template_webserver_devices[] = "{\"devices\":[%s]}";
-static const char json_template_webserver_actions[] = "{\"actions\":[%s]}";
-static const char json_template_webserver_actions_error[] = "{\"result\":\"error\",\"message\":\"Error getting actions\"}";
-static const char json_template_webserver_scripts[] = "{\"scripts\":[%s]}";
-static const char json_template_webserver_scripts_error[] = "{\"result\":\"error\",\"message\":\"Error getting scripts\"}";
-static const char json_template_webserver_script[] = "{\"result\":%s}";
-static const char json_template_webserver_script_error[] = "{\"result\":\"error\",\"message\":\"Error getting script\"}";
-static const char json_template_webserver_script_error_id[] = "{\"syntax_error\":{\"message\":\"no script id specified\"}}";
-static const char json_template_webserver_script_run[] = "{\"result\":\"ok\"}";
-static const char json_template_webserver_script_run_error[] = "{\"result\":\"error\",\"message\":\"Error running script\"}";
-static const char json_template_webserver_schedules[] = "{\"result\":[%s]}";
-static const char json_template_webserver_schedules_error[] = "{\"result\":\"error\",\"message\":\"Error getting schedules\"}";
-static const char json_template_webserver_schedule_enable[] = "{\"result\":%s}";
-static const char json_template_webserver_schedule_enable_error[] = "{\"result\":\"error\",\"message\":\"Error setting schedule\"}";
-static const char json_template_webserver_action_delete[] = "{\"result\":\"ok\"}";
-static const char json_template_webserver_action_delete_error[] = "{\"result\":\"error\",\"message\":\"Error deleting action\"}";
-static const char json_template_webserver_script_delete[] = "{\"result\":\"ok\"}";
-static const char json_template_webserver_script_delete_error[] = "{\"result\":\"error\",\"message\":\"Error deleting script\"}";
-static const char json_template_webserver_schedule_delete[] = "{\"result\":\"ok\"}";
-static const char json_template_webserver_schedule_delete_error[] = "{\"result\":\"error\",\"message\":\"Error deleting schedule\"}";
-static const char json_template_webserver_archive[] = "{\"result\":\"%s\",\"archive_from\":%d,\"last_archive\":%d,\"archive_running\":%s}";
-static const char json_template_webserver_last_archive[] = "{\"result\":\"ok\",\"last_archive\":%d,\"archive_running\":%s}";
-static const char json_template_webserver_last_archive_error[] = "{\"result\":\"error\",\"last_archive\":\"no archive database\"}";
-static const char json_template_webserver_no_device[] = "{\"syntax_error\":{\"message\":\"no device\"}}";
-static const char json_template_webserver_device_not_found[] = "{\"syntax_error\":{\"message\":\"device not found\",\"device\":\"%s\"}}";
-static const char json_template_webserver_reset_device[] = "{\"result\":{\"command\":\"reset\",\"device\":\"%s\",\"response\":%s,\"initialization\":%s}}";
-static const char json_template_webserver_device_disabled[] = "{\"syntax_error\":{\"message\":\"device disabled\",\"device\":\"%s\"}}";
-static const char json_template_webserver_heartbeat[] = "{\"result\":{\"command\":\"heartbeat\",\"device\":\"%s\",\"response\":\"%s\"}}";
-static const char json_template_webserver_device_name[] = "{\"result\":{\"command\":\"name\",\"device\":\"%s\",\"response\":\"%s\"}}";
-static const char json_template_webserver_getswitch[] = "{\"result\":{\"command\":\"get_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"response\":%d}}";
-static const char json_template_webserver_getswitch_error[] = "{\"syntax_error\":{\"message\":\"no switcher specified\",\"command\":\"%s\"}}";
-static const char json_template_webserver_setswitch[] = "{\"result\":{\"command\":\"set_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"status\":\"%s\",\"response\":%d}}";
-static const char json_template_webserver_toggleswitch[] = "{\"result\":{\"command\":\"toggle_status\",\"device\":\"%s\",\"switcher\":\"%s\",\"response\":%d}}";
-static const char json_template_webserver_setdimmer[] = "{\"result\":{\"command\":\"set_dimmer\",\"device\":\"%s\",\"dimmer\":\"%s\",\"response\":%d}}";
-static const char json_template_webserver_setdimmer_error[] = "{\"syntax_error\":{\"message\":\"wrong command\"}}";
-static const char json_template_webserver_getdimmer[] = "{\"result\":{\"command\":\"get_dimmer\",\"device\":\"%s\",\"dimmer\":\"%s\",\"response\":%d}}";
-static const char json_template_webserver_getdimmer_error[] = "{\"syntax_error\":{\"message\":\"wrong command\"}}";
-static const char json_template_webserver_sensor_error[] = "{\"result\":{\"command\":\"sensor\",\"device\":\"%s\",\"response\":\"error\"}}";
-static const char json_template_webserver_sensor_not_found[] = "{\"syntax_error\":{\"message\":\"unknown sensor\",\"sensor\":\"%s\"}}";
-static const char json_template_webserver_sensor[] = "{\"result\":{\"command\":\"sensor\",\"device\":\"%s\",\"response\":%.2f}}";
-static const char json_template_webserver_getheater[] = "{\"result\":{\"command\":\"get_heater\",\"device\":\"%s\",\"response\":{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}}}";
-static const char json_template_webserver_getheater_error_parsing[] = "{\"syntax_error\":{\"message\":\"error parsing results\"}}";
-static const char json_template_webserver_getheater_error[] = "{\"syntax_error\":{\"message\":\"error getting heater status\"}}";
-static const char json_template_webserver_setheater[] = "{\"result\":{\"command\":\"set_heater\",\"device\":\"%s\",\"response\":{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}}}";
-static const char json_template_webserver_setheater_error_parsing[] = "{\"syntax_error\":{\"message\":\"error parsing heater results\"}}";
-static const char json_template_webserver_setheater_error[] = "{\"syntax_error\":{\"message\":\"error getting results\",\"message\":{\"command\":\"set_heater\",\"device\":\"%s\",\"heater\":\"%s\"}}";
-static const char json_template_webserver_monitor_error[] = "{\"result\":\"error\",\"message\":\"Error getting monitor values\"}";
-static const char json_template_webserver_unknown_command[] = "{\"syntax_error\":{\"message\":\"unknown command\",\"command\":\"%s\"}}";
-static const char json_template_webserver_device_not_connected[] = "{\"syntax_error\":{\"message\":\"device not connected\",\"device\":\"%s\"}}";
-static const char json_template_webserver_command_empty[] = "{\"syntax_error\":{\"message\":\"empty command\"}}";
-static const char json_template_webserver_setdevicedata[] = "{\"device\":%s}";
-static const char json_template_webserver_setdevicedata_error[] = "{\"result\":\"error\",\"message\":\"Error setting device\"}";
-static const char json_template_webserver_setswitchdata[] = "{\"switcher\":%s}";
-static const char json_template_webserver_setswitchdata_error[] = "{\"result\":\"error\",\"message\":\"Error setting switcher\"}";
-static const char json_template_webserver_setsensordata[] = "{\"sensor\":%s}";
-static const char json_template_webserver_setsensordata_error[] = "{\"result\":\"error\",\"message\":\"Error setting sensor\"}";
-static const char json_template_webserver_setheaterdata[] = "{\"heater\":%s}";
-static const char json_template_webserver_setheaterdata_error[] = "{\"result\":\"error\",\"message\":\"Error setting heater\"}";
-static const char json_template_webserver_setdimmerdata[] = "{\"dimmer\":%s}";
-static const char json_template_webserver_setdimmerdata_error[] = "{\"result\":\"error\",\"message\":\"Error setting dimmer\"}";
-static const char json_template_webserver_addaction[] = "{\"action\":%s}";
-static const char json_template_webserver_addaction_error[] = "{\"result\":\"error\",\"message\":\"Error adding action\"}";
-static const char json_template_webserver_setaction[] = "{\"action\":%s}";
-static const char json_template_webserver_setaction_error[] = "{\"result\":\"error\",\"message\":\"Error setting action\"}";
-static const char json_template_webserver_addscript[] = "{\"script\":%s}";
-static const char json_template_webserver_addscript_error[] = "{\"result\":\"error\",\"message\":\"Error adding script\"}";
-static const char json_template_webserver_setscript[] = "{\"script\":%s}";
-static const char json_template_webserver_setscript_error[] = "{\"result\":\"error\",\"message\":\"Error setting script\"}";
-static const char json_template_webserver_addschedule[] = "{\"schedule\":%s}";
-static const char json_template_webserver_addschedule_error[] = "{\"result\":\"error\",\"message\":\"Error adding schedule\"}";
-static const char json_template_webserver_setschedule[] = "{\"schedule\":%s}";
-static const char json_template_webserver_setschedule_error[] = "{\"result\":\"error\",\"message\":\"Error setting schedule\"}";
-static const char json_template_webserver_empty_command[] = "{\"syntax_error\":{\"message\":\"empty command\"}}";
-static const char json_template_webserver_wrong_http_method[] = "{\"syntax_error\":{\"message\":\"wrong http method\"}}";
-static const char json_template_webserver_wrong_prefix[] = "{\"syntax_error\":{\"message\":\"unknown prefix\",\"prefix\":\"%s\"}}";
-
 /**
- * Commands used
+ * Commands used and JSON templates associated
  */
-// POST commands
-#define SETDEVICEDATA   "SETDEVICEDATA"
-#define SETSWITCHDATA   "SETSWITCHDATA"
-#define SETSENSORDATA   "SETSENSORDATA"
-#define SETHEATERDATA   "SETHEATERDATA"
-#define SETDIMMERDATA   "SETDIMMERDATA"
-#define SETACTION       "SETACTION"
-#define SETSCRIPT       "SETSCRIPT"
-#define SETSCHEDULE     "SETSCHEDULE"
-#define ADDACTION       "ADDACTION"
-#define ADDSCRIPT       "ADDSCRIPT"
-#define ADDSCHEDULE     "ADDSCHEDULE"
 
-// GET commands
-#define DEVICES         "DEVICES"
-#define ACTIONS         "ACTIONS"
-#define SCRIPTS         "SCRIPTS"
-#define SCRIPT          "SCRIPT"
-#define RUNSCRIPT       "RUNSCRIPT"
-#define SCHEDULES       "SCHEDULES"
-#define ENABLESCHEDULE  "ENABLESCHEDULE"
-#define DELETEACTION    "DELETEACTION"
-#define DELETESCRIPT    "DELETESCRIPT"
-#define DELETESCHEDULE  "DELETESCHEDULE"
-#define LASTARCHIVE     "LASTARCHIVE"
-#define ARCHIVE         "ARCHIVE"
-#define RESET           "RESET"
-#define HEARTBEAT       "HEARTBEAT"
-#define NAME            "NAME"
+// multiple get
 #define OVERVIEW        "OVERVIEW"
 #define REFRESH         "REFRESH"
-#define GETSWITCH       "GETSWITCH"
-#define SETSWITCH       "SETSWITCH"
-#define TOGGLESWITCH    "TOGGLESWITCH"
-#define SETDIMMER       "SETDIMMER"
+static const char json_template_webserver_overview_refresh[]        = "{\"command\":\"%s\",\"result\":\"ok\",\"device\":%s}";
+static const char json_template_webserver_overview_refresh_error[]  = "{\"command\":\"%s\",\"result\":\"error\",\"message\":\"Error getting all status\"}";
+#define ACTIONS         "ACTIONS"
+static const char json_template_webserver_actions[]                 = "{\"command\":\"ACTIONS\",\"result\":\"ok\",\"actions\":[%s]}";
+static const char json_template_webserver_actions_error[]           = "{\"command\":\"ACTIONS\",\"result\":\"error\",\"message\":\"Error getting actions\"}";
+#define DEVICES         "DEVICES"
+static const char json_template_webserver_devices[]                 = "{\"command\":\"DEVICES\",\"result\":\"ok\",\"devices\":[%s]}";
+#define SCHEDULES       "SCHEDULES"
+static const char json_template_webserver_schedules[]               = "{\"command\":\"SCHEDULES\",\"result\":\"ok\",\"schedules\":[%s]}";
+static const char json_template_webserver_schedules_error[]         = "{\"command\":\"SCHEDULES\",\"result\":\"error\",\"message\":\"Error getting schedules\"}";
+#define SCRIPTS         "SCRIPTS"
+static const char json_template_webserver_scripts[]                 = "{\"command\":\"SCRIPTS\",\"result\":\"ok\",\"scripts\":[%s]}";
+static const char json_template_webserver_scripts_error[]           = "{\"command\":\"SCRIPTS\",\"result\":\"error\",\"message\":\"Error getting scripts\"}";
+
+// single get
 #define GETDIMMER       "GETDIMMER"
-#define SENSOR          "SENSOR"
+static const char json_template_webserver_getdimmer[]               = "{\"command\":\"GETDIMMER\",\"result\":\"ok\",\"dimmer\":{\"device\":\"%s\",\"name\":\"%s\",\"value\":%d}}";
+static const char json_template_webserver_getdimmer_error[]         = "{\"command\":\"GETDIMMER\",\"result\":\"error\",\"syntax_error\":{\"message\":\"Error getting dimmer status\"}}";
 #define GETHEATER       "GETHEATER"
+static const char json_template_webserver_getheater[]               = "{\"command\":\"GETHEATER\",\"result\":\"ok\",\"heater\":{\"device\":\"%s\",\"name\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}}";
+static const char json_template_webserver_getheater_error[]         = "{\"command\":\"GETHEATER\",\"result\":\"error\",\"message\":\"error getting heater status\"}";
+static const char json_template_webserver_getheater_error_parsing[] = "{\"command\":\"GETHEATER\",\"result\":\"error\",\"message\":\"error parsing results\"}";
+#define GETSWITCH       "GETSWITCH"
+static const char json_template_webserver_getswitch[]               = "{\"command\":\"GETSWITCH\",\"result\":\"ok\",\"switch\":{\"device\":\"%s\",\"switch\":\"%s\",\"status\":%d}}";
+static const char json_template_webserver_getswitch_error[]               = "{\"command\":\"GETSWITCH\",\"result\":\"error\",\"message\":\"Error getting switch status\"}";
+static const char json_template_webserver_getswitch_error_noswitch[]         = "{\"command\":\"GETSWITCH\",\"result\":\"error\",\"syntax_error\":{\"message\":\"no switch specified\",\"command\":\"%s\"}}";
+#define SENSOR          "SENSOR"
+static const char json_template_webserver_sensor[]                  = "{\"command\":\"SENSOR\",\"result\":\"ok\",\"sensor\":{\"device\":\"%s\",\"sensor\":\"%s\",\"value\":%.2f}}";
+static const char json_template_webserver_sensor_error[]            = "{\"command\":\"SENSOR\",\"result\":\"error\",\"message\":\"Error getting sensor value\"}";
+static const char json_template_webserver_sensor_not_found[]        = "{\"command\":\"SENSOR\",\"result\":\"unknown sensor\",\"sensor\":{\"device\":\"%s\",\"sensor\":\"%s\",\"response\":\"error\"}}";
+#define SCRIPT          "SCRIPT"
+static const char json_template_webserver_script[]                  = "{\"command\":\"SCRIPT\",\"result\":\"ok\",\"script\":%s}";
+static const char json_template_webserver_script_error[]            = "{\"command\":\"SCRIPT\",\"result\":\"error\",\"message\":\"Error getting script\"}";
+static const char json_template_webserver_script_error_id[]         = "{\"command\":\"SCRIPT\",\"result\":\"ok\",\"syntax_error\":{\"message\":\"no script id specified\"}}";
+
+// set element
+#define SETDIMMER       "SETDIMMER"
+static const char json_template_webserver_setdimmer[]               = "{\"command\":\"SETDIMMER\",\"result\":\"ok\",\"dimmer\":{\"device\":\"%s\",\"dimmer\":\"%s\",\"value\":%d}}";
+static const char json_template_webserver_setdimmer_error[]         = "{\"command\":\"SETDIMMER\",\"result\":\"error\",\"message\":\"Error setting dimmer\"}";
 #define SETHEATER       "SETHEATER"
+static const char json_template_webserver_setheater[]               = "{\"command\":\"SETHEATER\",\"result\":\"ok\",\"heater\":{\"device\":\"%s\",\"name\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\"}}";
+static const char json_template_webserver_setheater_error[]         = "{\"command\":\"SETHEATER\",\"result\":\"error\",\"message\":\"Error setting heater\"}";
+static const char json_template_webserver_setheater_error_parsing[] = "{\"command\":\"SETHEATER\",\"result\":\"error\",\"message\":\"Error parsing heater results\"}";
+#define SETSWITCH       "SETSWITCH"
+static const char json_template_webserver_setswitch[]               = "{\"command\":\"SETSWITCH\",\"result\":\"ok\",\"switch\":{\"device\":\"%s\",\"switch\":\"%s\",\"status\":%d}}";
+static const char json_template_webserver_setswitch_error[]         = "{\"command\":\"SETSWITCH\",\"result\":\"error\",\"message\":\"Error setting switch\"}";
+#define TOGGLESWITCH    "TOGGLESWITCH"
+static const char json_template_webserver_toggleswitch[]            = "{\"command\":\"TOGGLESWITCH\",\"result\":\"ok\",\"switch\":{\"name\":\"%s\",\"response\":%d}}";
+static const char json_template_webserver_toggleswitch_error[]      = "{\"command\":\"TOGGLESWITCH\",\"result\":\"error\",\"message\":\"Error toggling weitch\"}";
+
+// add element data
+#define ADDACTION       "ADDACTION"
+static const char json_template_webserver_addaction[]               = "{\"command\":\"ADDACTION\",\"result\":\"ok\",\"action\":%s}";
+static const char json_template_webserver_addaction_error[]         = "{\"command\":\"ADDACTION\",\"result\":\"error\",\"message\":\"Error adding action\"}";
+#define ADDSCHEDULE     "ADDSCHEDULE"
+static const char json_template_webserver_addschedule[]             = "{\"command\":\"ADDSCHEDULE\",\"result\":\"ok\",\"schedule\":%s}";
+static const char json_template_webserver_addschedule_error[]       = "{\"command\":\"ADDSCHEDULE\",\"result\":\"error\",\"message\":\"Error adding schedule\"}";
+#define ADDSCRIPT       "ADDSCRIPT"
+static const char json_template_webserver_addscript[]               = "{\"command\":\"ADDSCRIPT\",\"result\":\"ok\",\"script\":%s}";
+static const char json_template_webserver_addscript_error[]         = "{\"command\":\"ADDSCRIPT\",\"result\":\"error\",\"message\":\"Error adding script\"}";
+
+// modify element data
+#define ENABLESCHEDULE  "ENABLESCHEDULE"
+static const char json_template_webserver_schedule_enable[]         = "{\"command\":\"ENABLESCHEDULE\",\"result\":\"ok\",\"schedule\":%s}";
+static const char json_template_webserver_schedule_enable_error[]   = "{\"command\":\"ENABLESCHEDULE\",\"result\":\"error\",\"message\":\"Error setting schedule\"}";
+#define SETACTION       "SETACTION"
+static const char json_template_webserver_setaction[]               = "{\"command\":\"SETACTION\",\"result\":\"ok\",\"action\":%s}";
+static const char json_template_webserver_setaction_error[]         = "{\"command\":\"SETACTION\",\"result\":\"error\",\"message\":\"Error setting action\"}";
+#define SETDEVICEDATA   "SETDEVICEDATA"
+static const char json_template_webserver_setdevicedata[]           = "{\"command\":\"SETDEVICEDATA\",\"result\":\"ok\",\"device\":%s}";
+static const char json_template_webserver_setdevicedata_error[]     = "{\"command\":\"SETDEVICEDATA\",\"result\":\"error\",\"message\":\"Error setting device\"}";
+#define SETDIMMERDATA   "SETDIMMERDATA"
+static const char json_template_webserver_setdimmerdata[]           = "{\"command\":\"SETDIMMERDATA\",\"result\":\"ok\",\"dimmer\":%s}";
+static const char json_template_webserver_setdimmerdata_error[]     = "{\"command\":\"SETDIMMERDATA\",\"result\":\"error\",\"message\":\"Error setting dimmer\"}";
+#define SETHEATERDATA   "SETHEATERDATA"
+static const char json_template_webserver_setheaterdata[]           = "{\"command\":\"SETHEATERDATA\",\"result\":\"ok\",\"heater\":%s}";
+static const char json_template_webserver_setheaterdata_error[]     = "{\"command\":\"SETHEATERDATA\",\"result\":\"error\",\"message\":\"Error setting heater\"}";
+#define SETSCHEDULE     "SETSCHEDULE"
+static const char json_template_webserver_setschedule[]             = "{\"command\":\"SETSCHEDULE\",\"result\":\"ok\",\"schedule\":%s}";
+static const char json_template_webserver_setschedule_error[]       = "{\"command\":\"SETSCHEDULE\",\"result\":\"error\",\"message\":\"Error setting schedule\"}";
+#define SETSCRIPT       "SETSCRIPT"
+static const char json_template_webserver_setscript[]               = "{\"command\":\"SETSCRIPT\",\"result\":\"ok\",\"script\":%s}";
+static const char json_template_webserver_setscript_error[]         = "{\"command\":\"SETSCRIPT\",\"result\":\"error\",\"message\":\"Error setting script\"}";
+#define SETSENSORDATA   "SETSENSORDATA"
+static const char json_template_webserver_setsensordata[]           = "{\"command\":\"SETSENSORDATA\",\"result\":\"ok\",\"sensor\":%s}";
+static const char json_template_webserver_setsensordata_error[]     = "{\"command\":\"SETSENSORDATA\",\"result\":\"error\",\"message\":\"Error setting sensor\"}";
+#define SETSWITCHDATA   "SETSWITCHDATA"
+static const char json_template_webserver_setswitchdata[]           = "{\"command\":\"SETSWITCHDATA\",\"result\":\"ok\",\"switch\":%s}";
+static const char json_template_webserver_setswitchdata_error[]     = "{\"command\":\"SETSWITCHDATA\",\"result\":\"error\",\"message\":\"Error setting switcher\"}";
+
+// remove element data
+#define DELETEACTION    "DELETEACTION"
+static const char json_template_webserver_action_delete[]           = "{\"command\":\"DELETEACTION\",\"result\":\"ok\"}";
+static const char json_template_webserver_action_delete_error[]     = "{\"command\":\"DELETEACTION\",\"result\":\"error\",\"message\":\"Error deleting action\"}";
+#define DELETESCHEDULE  "DELETESCHEDULE"
+static const char json_template_webserver_schedule_delete[]         = "{\"command\":\"DELETESCHEDULE\",\"result\":\"ok\"}";
+static const char json_template_webserver_schedule_delete_error[]   = "{\"command\":\"DELETESCHEDULE\",\"result\":\"error\",\"message\":\"Error deleting schedule\"}";
+#define DELETESCRIPT    "DELETESCRIPT"
+static const char json_template_webserver_script_delete[]           = "{\"command\":\"DELETESCRIPT\",\"result\":\"ok\"}";
+static const char json_template_webserver_script_delete_error[]     = "{\"command\":\"DELETESCRIPT\",\"result\":\"error\",\"message\":\"Error deleting script\"}";
+
+// misc
+#define ARCHIVE         "ARCHIVE"
+static const char json_template_webserver_archive[]                 = "{\"command\":\"ARCHIVE\",\"result\":\"%s\",\"archive_from\":%d,\"last_archive\":%d,\"archive_running\":%s}";
+#define HEARTBEAT       "HEARTBEAT"
+static const char json_template_webserver_heartbeat[]               = "{\"command\":\"HEARTBEAT\",\"result\":\"ok\",\"response\":\"%s\"}";
+#define LASTARCHIVE     "LASTARCHIVE"
+static const char json_template_webserver_last_archive[]            = "{\"command\":\"LASTARCHIVE\",\"result\":\"ok\",\"last_archive\":%d,\"archive_running\":%s}";
+static const char json_template_webserver_last_archive_error[]      = "{\"command\":\"LASTARCHIVE\",\"result\":\"error\",\"message\":\"No archive database\"}";
 #define MONITOR         "MONITOR"
+static const char json_template_webserver_monitor[]                 = "{\"command\":\"MONITOR\",\"result\":\"ok\",\"monitor\":%s}";
+static const char json_template_webserver_monitor_error[]           = "{\"command\":\"MONITOR\",\"result\":\"error\",\"message\":\"Error getting monitor values\"}";
+#define RESET           "RESET"
+static const char json_template_webserver_reset_device[]            = "{\"command\":\"RESET\",\"result\":\"ok\",\"device\":\"%s\",\"response\":%s,\"initialization\":%s}";
+#define RUNSCRIPT       "RUNSCRIPT"
+static const char json_template_webserver_script_run[]              = "{\"command\":\"RUNSCRIPT\",\"result\":\"ok\"}";
+static const char json_template_webserver_script_run_error[]        = "{\"command\":\"RUNSCRIPT\",\"result\":\"error\",\"message\":\"Error running script\"}";
+#define LISTCOMMANDS    "LISTCOMMANDS"
+static const char json_template_webserver_list_commands[]           = "{\"command\":\"LISTCOMMANDS\",\"description\":\"List of commands available\",\"commands_available\":%s}";
+
+// general errors
+static const char json_template_webserver_no_device[]               = "{\"command\":\"%s\",\"result\":\"error\",\"syntax_error\":{\"message\":\"No device\"}}";
+static const char json_template_webserver_command_empty[]           = "{\"command\":\"\",\"result\":\"error\",\"message\":\"Empty command\",\"commands_available\":%s}";
+static const char json_template_webserver_device_disabled[]         = "{\"command\":\"%s\",\"result\":\"error\",\"syntax_error\":{\"message\":\"Device disabled\",\"device\":\"%s\"}}";
+static const char json_template_webserver_device_not_connected[]    = "{\"command\":\"%s\",\"result\":\"error\",\"syntax_error\":{\"message\":\"Device not connected\",\"device\":\"%s\"}}";
+static const char json_template_webserver_device_not_found[]        = "{\"command\":\"%s\",\"result\":\"error\",\"syntax_error\":{\"message\":\"Device not found\",\"device\":\"%s\"}}";
+static const char json_template_webserver_unknown_command[]         = "{\"command\":\"%s\",\"result\":\"error\",\"message\":\"Unknown command\",\"command\":\"%s\",\"commands_available\":%s}";
+static const char json_template_webserver_wrong_http_method[]       = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Wrong http method\"}}";
+static const char json_template_webserver_wrong_prefix[]            = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Unknown prefix\",\"prefix\":\"%s\",\"available_prefix\":\"%s\"}}";
+static const char json_template_webserver_wrong_url[]               = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Can not parse url\",\"url\":\"%s\",\"size\":%d}}";
 
 /**
  * Main libmicrohttpd answer callback function
@@ -156,17 +172,18 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   
   char delim[] = "/";
   char * prefix = NULL;
-  char * command = NULL, * device = NULL, * sensor = NULL, * switcher = NULL, 
+  char * command = NULL, * device_name = NULL, * sensor_name = NULL, * switcher_name = NULL,
     * status = NULL, * force = NULL, * action = NULL, * script = NULL, *schedule = NULL, 
     * heater_name = NULL, * heat_enabled = NULL, * heat_value = NULL, 
     * dimmer_name = NULL, * dimmer_value = NULL, * to_free = NULL, 
     * start_date = NULL, * epoch_from_str = NULL;
-  char * page = NULL, buffer[2*MSGLENGTH+1];
+  char * page = NULL;
   char * saveptr;
-  heater heat_status;
+  heater * heat_status;
   char sanitized[WORDLENGTH+1];
   struct MHD_Response *response;
   int ret, urllength = strlen(url);
+  size_t page_len;
   int result;
   float sensor_value;
   int iforce;
@@ -197,7 +214,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   int thread_ret_archive = 0, thread_detach_archive = 0;
   struct archive_args config_archive;
   
-  snprintf(urlcpy, urllength+1, "%s", url);
+  snprintf(urlcpy, (urllength+1)*sizeof(char), "%s", url);
   prefix = strtok_r( urlcpy, delim, &saveptr );
   
   /*
@@ -212,18 +229,24 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
       command = strtok_r( NULL, delim, &saveptr );
       if (0 == strncmp(SETDEVICEDATA, command, strlen(SETDEVICEDATA))) {
         con_info_post->data = malloc(sizeof(struct _device));
+        memset(((struct _device *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
         memset(((struct _device *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_DEVICE;
       } else if (0 == strncmp(SETSWITCHDATA, command, strlen(SETSWITCHDATA))) {
         con_info_post->data = malloc(sizeof(struct _switcher));
+        memset(((struct _switcher *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
         memset(((struct _switcher *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SWITCH;
       } else if (0 == strncmp(SETSENSORDATA, command, strlen(SETSENSORDATA))) {
         con_info_post->data = malloc(sizeof(struct _sensor));
+        memset(((struct _sensor *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
+        memset(((struct _sensor *)con_info_post->data)->unit, 0, WORDLENGTH*sizeof(char));
         memset(((struct _sensor *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SENSOR;
       } else if (0 == strncmp(SETHEATERDATA, command, strlen(SETHEATERDATA))) {
         con_info_post->data = malloc(sizeof(struct _heater));
+        memset(((struct _heater *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
+        memset(((struct _heater *)con_info_post->data)->unit, 0, WORDLENGTH*sizeof(char));
         memset(((struct _heater *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_HEATER;
       } else if (0 == strncmp(SETDIMMERDATA, command, strlen(SETDIMMERDATA))) {
@@ -238,7 +261,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         memset(((struct _action *)con_info_post->data)->switcher, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->heater, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->dimmer, 0, WORDLENGTH*sizeof(char));
-        memset(((struct _action *)con_info_post->data)->params, 0, MSGLENGTH*sizeof(char));
+        memset(((struct _action *)con_info_post->data)->params, 0, WORDLENGTH*sizeof(char));
         memset(((struct _action *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_ACTION;
       } else if (0 == strncmp(SETSCRIPT, command, strlen(SETSCRIPT)) || 0 == strncmp(ADDSCRIPT, command, strlen(ADDSCRIPT))) {
@@ -275,19 +298,16 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   }
   
   /*
-   * Initialize page variable that will feed the http output
-   */
-  page = malloc((MSGLENGTH*2+1)*sizeof(char));
-  
-  /*
    * url parsing
    */
   if (prefix == NULL) {
     // wrong url
     tf_len = 2*strlen(url);
-    char * sanitize = malloc((tf_len+1)*sizeof(char));
+    char * sanitize = malloc((tf_len+1));
     sanitize_json_string((char *)url, sanitize, WORDLENGTH);
-    snprintf(page, MSGLENGTH, json_template_webserver_wrong_url, sanitize, urllength);
+    page_len = snprintf(NULL, 0, json_template_webserver_wrong_url, sanitize, urllength);
+    page = malloc((page_len+1)*sizeof(char));
+    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_url, sanitize, urllength);
     free(sanitize);
   } else if (0 == strcmp(prefix, config->url_prefix)) {
     /*
@@ -296,105 +316,145 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
     if (0 == strcmp(method, "GET")) {
       command = strtok_r( NULL, delim, &saveptr );
       if (command != NULL) {
-        if (0 == strncmp(DEVICES, command, strlen(DEVICES))) { // Get all devices
+        if (0 == strncmp(LISTCOMMANDS, command, strlen(LISTCOMMANDS))) { // List all commands
+          to_free = get_json_list_commands();
+          tf_len = snprintf(NULL, 0, json_template_webserver_list_commands, to_free);
+          page = malloc((tf_len+1)*sizeof(char));
+          snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_list_commands, to_free);
+          free(to_free);
+          to_free = NULL;
+        } else if (0 == strncmp(DEVICES, command, strlen(DEVICES))) { // Get all devices
           to_free = get_devices(config->sqlite3_db, config->terminal, config->nb_terminal);
           tf_len = snprintf(NULL, 0, json_template_webserver_devices, to_free);
-          free(page);
           page = malloc((tf_len+1)*sizeof(char));
-          snprintf(page, tf_len+1, json_template_webserver_devices, to_free);
+          snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_devices, to_free);
           free(to_free);
           to_free = NULL;
         } else if ( 0 == strncmp(ACTIONS, command, strlen(ACTIONS))) { // Get actions
-          device = strtok_r( NULL, delim, &saveptr );
-          to_free = get_actions(config->sqlite3_db, device);
+          device_name = strtok_r( NULL, delim, &saveptr );
+          to_free = get_actions(config->sqlite3_db, device_name);
           if (to_free != NULL) {
             tf_len = snprintf(NULL, 0, json_template_webserver_actions, to_free);
-            free(page);
             page = malloc((tf_len+1)*sizeof(char));
-            snprintf(page, tf_len+1, json_template_webserver_actions, to_free);
+            snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_actions, to_free);
             free(to_free);
             to_free = NULL;
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_actions_error);
+            page_len = strlen(json_template_webserver_actions_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_actions_error);
           }
         } else if ( 0 == strncmp(SCRIPTS, command, strlen(SCRIPTS))) { // Get scripts
-          device = strtok_r( NULL, delim, &saveptr );
-          to_free = get_scripts(config->sqlite3_db, device);
+          device_name = strtok_r( NULL, delim, &saveptr );
+          to_free = get_scripts(config->sqlite3_db, device_name);
           if (to_free != NULL) {
             tf_len = snprintf(NULL, 0, json_template_webserver_scripts, to_free);
-            free(page);
             page = malloc((tf_len+1)*sizeof(char));
-            snprintf(page, tf_len+1, json_template_webserver_scripts, to_free);
+            snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_scripts, to_free);
             free(to_free);
             to_free = NULL;
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_scripts_error);
+            page_len = strlen(json_template_webserver_scripts_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_scripts_error);
           }
         } else if ( 0 == strncmp(SCRIPT, command, strlen(SCRIPT))) { // Get one script
           script = strtok_r( NULL, delim, &saveptr );
           if (script == NULL) {
-            snprintf(page, MSGLENGTH, json_template_webserver_script_error_id);
+            page_len = strlen(json_template_webserver_script_error_id);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_error_id);
           } else {
             to_free = get_script(config->sqlite3_db, script, 1);
             if (to_free != NULL) {
-              snprintf(page, MSGLENGTH, json_template_webserver_script, to_free);
+              tf_len = snprintf(NULL, 0, json_template_webserver_script, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_script, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_script_error);
+              page_len = strlen(json_template_webserver_script_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_error);
             }
             free(to_free);
           }
         } else if ( 0 == strncmp(RUNSCRIPT, command, strlen(RUNSCRIPT))) { // Run a script
           script = strtok_r( NULL, delim, &saveptr );
           if (script == NULL) {
-            snprintf(page, MSGLENGTH, json_template_webserver_script_error_id);
+            page_len = strlen(json_template_webserver_script_error_id);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_error_id);
           } else {
             if (run_script(config->sqlite3_db, config->terminal, config->nb_terminal, config->script_path, script)) {
-              snprintf(page, MSGLENGTH, json_template_webserver_script_run);
+              page_len = strlen(json_template_webserver_script_run);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_run);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_script_run_error);
+              page_len = strlen(json_template_webserver_script_run_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_run_error);
             }
           }
         } else if ( 0 == strncmp(SCHEDULES, command, strlen(SCHEDULES))) { // get all schedules
-          device = strtok_r( NULL, delim, &saveptr );
-          to_free = get_schedules(config->sqlite3_db, device);
+          device_name = strtok_r( NULL, delim, &saveptr );
+          to_free = get_schedules(config->sqlite3_db, device_name);
           if (to_free != NULL) {
             tf_len = snprintf(NULL, 0, json_template_webserver_schedules, to_free);
-            free(page);
             page = malloc((tf_len+1)*sizeof(char));
-            snprintf(page, tf_len+1, json_template_webserver_schedules, to_free);
+            snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_schedules, to_free);
             free(to_free);
             to_free = NULL;
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_schedules_error);
+            page_len = strlen(json_template_webserver_schedules_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_schedules_error);
           }
         } else if ( 0 == strncmp(ENABLESCHEDULE, command, strlen(ENABLESCHEDULE))) { // Enable or disable a schedule
           schedule = strtok_r( NULL, delim, &saveptr );
           status = strtok_r( NULL, delim, &saveptr );
-          if (schedule != NULL && status != NULL && enable_schedule(config->sqlite3_db, schedule, status, buffer)) {
-            snprintf(page, MSGLENGTH, json_template_webserver_schedule_enable, buffer);
+          to_free = enable_schedule(config->sqlite3_db, schedule, status);
+          if (schedule != NULL && status != NULL && to_free != NULL) {
+            tf_len = snprintf(NULL, 0, json_template_webserver_schedule_enable, to_free);
+            page = malloc((tf_len+1)*sizeof(char));
+            snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_schedule_enable, to_free);
+            free(to_free);
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_schedule_enable_error);
+            page_len = strlen(json_template_webserver_schedule_enable_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_schedule_enable_error);
           }
         } else if ( 0 == strncmp(DELETEACTION, command, strlen(DELETEACTION)) ) { // Delete an action
           action = strtok_r( NULL, delim, &saveptr );
           if (delete_action(config->sqlite3_db, action)) {
-            snprintf(page, MSGLENGTH, json_template_webserver_action_delete);
+            page_len = strlen(json_template_webserver_action_delete);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_action_delete);
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_action_delete_error);
+            page_len = strlen(json_template_webserver_action_delete_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_action_delete_error);
           }
         } else if ( 0 == strncmp(DELETESCRIPT, command, strlen(DELETESCRIPT)) ) { // Delete a script
           script = strtok_r( NULL, delim, &saveptr );
           if (delete_script(config->sqlite3_db, script)) {
-            snprintf(page, MSGLENGTH, json_template_webserver_script_delete);
+            page_len = strlen(json_template_webserver_script_delete);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_delete);
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_script_delete_error);
+            page_len = strlen(json_template_webserver_script_delete_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_delete_error);
           }
         } else if ( 0 == strncmp(DELETESCHEDULE, command, strlen(DELETESCHEDULE)) ) { // Delete a schedule
           schedule = strtok_r( NULL, delim, &saveptr );
           if (delete_schedule(config->sqlite3_db, schedule)) {
-            snprintf(page, MSGLENGTH, json_template_webserver_schedule_delete);
+            page_len = strlen(json_template_webserver_schedule_delete);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_schedule_delete);
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_schedule_delete_error);
+            page_len = strlen(json_template_webserver_schedule_delete_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_schedule_delete_error);
           }
         } else if ( 0 == strncmp(ARCHIVE, command, strlen(ARCHIVE)) ) { // Archive data
           epoch_from_str = strtok_r( NULL, delim, &saveptr );
@@ -408,77 +468,137 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
           if (thread_ret_archive || thread_detach_archive) {
             log_message(LOG_WARNING, "Error creating or detaching archive thread, return code: %d, detach code: %d",
                         thread_ret_archive, thread_detach_archive);
-            snprintf(page, MSGLENGTH, json_template_webserver_archive, "error", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page_len = snprintf(NULL, 0, json_template_webserver_archive, "error", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_archive, "error", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_archive, "ok", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page_len = snprintf(NULL, 0, json_template_webserver_archive, "ok", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_archive, "ok", epoch_from, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
           }
         } else if ( 0 == strncmp(LASTARCHIVE, command, strlen(LASTARCHIVE)) ) { // Get Archive informations
           if (strcmp("", config->db_archive_path) != 0) {
-            snprintf(page, MSGLENGTH, json_template_webserver_last_archive, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page_len = snprintf(NULL, 0, json_template_webserver_last_archive, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_last_archive, get_last_archive(config->db_archive_path), is_archive_running(config->db_archive_path)?"true":"false");
           } else {
-            snprintf(page, MSGLENGTH, json_template_webserver_last_archive_error);
+            page_len = strlen(json_template_webserver_last_archive_error);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_last_archive_error);
           }
         } else {
           // The following GET commands need a DEVICE specified
-          device = strtok_r( NULL, delim, &saveptr );
-          if (device == NULL) {
-            snprintf(page, MSGLENGTH, json_template_webserver_no_device);
+          device_name = strtok_r( NULL, delim, &saveptr );
+          if (device_name == NULL) {
+            page_len = snprintf(NULL, 0, json_template_webserver_no_device, command);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_no_device, command);
           } else {
-            cur_terminal = get_device_from_name(device, config->terminal, config->nb_terminal);
+            cur_terminal = get_device_from_name(device_name, config->terminal, config->nb_terminal);
             if (cur_terminal == NULL) {
-              snprintf(page, MSGLENGTH, json_template_webserver_device_not_found, device);
+              page_len = snprintf(NULL, 0, json_template_webserver_device_not_found, command, device_name);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_not_found, command, device_name);
             } else if ( 0 == strncmp(RESET, command, strlen(RESET)) ) { // send a reset command to reconnect a device
               result = reconnect_device(cur_terminal, config->terminal, config->nb_terminal);
-              sanitize_json_string(device, sanitized, WORDLENGTH);
+              sanitize_json_string(device_name, sanitized, WORDLENGTH);
               if (result && init_device_status(config->sqlite3_db, cur_terminal)) {
                 log_message(LOG_WARNING, "Device %s initialized", cur_terminal->name);
-                snprintf(page, MSGLENGTH, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "true");
+                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "true");
+                page = malloc((page_len+1)*sizeof(char));
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "true");
               } else {
                 log_message(LOG_WARNING, "Error initializing device %s", cur_terminal->name);
-                snprintf(page, MSGLENGTH, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "false");
+                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "false");
+                page = malloc((page_len+1)*sizeof(char));
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "false");
               }
             } else if (!cur_terminal->enabled) { // Error, device is disabled
-              snprintf(page, MSGLENGTH, json_template_webserver_device_disabled, cur_terminal->name);
+              page_len = snprintf(NULL, 0, json_template_webserver_device_disabled, command, cur_terminal->name);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_disabled, command, cur_terminal->name);
             } else if (is_connected(cur_terminal)) {
               if ( 0 == strncmp(HEARTBEAT, command, strlen(HEARTBEAT)) ) { // Send a heartbeat command
                 result = send_heartbeat(cur_terminal);
-                snprintf(page, MSGLENGTH, json_template_webserver_heartbeat, sanitized, result?"true":"false");
-              } else if ( 0 == strncmp(NAME, command, strlen(NAME)) ) { // Get the device name
-                get_name(cur_terminal, buffer);
-                sanitize_json_string(device, sanitized, WORDLENGTH);
-                snprintf(page, MSGLENGTH, json_template_webserver_device_name, sanitized, buffer);
+                page_len = snprintf(NULL, 0, json_template_webserver_heartbeat, result?"true":"false");
+                page = malloc((page_len+1)*sizeof(char));
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_heartbeat, result?"true":"false");
               } else if ( 0 == strncmp(OVERVIEW, command, strlen(OVERVIEW)) ) { // Get overview: all the device elements are listed with their current state
-                free(page);
                 page = NULL;
-                page = get_overview(config->sqlite3_db, cur_terminal);
-              } else if ( 0 == strncmp(REFRESH, command, strlen(REFRESH)) ) { // Get refresh: refresh all elements of a device and get the OVERVIEW command result
-                free(page);
-                page = NULL;
-                page = get_refresh(config->sqlite3_db, cur_terminal);
-              } else if ( 0 == strncmp(GETSWITCH, command, strlen(GETSWITCH)) ) { // Get a switch state
-                switcher = strtok_r( NULL, delim, &saveptr );
-                force = strtok_r( NULL, delim, &saveptr );
-                iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
-                if (switcher != NULL) {
-                  result = get_switch_state(cur_terminal, switcher, iforce);
-                  snprintf(page, MSGLENGTH, json_template_webserver_getswitch, device, switcher, result);
+                to_free = get_overview(config->sqlite3_db, cur_terminal);
+                if (to_free != NULL) {
+                  tf_len = snprintf(NULL, 0, json_template_webserver_overview_refresh, command, to_free);
+                  page = malloc((tf_len+1)*sizeof(char));
+                  snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_overview_refresh, command, to_free);
+                  free(to_free);
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_getswitch_error, command);
+                  page_len = snprintf(NULL, 0, json_template_webserver_overview_refresh_error, command);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_overview_refresh_error, command);
+                }
+              } else if ( 0 == strncmp(REFRESH, command, strlen(REFRESH)) ) { // Get refresh: refresh all elements of a device and get the OVERVIEW command result
+                page = NULL;
+                to_free = get_refresh(config->sqlite3_db, cur_terminal);
+                if (to_free != NULL) {
+                  tf_len = snprintf(NULL, 0, json_template_webserver_overview_refresh, command, to_free);
+                  page = malloc((tf_len+1)*sizeof(char));
+                  snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_overview_refresh, command, to_free);
+                  free(to_free);
+                } else {
+                  page_len = snprintf(NULL, 0, json_template_webserver_overview_refresh_error, command);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_overview_refresh_error, command);
+                }
+              } else if ( 0 == strncmp(GETSWITCH, command, strlen(GETSWITCH)) ) { // Get a switch state
+                switcher_name = strtok_r( NULL, delim, &saveptr );
+                force = strtok_r( NULL, delim, &saveptr );
+                iforce = (force != NULL && (0 == strcmp("1", force)))?1:0;
+                if (switcher_name != NULL) {
+                  result = get_switch_state(cur_terminal, switcher_name, iforce);
+                  if (result != ERROR_SWITCH) {
+                    page_len = snprintf(NULL, 0, json_template_webserver_getswitch, device_name, switcher_name, result);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getswitch, device_name, switcher_name, result);
+                  } else {
+                    page_len = strlen(json_template_webserver_getswitch_error);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getswitch_error);
+                  }
+                } else {
+                  page_len = snprintf(NULL, 0, json_template_webserver_getswitch_error_noswitch, command);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getswitch_error_noswitch, command);
                 }
               } else if ( 0 == strncmp(SETSWITCH, command, strlen(SETSWITCH)) ) { // Set a switch state
-                switcher = strtok_r( NULL, delim, &saveptr );
+                switcher_name = strtok_r( NULL, delim, &saveptr );
                 status = strtok_r( NULL, delim, &saveptr );
-                result = set_switch_state(cur_terminal, switcher, (status != NULL && (0 == strcmp("1", status))?1:0));
-                snprintf(page, MSGLENGTH, json_template_webserver_setswitch, device, switcher, status, result);
-                if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher, (status != NULL && (0 == strcmp("1", status))?1:0))) {
-                  log_message(LOG_WARNING, "Error saving switcher status in the database");
+                result = set_switch_state(cur_terminal, switcher_name, (status != NULL && (0 == strcmp("1", status))?1:0));
+                if (result != ERROR_SWITCH) {
+                  page_len = snprintf(NULL, 0, json_template_webserver_setswitch, switcher_name, status, result);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setswitch, switcher_name, status, result);
+                  if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher_name, (status != NULL && (0 == strcmp("1", status))?1:0))) {
+                    log_message(LOG_WARNING, "Error saving switcher status in the database");
+                  }
+                } else {
+                  page_len = snprintf(NULL, 0, json_template_webserver_setswitch_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setswitch_error);
                 }
               } else if ( 0 == strncmp(TOGGLESWITCH, command, strlen(TOGGLESWITCH)) ) { // Toggle a switch state
-                switcher = strtok_r( NULL, delim, &saveptr );
-                result = toggle_switch_state(cur_terminal, switcher);
-                snprintf(page, MSGLENGTH, json_template_webserver_toggleswitch, device, switcher, result);
-                if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher, result)) {
-                  log_message(LOG_WARNING, "Error saving switcher status in the database");
+                switcher_name = strtok_r( NULL, delim, &saveptr );
+                result = toggle_switch_state(cur_terminal, switcher_name);
+                if (result != ERROR_SWITCH) {
+                  page_len = snprintf(NULL, 0, json_template_webserver_toggleswitch, switcher_name, result);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_toggleswitch, switcher_name, result);
+                  if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher_name, result)) {
+                    log_message(LOG_WARNING, "Error saving switcher status in the database");
+                  }
+                } else {
+                  page_len = strlen(json_template_webserver_toggleswitch_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_toggleswitch_error);
                 }
               } else if ( 0 == strncmp(SETDIMMER, command, strlen(SETDIMMER)) ) { // Set a dimmer state
                 dimmer_name = strtok_r( NULL, delim, &saveptr );
@@ -486,104 +606,141 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 if (dimmer_name != NULL && dimmer_value != NULL) {
                   i_dimmer_value = strtol(dimmer_value, NULL, 10);
                   result = set_dimmer_value(cur_terminal, dimmer_name, i_dimmer_value);
-                  snprintf(page, MSGLENGTH, json_template_webserver_setdimmer, cur_terminal->name, dimmer_name, result);
+                  page_len = snprintf(NULL, 0, json_template_webserver_setdimmer, cur_terminal->name, dimmer_name, result);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setdimmer, cur_terminal->name, dimmer_name, result);
                   if (!save_startup_dimmer_value(config->sqlite3_db, cur_terminal->name, dimmer_name, i_dimmer_value)) {
                     log_message(LOG_WARNING, "Error saving switcher status in the database");
                   }
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_setdimmer_error);
+                  page_len = strlen(json_template_webserver_setdimmer_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setdimmer_error);
                 }
               } else if ( 0 == strncmp(GETDIMMER, command, strlen(GETDIMMER)) ) { // Get a dimmer state
                 dimmer_name = strtok_r( NULL, delim, &saveptr );
                 if (dimmer_name != NULL) {
                   i_dimmer_value = get_dimmer_value(cur_terminal, dimmer_name);
-                  snprintf(page, MSGLENGTH, json_template_webserver_getdimmer, cur_terminal->name, dimmer_name, i_dimmer_value);
+                  page_len = snprintf(NULL, 0, json_template_webserver_getdimmer, cur_terminal->name, dimmer_name, i_dimmer_value);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getdimmer, cur_terminal->name, dimmer_name, i_dimmer_value);
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_getdimmer_error);
+                  page_len = strlen(json_template_webserver_getdimmer_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getdimmer_error);
                 }
               } else if ( 0 == strncmp(SENSOR, command, strlen(SENSOR)) ) { // Get a sensor value
-                sensor = strtok_r( NULL, delim, &saveptr );
-                if (sensor != NULL && 
-                  ((0 == strncmp(TEMPEXT, sensor, strlen(TEMPEXT))) || 
-                  (0 == strncmp(TEMPINT, sensor, strlen(TEMPINT))) || 
-                  (0 == strncmp(HUMINT, sensor, strlen(HUMINT))))) {
+                sensor_name = strtok_r( NULL, delim, &saveptr );
+                if (sensor_name != NULL && 
+                  ((0 == strncmp(TEMPEXT, sensor_name, strlen(TEMPEXT))) || 
+                  (0 == strncmp(TEMPINT, sensor_name, strlen(TEMPINT))) || 
+                  (0 == strncmp(HUMINT, sensor_name, strlen(HUMINT))))) {
                   force = strtok_r( NULL, delim, &saveptr );
                   iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
-                  sensor_value = get_sensor_value(cur_terminal, sensor, iforce);
-                  sanitize_json_string(device, sanitized, WORDLENGTH);
+                  sensor_value = get_sensor_value(cur_terminal, sensor_name, iforce);
+                  sanitize_json_string(device_name, sanitized, WORDLENGTH);
                   if (sensor_value == ERROR_SENSOR) {
-                    snprintf(page, MSGLENGTH, json_template_webserver_sensor_error, sanitized);
+                    page_len = snprintf(NULL, 0, json_template_webserver_sensor_error);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor_error);
                   } else {
-                    snprintf(page, MSGLENGTH, json_template_webserver_sensor, sanitized, sensor_value);
+                    page_len = snprintf(NULL, 0, json_template_webserver_sensor, sanitized, sensor_name, sensor_value);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor, sanitized, sensor_name, sensor_value);
                   }
                 } else {
-                  sanitize_json_string(sensor, sanitized, WORDLENGTH);
-                  snprintf(page, MSGLENGTH, json_template_webserver_sensor_not_found, sanitized);
+                  sanitize_json_string(sensor_name, sanitized, WORDLENGTH);
+                  page_len = snprintf(NULL, 0, json_template_webserver_sensor_not_found, device_name, sanitized);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor_not_found, device_name, sanitized);
                 }
-              } else if ( 0 == strncmp(GETHEATER, command, strlen(GETHEATER)) ) { // Get the heater command
+              } else if ( 0 == strncmp(GETHEATER, command, strlen(GETHEATER)) ) { // Get the heater value
                 heater_name = strtok_r( NULL, delim, &saveptr );
-                if (get_heater(cur_terminal, heater_name, buffer)) {
-                  if (parse_heater(config->sqlite3_db, cur_terminal->name, heater_name, buffer, &heat_status)) {
-                    snprintf(page, MSGLENGTH, json_template_webserver_getheater, 
-                              cur_terminal->name, heat_status.name, heat_status.display, heat_status.enabled?"true":"false",
-                              heat_status.set?"true":"false", heat_status.heat_max_value, heat_status.unit);
-                  } else {
-                    snprintf(page, MSGLENGTH, json_template_webserver_getheater_error_parsing);
-                  }
+                heat_status = get_heater(config->sqlite3_db, cur_terminal, heater_name);
+                if (heat_status != NULL) {
+                  page_len = snprintf(NULL, 0, json_template_webserver_getheater, 
+                            cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
+                            heat_status->set?"true":"false", heat_status->on?"true":"false", heat_status->heat_max_value, heat_status->unit);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getheater, 
+                            cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
+                            heat_status->set?"true":"false", heat_status->on?"true":"false", heat_status->heat_max_value, heat_status->unit);
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_getheater_error);
+                  page_len = strlen(json_template_webserver_getheater_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getheater_error);
                 }
-              } else if ( 0 == strncmp(SETHEATER, command, strlen(SETHEATER)) ) { // Set the heater command
+              } else if ( 0 == strncmp(SETHEATER, command, strlen(SETHEATER)) ) { // Set the heater value
                 heater_name = strtok_r( NULL, delim, &saveptr );
                 heat_enabled = strtok_r( NULL, delim, &saveptr );
                 heat_value = strtok_r( NULL, delim, &saveptr );
                 if (heater_name != NULL && heat_enabled != NULL && (heat_value != NULL || 0==strcmp("0", heat_enabled))) {
                   i_heat_enabled = (0==strcmp("1", heat_enabled)?1:0);
                   f_heat_value = strtof(heat_value, NULL);
-                  if (set_heater(cur_terminal, heater_name, i_heat_enabled, f_heat_value, buffer)) {
-                    if (parse_heater(config->sqlite3_db, cur_terminal->name, heater_name, buffer, &heat_status)) {
-                      if (!save_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {
-                        log_message(LOG_WARNING, "Error saving heater status in the database");
-                      }
-                      snprintf(page, MSGLENGTH, json_template_webserver_setheater,
-                                cur_terminal->name, heat_status.name, heat_status.display, heat_status.enabled?"true":"false",
-                                heat_status.on?"true":"false", heat_status.set?"true":"false", heat_status.heat_max_value, heat_status.unit);
-                    } else {
-                      snprintf(page, MSGLENGTH, json_template_webserver_setheater_error_parsing);
+                  heat_status = set_heater(config->sqlite3_db, cur_terminal, heater_name, i_heat_enabled, f_heat_value);
+                  if (heat_status != NULL) {
+                    if (!save_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {
+                      log_message(LOG_WARNING, "Error saving heater status in the database");
                     }
+                    page_len = snprintf(NULL, 0, json_template_webserver_setheater,
+                              cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
+                              heat_status->on?"true":"false", heat_status->set?"true":"false", heat_status->heat_max_value, heat_status->unit);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setheater,
+                              cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
+                              heat_status->on?"true":"false", heat_status->set?"true":"false", heat_status->heat_max_value, heat_status->unit);
+                    free(heat_status);
                   } else {
-                    snprintf(page, MSGLENGTH, json_template_webserver_setheater_error, device, heater_name);
+                    page_len = strlen(json_template_webserver_setheater_error);
+                    page = malloc((page_len+1)*sizeof(char));
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setheater_error);
                   }
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_unknown_command, command);
+                  to_free = get_json_list_commands();
+                  page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, command, command, to_free);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, command, command, to_free);
+                  free(to_free);
                 }
               } else if ( 0 == strncmp(MONITOR, command, strlen(MONITOR)) ) { // Get the monitor value of an element since a specified date
-                switcher = strtok_r( NULL, delim, &saveptr );
-                sensor = strtok_r( NULL, delim, &saveptr );
+                switcher_name = strtok_r( NULL, delim, &saveptr );
+                sensor_name = strtok_r( NULL, delim, &saveptr );
+                dimmer_name = strtok_r( NULL, delim, &saveptr );
+                heater_name = strtok_r( NULL, delim, &saveptr );
                 start_date = strtok_r( NULL, delim, &saveptr );
-                to_free = get_monitor(config->sqlite3_db, device, switcher, sensor, start_date);
-                // TODO: Add monitor result shell
+                to_free = get_monitor(config->sqlite3_db, device_name, switcher_name, sensor_name, start_date);
                 if (to_free != NULL) {
-                  tf_len = strlen(to_free);
-                  free(page);
-                  page = malloc((tf_len + 1) * sizeof(char));
-                  strcpy(page, to_free);
+                  tf_len = snprintf(NULL, 0, json_template_webserver_monitor, to_free);
+                  page = malloc((tf_len + 1)*sizeof(char));
+                  snprintf(page, (tf_len + 1)*sizeof(char), json_template_webserver_monitor, to_free);
                   free(to_free);
                 } else {
-                  snprintf(page, MSGLENGTH, json_template_webserver_monitor_error);
+                  page_len = strlen(json_template_webserver_monitor_error);
+                  page = malloc((page_len+1)*sizeof(char));
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_monitor_error);
                 }
               } else {
+                to_free = get_json_list_commands();
                 sanitize_json_string(command, sanitized, WORDLENGTH);
-                snprintf(page, MSGLENGTH, json_template_webserver_unknown_command, sanitized);
+                page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+                page = malloc((page_len+1)*sizeof(char));
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+                free(to_free);
               }
             } else {
-              sanitize_json_string(device, sanitized, WORDLENGTH);
-              snprintf(page, MSGLENGTH, json_template_webserver_device_not_connected, sanitized);
+              sanitize_json_string(device_name, sanitized, WORDLENGTH);
+              page_len = snprintf(NULL, 0, json_template_webserver_device_not_connected, sanitized, sanitized);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_not_connected, sanitized, sanitized);
             }
           }
         }
       } else {
-        snprintf(page, MSGLENGTH, json_template_webserver_command_empty);
+        to_free = get_json_list_commands();
+        page_len = snprintf(NULL, 0, json_template_webserver_command_empty, to_free);
+        page = malloc((page_len+1)*sizeof(char));
+        snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_command_empty, to_free);
+        free(to_free);
       }
     } else if (0 == strcmp(method, "POST")) {
       /*
@@ -596,7 +753,6 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         if (*upload_data_size != 0) {
           MHD_post_process (con_info->postprocessor, upload_data, *upload_data_size);
           *upload_data_size = 0;
-          free(page);
           return MHD_YES;
         } else {
           if (0 == strncmp(SETDEVICEDATA, command, strlen(SETDEVICEDATA))) { // Set device data
@@ -605,118 +761,171 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             to_free = set_device_data(config->sqlite3_db, *cur_device);
             if (to_free != NULL) {
               cur_terminal->enabled = cur_device->enabled;
-              free(page);
               tf_len = snprintf(NULL, 0, json_template_webserver_setdevicedata, to_free);
               page = malloc((tf_len+1)*sizeof(char));
-              snprintf(page, (tf_len+1), json_template_webserver_setdevicedata, to_free);
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setdevicedata, to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setdevicedata_error);
+              page_len = strlen(json_template_webserver_setdevicedata_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setdevicedata_error);
             }
           } else if (0 == strncmp(SETSWITCHDATA, command, strlen(SETSWITCHDATA))) { // Set switcher data
             cur_switch = (struct _switcher *)con_info->data;
             to_free = set_switch_data(config->sqlite3_db, *cur_switch);
             if (to_free != NULL) {
-              free(page);
               tf_len = snprintf(NULL, 0, json_template_webserver_setswitchdata, to_free);
               page = malloc((tf_len+1)*sizeof(char));
-              snprintf(page, (tf_len+1), json_template_webserver_setswitchdata, to_free);
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setswitchdata, to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setswitchdata_error);
+              page_len = strlen(json_template_webserver_setswitchdata_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setswitchdata_error);
             }
           } else if (0 == strncmp(SETSENSORDATA, command, strlen(SETSENSORDATA))) { // Set sensor data
             cur_sensor = (struct _sensor *)con_info->data;
             to_free = set_sensor_data(config->sqlite3_db, *cur_sensor);
             if (to_free != NULL) {
-              free(page);
               tf_len = snprintf(NULL, 0, json_template_webserver_setsensordata, to_free);
               page = malloc((tf_len+1)*sizeof(char));
-              snprintf(page, (tf_len+1), json_template_webserver_setsensordata, to_free);
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setsensordata, to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setsensordata_error);
+              page_len = strlen(json_template_webserver_setsensordata_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setsensordata_error);
             }
           } else if (0 == strncmp(SETHEATERDATA, command, strlen(SETHEATERDATA))) { // Set heater data
             cur_heater = (struct _heater *)con_info->data;
             to_free = set_heater_data(config->sqlite3_db, *cur_heater);
             if (to_free != NULL) {
-              free(page);
               tf_len = snprintf(NULL, 0, json_template_webserver_setheaterdata, to_free);
               page = malloc((tf_len+1)*sizeof(char));
-              snprintf(page, (tf_len+1), json_template_webserver_setheaterdata, to_free);
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setheaterdata, to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setheaterdata_error);
+              page_len = strlen(json_template_webserver_setheaterdata_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setheaterdata_error);
             }
           } else if (0 == strncmp(SETDIMMERDATA, command, strlen(SETDIMMERDATA))) { // Set dimmer data
             cur_dimmer = (struct _dimmer *)con_info->data;
             to_free = set_dimmer_data(config->sqlite3_db, *cur_dimmer);
             if (to_free != NULL) {
-              free(page);
               tf_len = snprintf(NULL, 0, json_template_webserver_setdimmerdata, to_free);
               page = malloc((tf_len+1)*sizeof(char));
-              snprintf(page, (tf_len+1), json_template_webserver_setdimmerdata, to_free);
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setdimmerdata, to_free);
               free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setdimmerdata_error);
+              page_len = strlen(json_template_webserver_setdimmerdata_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setdimmerdata_error);
             }
           } else if (0 == strncmp(ADDACTION, command, strlen(ADDACTION))) {
             cur_action = (struct _action *)con_info->data;
-            if (add_action(config->sqlite3_db, *cur_action, buffer)) {
-              snprintf(page, MSGLENGTH*2, json_template_webserver_addaction, buffer);
+            to_free = add_action(config->sqlite3_db, * cur_action);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_addaction, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_addaction, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_addaction_error);
+              page_len = strlen(json_template_webserver_addaction_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_addaction_error);
             }
           } else if (0 == strncmp(SETACTION, command, strlen(SETACTION))) {
             cur_action = (struct _action *)con_info->data;
-            if (set_action(config->sqlite3_db, *cur_action, buffer)) {
-              snprintf(page, MSGLENGTH, json_template_webserver_setaction, buffer);
+            to_free = set_action(config->sqlite3_db, * cur_action);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_setaction, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setaction, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setaction_error);
+              page_len = strlen(json_template_webserver_setaction_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setaction_error);
             }
           } else if (0 == strncmp(ADDSCRIPT, command, strlen(ADDSCRIPT))) {
             cur_script = (struct _script *)con_info->data;
-            if (add_script(config->sqlite3_db, *cur_script, buffer)) {
-              snprintf(page, MSGLENGTH*2, json_template_webserver_addscript, buffer);
+            to_free = add_script(config->sqlite3_db, *cur_script);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_addscript, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_addscript, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_addscript_error);
+              page_len = strlen(json_template_webserver_addscript_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_addscript_error);
             }
           } else if (0 == strncmp(SETSCRIPT, command, strlen(SETSCRIPT))) {
             cur_script = (struct _script *)con_info->data;
-            if (set_script(config->sqlite3_db, *cur_script, buffer)) {
-              snprintf(page, MSGLENGTH*2, json_template_webserver_setscript, buffer);
+            to_free = set_script(config->sqlite3_db, *cur_script);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_setscript, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setscript, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setscript_error);
+              page_len = strlen(json_template_webserver_setscript_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setscript_error);
             }
           } else if (0 == strncmp(ADDSCHEDULE, command, strlen(ADDSCHEDULE))) {
             cur_schedule = (struct _schedule *)con_info->data;
-            if (add_schedule(config->sqlite3_db, *cur_schedule, buffer)) {
-              snprintf(page, MSGLENGTH*2, json_template_webserver_addschedule, buffer);
+            to_free = add_schedule(config->sqlite3_db, *cur_schedule);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_addschedule, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_addschedule, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_addschedule_error);
+              page_len = strlen(json_template_webserver_addschedule_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_addschedule_error);
             }
           } else if (0 == strncmp(SETSCHEDULE, command, strlen(SETSCHEDULE))) {
             cur_schedule = (struct _schedule *)con_info->data;
-            if (set_schedule(config->sqlite3_db, *cur_schedule, buffer)) {
-              snprintf(page, MSGLENGTH*2, json_template_webserver_setschedule, buffer);
+            to_free = set_schedule(config->sqlite3_db, *cur_schedule);
+            if (to_free != NULL) {
+              tf_len = snprintf(NULL, 0, json_template_webserver_setschedule, to_free);
+              page = malloc((tf_len+1)*sizeof(char));
+              snprintf(page, (tf_len+1)*sizeof(char), json_template_webserver_setschedule, to_free);
+              free(to_free);
             } else {
-              snprintf(page, MSGLENGTH, json_template_webserver_setschedule_error);
+              page_len = strlen(json_template_webserver_setschedule_error);
+              page = malloc((page_len+1)*sizeof(char));
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setschedule_error);
             }
           } else {
+            to_free = get_json_list_commands();
             sanitize_json_string(command, sanitized, WORDLENGTH);
-            snprintf(page, MSGLENGTH, json_template_webserver_unknown_command, sanitized);
+            page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+            page = malloc((page_len+1)*sizeof(char));
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+            free(to_free);
           }
         }
       } else {
-        snprintf(page, MSGLENGTH, json_template_webserver_empty_command);
+        to_free = get_json_list_commands();
+        page_len = snprintf(NULL, 0, json_template_webserver_command_empty, to_free);
+        page = malloc((page_len+1)*sizeof(char));
+        snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_command_empty, to_free);
+        free(to_free);
       }
     } else {
-      snprintf(page, MSGLENGTH, json_template_webserver_wrong_http_method);
+      page_len = strlen(json_template_webserver_wrong_http_method);
+      page = malloc(page_len+sizeof(char));
+      snprintf(page, (page_len+sizeof(char)), json_template_webserver_wrong_http_method);
     }
   } else {
     sanitize_json_string(prefix, sanitized, WORDLENGTH);
-    snprintf(page, MSGLENGTH, json_template_webserver_wrong_prefix, sanitized);
+    page_len = snprintf(NULL, 0, json_template_webserver_wrong_prefix, sanitized, config->url_prefix);
+    page = malloc((page_len+1)*sizeof(char));
+    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_prefix, sanitized, config->url_prefix);
   }
   
   journal(config->sqlite3_db, inet_ntoa(((struct sockaddr_in *)so_client)->sin_addr), url, page);
@@ -749,11 +958,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_device = (struct _device*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_device->name, WORDLENGTH, "%s", data);
+          snprintf(cur_device->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_device->display, WORDLENGTH, "%s", data);
+          snprintf(cur_device->display, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -761,7 +970,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_device->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_device->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
       break;
@@ -769,15 +978,15 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_switch = (struct _switcher *)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->name, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->device, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->display, WORDLENGTH, "%s", data);
+          snprintf(cur_switch->display, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "type")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -797,7 +1006,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_switch->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_switch->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
       break;
@@ -805,19 +1014,19 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_sensor = (struct _sensor*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->name, WORDLENGTH, "%s", data);
+          snprintf(cur_sensor->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->device, WORDLENGTH, "%s", data);
+          snprintf(cur_sensor->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->display, WORDLENGTH, "%s", data);
+          snprintf(cur_sensor->display, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "unit")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->unit, WORDLENGTH, "%s", data);
+          snprintf(cur_sensor->unit, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -833,7 +1042,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_sensor->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_sensor->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
     break;
@@ -841,27 +1050,35 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_heater = (struct _heater*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->name, WORDLENGTH, "%s", data);
+          snprintf(cur_heater->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->device, WORDLENGTH, "%s", data);
+          snprintf(cur_heater->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->display, WORDLENGTH, "%s", data);
+          snprintf(cur_heater->display, WORDLENGTH*sizeof(char), "%s", data);
+        }
+      } else if (0 == strcmp (key, "unit")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_heater->unit, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_heater->enabled=(0==strcmp("true", data))?1:0;
         }
-      } else if (0 == strcmp (key, "unit")) {
+      } else if (0 == strcmp (key, "monitored")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->unit, WORDLENGTH, "%s", data);
+          cur_heater->monitored=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "monitored_every")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_heater->monitored_every=strtol(data, NULL, 10);
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_heater->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_heater->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
     break;
@@ -869,23 +1086,31 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_dimmer = (struct _dimmer*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->name, WORDLENGTH, "%s", data);
+          snprintf(cur_dimmer->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->device, WORDLENGTH, "%s", data);
+          snprintf(cur_dimmer->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->display, WORDLENGTH, "%s", data);
+          snprintf(cur_dimmer->display, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_dimmer->enabled=(0==strcmp("true", data))?1:0;
         }
+      } else if (0 == strcmp (key, "monitored")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_dimmer->monitored=(0==strcmp("true", data))?1:0;
+        }
+      } else if (0 == strcmp (key, "monitored_every")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_dimmer->monitored_every=strtol(data, NULL, 10);
+        }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_dimmer->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_dimmer->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
     break;
@@ -897,35 +1122,35 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->name, WORDLENGTH, "%s", data);
+          snprintf(cur_action->name, WORDLENGTH*sizeof(char), "%s", data);
+        }
+      } else if (0 == strcmp (key, "device")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_action->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "type")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_action->type = strtol(data, NULL, 10);
         }
-      } else if (0 == strcmp (key, "device")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->device, WORDLENGTH, "%s", data);
-        }
       } else if (0 == strcmp (key, "switcher")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->switcher, WORDLENGTH, "%s", data);
+          snprintf(cur_action->switcher, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "dimmer")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->dimmer, WORDLENGTH, "%s", data);
+          snprintf(cur_action->dimmer, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "heater")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->heater, WORDLENGTH, "%s", data);
+          snprintf(cur_action->heater, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "params")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_action->params, MSGLENGTH, "%s", data);
+          snprintf(cur_action->params, MSGLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_action->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_action->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
       break;
@@ -937,11 +1162,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_script->name, WORDLENGTH, "%s", data);
+          snprintf(cur_script->name, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_script->device, WORDLENGTH, "%s", data);
+          snprintf(cur_script->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -949,11 +1174,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "actions")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_script->actions, MSGLENGTH, "%s", data);
+          snprintf(cur_script->actions, MSGLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_script->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_script->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
       break;
@@ -965,7 +1190,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_schedule->name, WORDLENGTH, "%s", data);
+          snprintf(cur_schedule->name, WORDLENGTH*sizeof(char), "%s", data);
+        }
+      } else if (0 == strcmp (key, "device")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          snprintf(cur_schedule->device, WORDLENGTH*sizeof(char), "%s", data);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -985,19 +1214,15 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "remove_after_done")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_schedule->remove_after_done = strtol(data, NULL, 10);
+          cur_schedule->remove_after_done = (0==strcmp("true", data))?1:0;
         }
       } else if (0 == strcmp (key, "script")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_schedule->script = strtol(data, NULL, 10);
         }
-      } else if (0 == strcmp (key, "device")) {
-        if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_schedule->device, WORDLENGTH, "%s", data);
-        }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_schedule->tags, MSGLENGTH, "%s", data);
+          snprintf(cur_schedule->tags, MSGLENGTH*sizeof(char), "%s", data);
         }
       }
       break;

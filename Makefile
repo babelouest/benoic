@@ -30,11 +30,11 @@ CPP=g++
 
 all: angharad
 
-static: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
-	$(CPP) $(LDFLAGSSTATIC) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
+static: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
+	$(CPP) $(LDFLAGSSTATIC) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
 
-angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
-	$(CPP) $(LIBS) $(LDFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o
+angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
+	$(CPP) $(LIBS) $(LDFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o api_rest.o
 
 angharad.o: angharad.c angharad.h
 	$(CC) $(CFLAGS) $(FLAGS) angharad.c
@@ -75,6 +75,9 @@ scheduler.o: scheduler.c angharad.h
 arduino-serial-lib.o: arduino-serial-lib.c arduino-serial-lib.h
 	$(CC) $(CFLAGS) $(FLAGS) arduino-serial-lib.c
 
+api_rest.o: api_rest.json
+	objcopy --input binary --output elf32-littlearm --binary-architecture arm api_rest.json api_rest.o
+
 clean:
 	rm -f *.o angharad
 
@@ -89,7 +92,7 @@ install: angharad
 	
 run: angharad stop install start
 
-debug: clean
+debug: clean api_rest.o
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) angharad.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) webserver.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) set-data.c
@@ -103,7 +106,7 @@ debug: clean
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) control-meta.c
 	$(CC) $(CFLAGS) $(DEBUGFLAGS) control-arduino.c
 	$(CPP) $(CFLAGS) $(DEBUGFLAGS) $(OZINCLUDES) control-zwave.c
-	$(CPP) $(LIBS) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o
+	$(CPP) $(LIBS) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o api_rest.o
 	
 test: debug
 	./angharad ./angharad.conf

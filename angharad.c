@@ -231,7 +231,7 @@ int build_config(char * config_file, struct config_elements * config) {
     config_destroy(&cfg);
     return 0;
   }
-  snprintf(config->url_prefix, WORDLENGTH, "%s", cur_prefix);
+  snprintf(config->url_prefix, WORDLENGTH*sizeof(char), "%s", cur_prefix);
   
   // Get sqlite file path and open it
   if (!config_lookup_string(&cfg, "dbpath", &cur_dbpath)) {
@@ -250,14 +250,15 @@ int build_config(char * config_file, struct config_elements * config) {
   
   if (!config_lookup_string(&cfg, "dbpath_archive", &cur_dbpath)) {
     log_message(LOG_WARNING, "Warning config file, dbpath_archive not found");
+    strcpy(config->db_archive_path, "");
   } else {
-    snprintf(config->db_archive_path, MSGLENGTH, "%s", cur_dbpath);
+    snprintf(config->db_archive_path, MSGLENGTH*sizeof(char), "%s", cur_dbpath);
   }
     
   if (!config_lookup_string(&cfg, "scriptpath", &cur_scriptpath)) {
     log_message(LOG_WARNING, "Warning config file, scriptpath not found");
   } else {
-    snprintf(config->script_path, MSGLENGTH, "%s", cur_scriptpath);
+    snprintf(config->script_path, MSGLENGTH*sizeof(char), "%s", cur_scriptpath);
   }
     
   // Get device list
@@ -284,7 +285,7 @@ int build_config(char * config_file, struct config_elements * config) {
         config->terminal[config->nb_terminal]->display[0] = 0;
         config->terminal[config->nb_terminal]->type = TYPE_NONE;
         config->terminal[config->nb_terminal]->uri[0] = 0;
-        snprintf(config->terminal[config->nb_terminal]->name, WORDLENGTH, "%s", cur_name);
+        snprintf(config->terminal[config->nb_terminal]->name, WORDLENGTH*sizeof(char), "%s", cur_name);
 
         // Set up mutual exclusion so that this thread has priority
         pthread_mutexattr_init ( &mutexattr );
@@ -296,14 +297,14 @@ int build_config(char * config_file, struct config_elements * config) {
           log_message(LOG_ERR, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
         }
         
-        snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH, "%s", cur_uri);
+        snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH*sizeof(char), "%s", cur_uri);
 
         if (0 == strncmp("serial", cur_type, WORDLENGTH)) {
           config->terminal[config->nb_terminal]->element = malloc(sizeof(struct _arduino_device));
           
           ((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_baud = 0;
           ((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_fd = -1;
-          memset(((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_file, '\0', WORDLENGTH+1);
+          memset(((struct _arduino_device *) config->terminal[config->nb_terminal]->element)->serial_file, '\0', WORDLENGTH*sizeof(char));
           
           config->terminal[config->nb_terminal]->type = TYPE_SERIAL;
           config_setting_lookup_int(cfg_device, "baud", &serial_baud);
@@ -318,18 +319,18 @@ int build_config(char * config_file, struct config_elements * config) {
           ((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->nodes_list = NULL;
           
           config_setting_lookup_string(cfg_device, "config_path", &cur_config_path);
-          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->config_path, WORDLENGTH, "%s", cur_config_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->config_path, WORDLENGTH*sizeof(char), "%s", cur_config_path);
           
           config_setting_lookup_string(cfg_device, "user_path", &cur_user_path);
-          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->user_path, WORDLENGTH, "%s", cur_user_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->user_path, WORDLENGTH*sizeof(char), "%s", cur_user_path);
           
           config_setting_lookup_string(cfg_device, "command_line", &cur_command_line);
-          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->command_line, WORDLENGTH, "%s", cur_command_line);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->command_line, WORDLENGTH*sizeof(char), "%s", cur_command_line);
           
           config_setting_lookup_string(cfg_device, "log_path", &cur_log_path);
-          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->log_path, WORDLENGTH, "%s", cur_log_path);
+          snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->log_path, WORDLENGTH*sizeof(char), "%s", cur_log_path);
           
-          memset(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->usb_file, '\0', WORDLENGTH+1);
+          memset(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->usb_file, '\0', WORDLENGTH*sizeof(char));
         }
 
         config->nb_terminal++;

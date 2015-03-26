@@ -42,12 +42,6 @@ devices = (
 		uri	= "/dev/ttyACM";
 		baud	= 9600;
 	},
-	{
-		name	= "UNO2";
-		type	= "serial";
-		uri	= "/dev/ttyACM";
-		baud	= 9600;
-	},
 
 # zwave dongle
 	{
