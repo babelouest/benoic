@@ -319,8 +319,9 @@ int set_dimmer_value_zwave(device * terminal, char * dimmer, int value);
 // System functions
 // misc.c
 void log_message(int type, const char * message, ...);
-int str_replace(char * source, char * target, size_t len, char * needle, char * haystack);
-int sanitize_json_string(char * source, char * target, size_t len);
+int str_replace(const char * source, char * target, size_t len, char * needle, char * haystack);
+int sanitize_json_string(const char * source, char * target, size_t len);
+int sanitize_json_string_url(const char * source, char * target, size_t len);
 int journal(sqlite3 * sqlite3_db, const char * origin, const char * command, const char * result);
 int num_digits(int n);
 int num_digits_l (long n);

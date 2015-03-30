@@ -88,7 +88,7 @@ char * build_json_tags(char ** tags) {
   to_return = malloc(2*sizeof(char));
   strcpy(to_return, "[");
   for (nb_tags=0; tags[nb_tags] != NULL; nb_tags++) {
-    sanitize_json_string(tags[nb_tags], one_tag, WORDLENGTH);
+    sanitize_json_string(tags[nb_tags], one_tag, WORDLENGTH*sizeof(char));
     if (nb_tags ==0) {
       to_return = realloc(to_return, strlen(to_return)+strlen(one_tag)+3);
     } else {

@@ -180,10 +180,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   char * page = NULL;
   char * saveptr;
   heater * heat_status;
-  char sanitized[WORDLENGTH+1];
   struct MHD_Response *response;
-  int ret, urllength = strlen(url);
-  size_t page_len;
+  int ret;
+  size_t page_len, urllength = strlen(url);
   int result;
   float sensor_value;
   int iforce;
@@ -197,7 +196,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   int tf_len;
   struct config_elements * config = (struct config_elements *) cls;
   struct connection_info_struct * con_info_post = NULL;
-  char urlcpy[urllength+1];
+  char urlcpy[(urllength*2)+1];
   
   // Post data structs
   struct _device * cur_device;
@@ -214,7 +213,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   int thread_ret_archive = 0, thread_detach_archive = 0;
   struct archive_args config_archive;
   
-  snprintf(urlcpy, (urllength+1)*sizeof(char), "%s", url);
+  sanitize_json_string_url(url, urlcpy, ((urllength*2)+1));
   prefix = strtok_r( urlcpy, delim, &saveptr );
   
   /*
@@ -303,12 +302,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   if (prefix == NULL) {
     // wrong url
     tf_len = 2*strlen(url);
-    char * sanitize = malloc((tf_len+1));
-    sanitize_json_string((char *)url, sanitize, WORDLENGTH);
-    page_len = snprintf(NULL, 0, json_template_webserver_wrong_url, sanitize, urllength);
+    page_len = snprintf(NULL, 0, json_template_webserver_wrong_url, url, urllength);
     page = malloc((page_len+1)*sizeof(char));
-    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_url, sanitize, urllength);
-    free(sanitize);
+    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_url, url, urllength);
   } else if (0 == strcmp(prefix, config->url_prefix)) {
     /*
      * All GET commands are executed here
@@ -501,17 +497,16 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
               snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_not_found, command, device_name);
             } else if ( 0 == strncmp(RESET, command, strlen(RESET)) ) { // send a reset command to reconnect a device
               result = reconnect_device(cur_terminal, config->terminal, config->nb_terminal);
-              sanitize_json_string(device_name, sanitized, WORDLENGTH);
               if (result && init_device_status(config->sqlite3_db, cur_terminal)) {
                 log_message(LOG_WARNING, "Device %s initialized", cur_terminal->name);
-                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "true");
+                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, device_name, (result!=-1)?"true":"false", "true");
                 page = malloc((page_len+1)*sizeof(char));
-                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "true");
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, device_name, (result!=-1)?"true":"false", "true");
               } else {
                 log_message(LOG_WARNING, "Error initializing device %s", cur_terminal->name);
-                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "false");
+                page_len = snprintf(NULL, 0, json_template_webserver_reset_device, device_name, (result!=-1)?"true":"false", "false");
                 page = malloc((page_len+1)*sizeof(char));
-                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, sanitized, (result!=-1)?"true":"false", "false");
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_reset_device, device_name, (result!=-1)?"true":"false", "false");
               }
             } else if (!cur_terminal->enabled) { // Error, device is disabled
               page_len = snprintf(NULL, 0, json_template_webserver_device_disabled, command, cur_terminal->name);
@@ -638,21 +633,19 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   force = strtok_r( NULL, delim, &saveptr );
                   iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
                   sensor_value = get_sensor_value(cur_terminal, sensor_name, iforce);
-                  sanitize_json_string(device_name, sanitized, WORDLENGTH);
                   if (sensor_value == ERROR_SENSOR) {
                     page_len = snprintf(NULL, 0, json_template_webserver_sensor_error);
                     page = malloc((page_len+1)*sizeof(char));
                     snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor_error);
                   } else {
-                    page_len = snprintf(NULL, 0, json_template_webserver_sensor, sanitized, sensor_name, sensor_value);
+                    page_len = snprintf(NULL, 0, json_template_webserver_sensor, device_name, sensor_name, sensor_value);
                     page = malloc((page_len+1)*sizeof(char));
-                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor, sanitized, sensor_name, sensor_value);
+                    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor, device_name, sensor_name, sensor_value);
                   }
                 } else {
-                  sanitize_json_string(sensor_name, sanitized, WORDLENGTH);
-                  page_len = snprintf(NULL, 0, json_template_webserver_sensor_not_found, device_name, sanitized);
+                  page_len = snprintf(NULL, 0, json_template_webserver_sensor_not_found, device_name, sensor_name);
                   page = malloc((page_len+1)*sizeof(char));
-                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor_not_found, device_name, sanitized);
+                  snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_sensor_not_found, device_name, sensor_name);
                 }
               } else if ( 0 == strncmp(GETHEATER, command, strlen(GETHEATER)) ) { // Get the heater value
                 heater_name = strtok_r( NULL, delim, &saveptr );
@@ -721,17 +714,15 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 }
               } else {
                 to_free = get_json_list_commands();
-                sanitize_json_string(command, sanitized, WORDLENGTH);
-                page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+                page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, device_name, device_name, to_free);
                 page = malloc((page_len+1)*sizeof(char));
-                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+                snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, device_name, device_name, to_free);
                 free(to_free);
               }
             } else {
-              sanitize_json_string(device_name, sanitized, WORDLENGTH);
-              page_len = snprintf(NULL, 0, json_template_webserver_device_not_connected, sanitized, sanitized);
+              page_len = snprintf(NULL, 0, json_template_webserver_device_not_connected, device_name, device_name);
               page = malloc((page_len+1)*sizeof(char));
-              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_not_connected, sanitized, sanitized);
+              snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_device_not_connected, device_name, device_name);
             }
           }
         }
@@ -747,6 +738,8 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
        * Execute all the POST commands
        * POST commands are only commands to set data values
        * For example change a sensor name, add an action, etc.
+       * All data are sanitized on input, never on output,
+       * so all data are supposed to be safe in the database
        */
       command = strtok_r( NULL, delim, &saveptr );
       if (command != NULL) {
@@ -902,10 +895,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
             }
           } else {
             to_free = get_json_list_commands();
-            sanitize_json_string(command, sanitized, WORDLENGTH);
-            page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+            page_len = snprintf(NULL, 0, json_template_webserver_unknown_command, command, command, to_free);
             page = malloc((page_len+1)*sizeof(char));
-            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, sanitized, sanitized, to_free);
+            snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_unknown_command, command, command, to_free);
             free(to_free);
           }
         }
@@ -922,10 +914,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
       snprintf(page, (page_len+sizeof(char)), json_template_webserver_wrong_http_method);
     }
   } else {
-    sanitize_json_string(prefix, sanitized, WORDLENGTH);
-    page_len = snprintf(NULL, 0, json_template_webserver_wrong_prefix, sanitized, config->url_prefix);
+    page_len = snprintf(NULL, 0, json_template_webserver_wrong_prefix, prefix, config->url_prefix);
     page = malloc((page_len+1)*sizeof(char));
-    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_prefix, sanitized, config->url_prefix);
+    snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_wrong_prefix, prefix, config->url_prefix);
   }
   
   journal(config->sqlite3_db, inet_ntoa(((struct sockaddr_in *)so_client)->sin_addr), url, page);
@@ -958,11 +949,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_device = (struct _device*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_device->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_device->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_device->display, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_device->display, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -970,7 +961,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_device->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_device->tags, MSGLENGTH*sizeof(char));
         }
       }
       break;
@@ -978,15 +969,15 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_switch = (struct _switcher *)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_switch->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_switch->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_switch->display, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_switch->display, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "type")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1006,7 +997,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_switch->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_switch->tags, MSGLENGTH*sizeof(char));
         }
       }
       break;
@@ -1014,19 +1005,19 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_sensor = (struct _sensor*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_sensor->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_sensor->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->display, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_sensor->display, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "unit")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_sensor->unit, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_sensor->unit, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1042,7 +1033,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_sensor->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_sensor->tags, MSGLENGTH*sizeof(char));
         }
       }
     break;
@@ -1050,19 +1041,19 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_heater = (struct _heater*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_heater->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_heater->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->display, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_heater->display, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "unit")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_heater->unit, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_heater->unit, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1078,7 +1069,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_heater->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_heater->tags, MSGLENGTH*sizeof(char));
         }
       }
     break;
@@ -1086,15 +1077,15 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       cur_dimmer = (struct _dimmer*)con_info->data;
       if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_dimmer->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_dimmer->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "display")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_dimmer->display, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_dimmer->display, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1110,7 +1101,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_dimmer->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_dimmer->tags, MSGLENGTH*sizeof(char));
         }
       }
     break;
@@ -1122,11 +1113,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "type")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1134,23 +1125,23 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "switcher")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->switcher, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->switcher, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "dimmer")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->dimmer, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->dimmer, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "heater")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_action->heater, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->heater, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "params")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_action->params, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->params, MSGLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_action->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_action->tags, MSGLENGTH*sizeof(char));
         }
       }
       break;
@@ -1162,11 +1153,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_script->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_script->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_script->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_script->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
@@ -1174,11 +1165,11 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "actions")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_script->actions, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_script->actions, MSGLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "tags")) {
         if ((size > 0) && (size <= MSGLENGTH)) {
-          snprintf(cur_script->tags, MSGLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_script->tags, MSGLENGTH*sizeof(char));
         }
       }
       break;
@@ -1190,15 +1181,15 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         }
       } else if (0 == strcmp (key, "name")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_schedule->name, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_schedule->name, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "device")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          snprintf(cur_schedule->device, WORDLENGTH*sizeof(char), "%s", data);
+          sanitize_json_string(data, cur_schedule->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
-          cur_schedule->enabled=(0==strcmp("true", data))?1:0;
+          cur_schedule->enabled = (0==strcmp("true", data))?1:0;
         }
       } else if (0 == strcmp (key, "next_time")) {
         if ((size > 0) && (size <= WORDLENGTH)) {

@@ -386,7 +386,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
-            sanitize_json_string((char*)sqlite3_column_text(stmt, 0), switchers[nb_switchers].display, WORDLENGTH);
+            strncpy(switchers[nb_switchers].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
             switchers[nb_switchers].enabled = sqlite3_column_int(stmt, 1);
             switchers[nb_switchers].type = sqlite3_column_int(stmt, 2);
             switchers[nb_switchers].monitored = sqlite3_column_int(stmt, 3);
@@ -431,7 +431,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
-            sanitize_json_string((char*)sqlite3_column_text(stmt, 0), dimmers[nb_dimmers].display, WORDLENGTH);
+            strncpy(dimmers[nb_dimmers].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
             dimmers[nb_dimmers].enabled = sqlite3_column_int(stmt, 1);
             dimmers[nb_dimmers].monitored = sqlite3_column_int(stmt, 2);
             dimmers[nb_dimmers].monitored_every = sqlite3_column_int(stmt, 3);

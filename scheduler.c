@@ -556,7 +556,6 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
       tags_array = get_tags(sqlite3_db, NULL, DATA_SCHEDULE, cur_schedule);
       tags = build_json_tags(tags_array);
       snprintf(cur_name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 1));
-      sanitize_json_string(cur_name, cur_name, WORDLENGTH);
       enabled = sqlite3_column_int(stmt, 2);
       next_time = (long)sqlite3_column_int(stmt, 3);
       repeat_schedule = sqlite3_column_int(stmt, 4);
@@ -568,13 +567,11 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
         strcpy(cur_device, "");
       }
       remove_after_done = sqlite3_column_int(stmt, 8);
-      sanitize_json_string(cur_device, cur_device, WORDLENGTH);
       script = get_script(sqlite3_db, script_id, 0);
       if (script == NULL) {
         script = malloc(3*sizeof(char));
         strcpy(script, json_template_scheduler_empty);
       }
-      sanitize_json_string(cur_name, cur_name, WORDLENGTH);
       
       str_len = snprintf(NULL, 0, json_template_scheduler_getschedules,
               cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value,
@@ -638,7 +635,6 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
           script = malloc(3*sizeof(char));
           strcpy(script, json_template_scheduler_empty);
         }
-        sanitize_json_string(cur_schedule.name, cur_schedule.name, WORDLENGTH);
         str_len = snprintf(NULL, 0, json_template_scheduler_enableschedule,
                 cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", device_name, cur_schedule.next_time,
                 cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, script, tags);

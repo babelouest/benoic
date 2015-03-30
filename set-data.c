@@ -36,8 +36,6 @@ char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
     tags = build_tags_from_list(cur_device.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, NULL, DATA_DEVICE, cur_device.name, tags);
-    sanitize_json_string(cur_device.name, cur_device.name, WORDLENGTH);
-    sanitize_json_string(cur_device.display, cur_device.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setdevicedata, cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
     snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdevicedata, cur_device.name, cur_device.display, cur_device.enabled?"true":"false", tags_json);
@@ -67,8 +65,6 @@ char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
     tags = build_tags_from_list(cur_switch.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_switch.device, DATA_SWITCH, cur_switch.name, tags);
-    sanitize_json_string(cur_switch.name, cur_switch.name, WORDLENGTH);
-    sanitize_json_string(cur_switch.display, cur_switch.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
     snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
@@ -97,9 +93,6 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
     tags = build_tags_from_list(cur_sensor.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_sensor.device, DATA_SENSOR, cur_sensor.name, tags);
-    sanitize_json_string(cur_sensor.name, cur_sensor.name, WORDLENGTH);
-    sanitize_json_string(cur_sensor.display, cur_sensor.display, WORDLENGTH);
-    sanitize_json_string(cur_sensor.unit, cur_sensor.unit, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
     snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
@@ -127,9 +120,6 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
     tags = build_tags_from_list(cur_heater.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_heater.device, DATA_HEATER, cur_heater.name, tags);
-    sanitize_json_string(cur_heater.name, cur_heater.name, WORDLENGTH);
-    sanitize_json_string(cur_heater.display, cur_heater.display, WORDLENGTH);
-    sanitize_json_string(cur_heater.unit, cur_heater.unit, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
     snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
@@ -156,8 +146,6 @@ char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
     tags = build_tags_from_list(cur_dimmer.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_dimmer.device, DATA_DIMMER, cur_dimmer.name, tags);
-    sanitize_json_string(cur_dimmer.name, cur_dimmer.name, WORDLENGTH);
-    sanitize_json_string(cur_dimmer.display, cur_dimmer.display, WORDLENGTH);
     str_len = snprintf(NULL, 0, json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
     snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);

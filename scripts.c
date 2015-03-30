@@ -71,8 +71,6 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
         } else {
           strcpy(device_name, "");
         }
-        sanitize_json_string(cur_name, cur_name, WORDLENGTH);
-        sanitize_json_string(device_name, device_name, WORDLENGTH);
         actions = get_action_script(sqlite3_db, cur_id);
         if (actions == NULL) {
           log_message(LOG_WARNING, "Error getting actions from script");
@@ -135,7 +133,6 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
       if (row_result == SQLITE_ROW) {
         ac_id = sqlite3_column_int(stmt, 0);
         snprintf(ac_name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 1));
-        sanitize_json_string(ac_name, ac_name, WORDLENGTH);
         rank = sqlite3_column_int(stmt, 2);
         enabled = sqlite3_column_int(stmt, 3);
         oi_len = snprintf(NULL, 0, json_template_scripts_getactionscript, ac_id, ac_name, rank, enabled?"true":"false");
@@ -178,7 +175,6 @@ char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
     if (row_result == SQLITE_ROW) {
       sc_id = sqlite3_column_int(stmt, 0);
       snprintf(sc_name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 1));
-      sanitize_json_string(sc_name, sc_name, WORDLENGTH);
       sc_enabled = sqlite3_column_int(stmt, 2);
       if (sqlite3_column_text(stmt, 3) != NULL) {
         snprintf(device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 3));

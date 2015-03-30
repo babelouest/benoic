@@ -29,7 +29,8 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
   switcher * switchers = NULL;
   sensor * sensors = NULL;
   heater * heaters = NULL;
-  int nb_switchers = 0, nb_sensors = 0, nb_heaters = 0;
+  dimmer * dimmers = NULL;
+  int nb_switchers = 0, nb_sensors = 0, nb_heaters = 0, nb_dimmers = 0;
   char * to_return = NULL;
   
   char * sql_query = NULL;
@@ -98,7 +99,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
-            sanitize_json_string((char*)sqlite3_column_text(stmt, 0), switchers[nb_switchers].display, WORDLENGTH);
+            strncpy(switchers[nb_switchers].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
             switchers[nb_switchers].enabled = sqlite3_column_int(stmt, 1);
             switchers[nb_switchers].type = sqlite3_column_int(stmt, 2);
             switchers[nb_switchers].monitored = sqlite3_column_int(stmt, 3);
@@ -122,6 +123,61 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         }
         sqlite3_finalize(stmt);
         nb_switchers++;
+        data = strtok_r( NULL, ",", &saveptr2);
+      }
+    } else if (0 == strncmp(datas, "DIMMERS", strlen("DIMMERS"))) {
+      data = strtok_r( datas, ",", &saveptr2); // DIMMERS title
+      data = strtok_r( NULL, ",", &saveptr2); // First occurence
+      while (NULL != data) {
+        // parsing data
+        i = strcspn(data, ":");
+        memset(key, 0, WORDLENGTH*sizeof(char));
+        memset(value, 0, WORDLENGTH*sizeof(char));
+        strncpy(key, data, i*sizeof(char));
+        strncpy(value, data+i+1, WORDLENGTH*sizeof(char));
+        
+        dimmers = realloc(dimmers, (nb_dimmers+1)*sizeof(struct _switcher));
+        snprintf(dimmers[nb_dimmers].name, WORDLENGTH*sizeof(char), "%s", key);
+        dimmers[nb_dimmers].value = strtol(value, NULL, 10);
+        
+        // Default values
+        dimmers[nb_dimmers].monitored = 0;
+        dimmers[nb_dimmers].monitored_every = 0;
+        dimmers[nb_dimmers].monitored_next = 0;
+        sql_query = sqlite3_mprintf("SELECT di_display, di_active, di_monitored, di_monitored_every, di_monitored_next FROM an_dimmer\
+          WHERE di_name='%q' AND de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", 
+          dimmers[nb_dimmers].name,
+          device_name);
+        sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+        sqlite3_free(sql_query);
+        if (sql_result != SQLITE_OK) {
+          log_message(LOG_WARNING, "Error preparing sql query dimmer fetch");
+        } else {
+          row_result = sqlite3_step(stmt);
+          if (row_result == SQLITE_ROW) {
+            strncpy(dimmers[nb_dimmers].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+            dimmers[nb_dimmers].enabled = sqlite3_column_int(stmt, 1);
+            dimmers[nb_dimmers].monitored = sqlite3_column_int(stmt, 2);
+            dimmers[nb_dimmers].monitored_every = sqlite3_column_int(stmt, 3);
+            dimmers[nb_dimmers].monitored_next = sqlite3_column_int(stmt, 4);
+          } else {
+            // No result, default value
+            snprintf(dimmers[nb_dimmers].display, WORDLENGTH*sizeof(char), "%s", dimmers[nb_dimmers].name);
+            dimmers[nb_dimmers].enabled = 1;
+            
+            // Creating data in database
+            sql_query = sqlite3_mprintf("INSERT INTO an_dimmer\
+                              (de_id, di_name, di_display, di_value, di_monitored, di_monitored_every, di_monitored_next)\
+                              VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', 0, 0, 0)",
+                              device_name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].value);
+            if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+              log_message(LOG_WARNING, "Error inserting an_dimmer");
+            }
+            sqlite3_free(sql_query);
+          }
+        }
+        sqlite3_finalize(stmt);
+        nb_dimmers++;
         data = strtok_r( NULL, ",", &saveptr2);
       }
     } else if (0 == strncmp(datas, "SENSORS", strlen("SENSORS"))) {
@@ -153,8 +209,8 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
-            sanitize_json_string((char*)sqlite3_column_text(stmt, 0), sensors[nb_sensors].display, WORDLENGTH);
-            sanitize_json_string((char*)sqlite3_column_text(stmt, 1), sensors[nb_sensors].unit, WORDLENGTH);
+            strncpy(sensors[nb_sensors].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+            strncpy(sensors[nb_sensors].unit, (char*)sqlite3_column_text(stmt, 1), WORDLENGTH);
             sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 2);
             sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 3);
             sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 4);
@@ -196,9 +252,10 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
     datas = strtok_r( NULL, ";", &saveptr );
   }
   
-  to_return = build_overview_output(sqlite3_db, device_name, switchers, nb_switchers, sensors, nb_sensors, heaters, nb_heaters, NULL, 0);
+  to_return = build_overview_output(sqlite3_db, device_name, switchers, nb_switchers, sensors, nb_sensors, heaters, nb_heaters, dimmers, nb_dimmers);
   free(switchers);
   free(sensors);
+  free(dimmers);
   free(heaters);
   free(overview_result_cpy);
   return to_return;
@@ -600,21 +657,70 @@ heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat
 }
 
 /**
- * Not implemented yet
- * Because I didn't make a dimmer controllable via an Arduino
+ * Get the dimmer value
+ * I didn't make a dimmer controllable via an Arduino so I made a fony one for the development of the server
  * If you have a schema, I would love to try
  */
 int get_dimmer_value_arduino(device * terminal, char * dimmer){
-  return 0.0;
+  char eolchar = '}';
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
+  int serial_result;
+  int timeout = TIMEOUT;
+  int result=ERROR_DIMMER;
+  char * read_cpy, * end_ptr;
+  
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "GETDIMMER,%s\n", dimmer);
+  serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
+  if (serial_result != -1) {
+    serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
+    serial_read[strlen(serial_read) - 1] = '\0';
+    read_cpy = malloc((strlen(serial_read)+1));
+    strcpy(read_cpy, serial_read+1);
+    result = strtol(read_cpy, &end_ptr, 10);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SWITCH;
+    }
+    free(read_cpy);
+  }
+  pthread_mutex_unlock(&terminal->lock);
+  return result;
 }
 
 /**
- * Not implemented yet
- * Because I didn't make a dimmer controllable via an Arduino
+ * Set the dimmer value
+ * I didn't make a dimmer controllable via an Arduino so I made a fony one for the development of the server
  * If you have a schema, I would love to try
  */
 int set_dimmer_value_arduino(device * terminal, char * dimmer, int value) {
-  return 0;
+  char eolchar = '}';
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
+  int serial_result;
+  int timeout = TIMEOUT;
+  int result = ERROR_DIMMER;
+  char * read_cpy, * end_ptr;
+
+  if (pthread_mutex_lock(&terminal->lock)) {
+    return result;
+  }
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "SETDIMMER,%s,%d\n", dimmer, value);
+  serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
+  if (serial_result != -1) {
+    serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
+    serial_read[strlen(serial_read) - 1] = '\0';
+    read_cpy = malloc((strlen(serial_read)+1));
+    strcpy(read_cpy, serial_read+1);
+    result = strtol(read_cpy, &end_ptr, 10);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SWITCH;
+    }
+    free(read_cpy);
+  }
+  //serialport_flush(terminal->serial_fd);
+  pthread_mutex_unlock(&terminal->lock);
+  return result;
 }
 
 /**
@@ -633,9 +739,9 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
     log_message(LOG_WARNING, "Error parsing heater data");
     return 0;
   } else {
-    sanitize_json_string(heater_name, cur_heater->name, WORDLENGTH);
-    sanitize_json_string(heater_name, cur_heater->display, WORDLENGTH);
-    sanitize_json_string(device, cur_heater->device, WORDLENGTH);
+    strncpy(cur_heater->name, heater_name, WORDLENGTH);
+    strncpy(cur_heater->display, heater_name, WORDLENGTH);
+    strncpy(cur_heater->device, device, WORDLENGTH);
     cur_heater->set = strcmp(heat_set,"1")==0?1:0;
     cur_heater->on = strcmp(heat_on,"1")==0?1:0;
     cur_heater->heat_max_value = strtof(heat_max_value, NULL);
@@ -654,11 +760,11 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
         if (sqlite3_column_text(stmt, 0) != NULL) {
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 0), cur_heater->display, WORDLENGTH);
+          strncpy(cur_heater->display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
         }
         cur_heater->enabled = sqlite3_column_int(stmt, 1);
         if (sqlite3_column_text(stmt, 2) != NULL) {
-          sanitize_json_string((char*)sqlite3_column_text(stmt, 2), cur_heater->unit, WORDLENGTH);
+          strncpy(cur_heater->unit, (char*)sqlite3_column_text(stmt, 2), WORDLENGTH);
         }
         cur_heater->monitored = sqlite3_column_int(stmt, 3);
         cur_heater->monitored_every = sqlite3_column_int(stmt, 4);

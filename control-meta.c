@@ -152,7 +152,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
         strcpy(cur_active, "true");
       } else {
         strncpy(cur_name, terminal[i]->name, WORDLENGTH);
-        sanitize_json_string((char*)sqlite3_column_text(stmt, 0), cur_display, WORDLENGTH);
+        strncpy(cur_display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
         strcpy(cur_active, sqlite3_column_int(stmt, 1)==1?"true":"false");
       }
       

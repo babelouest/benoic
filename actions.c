@@ -54,12 +54,12 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
     strcpy(actions, "");
     while (row_result == SQLITE_ROW) {
       snprintf(cur_action, WORDLENGTH*sizeof(char), "%d", sqlite3_column_int(stmt, 0));
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 1)==NULL?"":(char*)sqlite3_column_text(stmt, 1), cur_name, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 3)==NULL?"":(char*)sqlite3_column_text(stmt, 3), cur_device, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 4)==NULL?"":(char*)sqlite3_column_text(stmt, 4), cur_switch, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 5)==NULL?"":(char*)sqlite3_column_text(stmt, 5), cur_dimmer, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 6)==NULL?"":(char*)sqlite3_column_text(stmt, 6), cur_heater, WORDLENGTH);
-      sanitize_json_string((char*)sqlite3_column_text(stmt, 7)==NULL?"":(char*)sqlite3_column_text(stmt, 7), cur_params, WORDLENGTH);
+      strncpy(cur_name, (char*)sqlite3_column_text(stmt, 1)==NULL?"":(char*)sqlite3_column_text(stmt, 1), WORDLENGTH);
+      strncpy(cur_device, (char*)sqlite3_column_text(stmt, 3)==NULL?"":(char*)sqlite3_column_text(stmt, 3), WORDLENGTH);
+      strncpy(cur_switch, (char*)sqlite3_column_text(stmt, 4)==NULL?"":(char*)sqlite3_column_text(stmt, 4), WORDLENGTH);
+      strncpy(cur_dimmer, (char*)sqlite3_column_text(stmt, 5)==NULL?"":(char*)sqlite3_column_text(stmt, 5), WORDLENGTH);
+      strncpy(cur_heater, (char*)sqlite3_column_text(stmt, 6)==NULL?"":(char*)sqlite3_column_text(stmt, 6), WORDLENGTH);
+      strncpy(cur_params, (char*)sqlite3_column_text(stmt, 7)==NULL?"":(char*)sqlite3_column_text(stmt, 7), WORDLENGTH);
       tags_array = get_tags(sqlite3_db, NULL, DATA_ACTION, cur_action);
       tags = build_json_tags(tags_array);
       str_len = snprintf(NULL, 0, json_template_action_get_actions,

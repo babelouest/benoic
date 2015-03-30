@@ -36,7 +36,7 @@ int num_digits_l (long n) {
  * Safe string replace function
  * Based on Laird Shaw's replace_str function (http://creativeandcritical.net/str-replace-c/)
  */
-int str_replace(char * source, char * target, size_t len, char * old, char * new) {
+int str_replace(const char * source, char * target, size_t len, char * old, char * new) {
   char *r;
   const char *p, *q;
   size_t oldlen = strlen(old);
@@ -75,11 +75,32 @@ int str_replace(char * source, char * target, size_t len, char * old, char * new
 /**
  * Sanitize special characters for json output
  */
-int sanitize_json_string(char * source, char * target, size_t len) {
+int sanitize_json_string(const char * source, char * target, size_t len) {
   char tmp1[len], tmp2[len];
   unsigned int tab_size = 8, i;
-  char *old[] = {"\\", "\b", "\f", "\n", "\r", "\t", "\v", "\""};
-  char *new[] = {"\\\\", "\\b", "\\f", "\\n", "\\r", "\\t", "\\v", "\\\""};
+  char *old[] = {"\"", "\\", "/", "\b", "\f", "\n", "\r", "\t"};
+  char *new[] = {"\\\"", "\\\\", "\\/", "\\b", "\\f", "\\n", "\\r", "\\t"};
+  
+  snprintf(tmp1, len, "%s", source);
+  for (i = 0; i < tab_size; i++) {
+    if (str_replace(tmp1, tmp2, len, old[i], new[i])) {
+      snprintf(tmp1, len, "%s", tmp2);
+    } else {
+      return 0;
+    }
+  }
+  snprintf(target, len, "%s", tmp1);
+  return 1;
+}
+
+/**
+ * Sanitize url for json output
+ */
+int sanitize_json_string_url(const char * source, char * target, size_t len) {
+  char tmp1[len], tmp2[len];
+  unsigned int tab_size = 7, i;
+  char *old[] = {"\"", "\\", "\b", "\f", "\n", "\r", "\t"};
+  char *new[] = {"\\\"", "\\\\", "\\b", "\\f", "\\n", "\\r", "\\t"};
   
   snprintf(tmp1, len, "%s", source);
   for (i = 0; i < tab_size; i++) {
