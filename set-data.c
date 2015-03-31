@@ -16,10 +16,10 @@
 
 #include "angharad.h"
 
-static const char json_template_set_data_setdimmerdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}";
-static const char json_template_set_data_setheaterdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"tags\":%s}";
-static const char json_template_set_data_setsensordata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"tags\":%s}";
-static const char json_template_set_data_setswitchdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s,\"tags\":%s}";
+static const char json_template_set_data_setdimmerdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"monitored\":%s,\"monitored_every\":%d,\"tags\":%s}";
+static const char json_template_set_data_setheaterdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"monitored\":%s,\"monitored_every\":%d,\"tags\":%s}";
+static const char json_template_set_data_setsensordata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"unit\":\"%s\",\"enabled\":%s,\"monitored\":%s,\"monitored_every\":%d,\"tags\":%s}";
+static const char json_template_set_data_setswitchdata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"type\":%d,\"enabled\":%s,\"monitored\":%s,\"monitored_every\":%d,\"tags\":%s}";
 static const char json_template_set_data_setdevicedata[] = "{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"tags\":%s}";
 
 /**
@@ -65,9 +65,9 @@ char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
     tags = build_tags_from_list(cur_switch.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_switch.device, DATA_SWITCH, cur_switch.name, tags);
-    str_len = snprintf(NULL, 0, json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
+    str_len = snprintf(NULL, 0, json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", cur_switch.monitored?"true":"false", cur_switch.monitored_every, tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setswitchdata, cur_switch.name, cur_switch.display, cur_switch.type, cur_switch.enabled?"true":"false", cur_switch.monitored?"true":"false", cur_switch.monitored_every, tags_json);
     free(tags_json);
     free_tags(tags);
   }
@@ -93,9 +93,9 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
     tags = build_tags_from_list(cur_sensor.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_sensor.device, DATA_SENSOR, cur_sensor.name, tags);
-    str_len = snprintf(NULL, 0, json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
+    str_len = snprintf(NULL, 0, json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", cur_sensor.monitored?"true":"false", cur_sensor.monitored_every, tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setsensordata, cur_sensor.name, cur_sensor.display, cur_sensor.unit, cur_sensor.enabled?"true":"false", cur_sensor.monitored?"true":"false", cur_sensor.monitored_every, tags_json);
     free(tags_json);
     free_tags(tags);
   }
@@ -110,19 +110,19 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled)\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_enabled, he_monitored, he_monitored_every)\
                     VALUES ((SELECT he_id FROM an_heater WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
-                    (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', '%d')",
+                    (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d')",
                     cur_heater.name, cur_heater.device, cur_heater.device, cur_heater.name, cur_heater.display, cur_heater.unit,
-                    cur_heater.enabled);
+                    cur_heater.enabled, cur_heater.monitored, cur_heater.monitored_every);
   
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     tags = build_tags_from_list(cur_heater.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_heater.device, DATA_HEATER, cur_heater.name, tags);
-    str_len = snprintf(NULL, 0, json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
+    str_len = snprintf(NULL, 0, json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", cur_heater.monitored?"true":"false", cur_heater.monitored_every, tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setheaterdata, cur_heater.name, cur_heater.display, cur_heater.unit, cur_heater.enabled?"true":"false", cur_heater.monitored?"true":"false", cur_heater.monitored_every, tags_json);
     free(tags_json);
     free_tags(tags);
   }
@@ -137,18 +137,18 @@ char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
-  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active)\
+  sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active, di_monitored, di_monitored_every)\
                     VALUES ((SELECT di_id FROM an_dimmer WHERE di_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
-                    (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d')",
-                    cur_dimmer.name, cur_dimmer.device, cur_dimmer.device, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled);
+                    (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', '%d', '%d')",
+                    cur_dimmer.name, cur_dimmer.device, cur_dimmer.device, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled, cur_dimmer.monitored, cur_dimmer.monitored_every);
   
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     tags = build_tags_from_list(cur_dimmer.tags);
     tags_json = build_json_tags(tags);
     set_tags(sqlite3_db, cur_dimmer.device, DATA_DIMMER, cur_dimmer.name, tags);
-    str_len = snprintf(NULL, 0, json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
+    str_len = snprintf(NULL, 0, json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", cur_dimmer.monitored?"true":"false", cur_dimmer.monitored_every, tags_json);
     to_return = malloc((str_len+1)*sizeof(char));
-    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", tags_json);
+    snprintf(to_return, (str_len+1)*sizeof(char), json_template_set_data_setdimmerdata, cur_dimmer.name, cur_dimmer.display, cur_dimmer.enabled?"true":"false", cur_dimmer.monitored?"true":"false", cur_dimmer.monitored_every, tags_json);
     free(tags_json);
     free_tags(tags);
   }

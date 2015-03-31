@@ -33,6 +33,8 @@ void * thread_scheduler_run(void * args) {
   int sql_result, row_result;
   switcher sw;
   sensor se;
+  dimmer di;
+  heater he;
   sqlite3_stmt *stmt;
 
   // Get configuration variables
@@ -79,6 +81,50 @@ void * thread_scheduler_run(void * args) {
       se.monitored_every = sqlite3_column_int(stmt, 3);
       se.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
       monitor_sensor(config->sqlite3_db, config->terminal, config->nb_terminal, se);
+      row_result = sqlite3_step(stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+  stmt = NULL;
+  
+  // Monitor dimmers
+  sql_query = sqlite3_mprintf("SELECT di.di_id, di.di_name, de.de_name, di.di_monitored_every, di.di_monitored_next\
+                    FROM an_dimmer di, an_device de WHERE di_monitored=1 AND de.de_id = di.de_id");
+  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_WARNING, "Error preparing sql query (sensors monitored)");
+  } else {
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      di.id = sqlite3_column_int(stmt, 0);
+      snprintf(di.name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 1));
+      snprintf(di.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
+      di.monitored_every = sqlite3_column_int(stmt, 3);
+      di.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
+      monitor_dimmer(config->sqlite3_db, config->terminal, config->nb_terminal, di);
+      row_result = sqlite3_step(stmt);
+    }
+  }
+  sqlite3_finalize(stmt);
+  stmt = NULL;
+  
+  // Monitor heaters
+  sql_query = sqlite3_mprintf("SELECT he.he_id, he.he_name, de.de_name, he.he_monitored_every, he.he_monitored_next\
+                    FROM an_heater he, an_device de WHERE he_monitored=1 AND de.de_id = he.de_id");
+  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_WARNING, "Error preparing sql query (sensors monitored)");
+  } else {
+    row_result = sqlite3_step(stmt);
+    while (row_result == SQLITE_ROW) {
+      he.id = sqlite3_column_int(stmt, 0);
+      snprintf(he.name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 1));
+      snprintf(he.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
+      he.monitored_every = sqlite3_column_int(stmt, 3);
+      he.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
+      monitor_heater(config->sqlite3_db, config->terminal, config->nb_terminal, he);
       row_result = sqlite3_step(stmt);
     }
   }
@@ -320,7 +366,7 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     switch_value = get_switch_state(cur_terminal, sw.name, 1);
     if (switch_value != ERROR_SWITCH) {
       snprintf(sw_state, WORDLENGTH*sizeof(char), "%d", switch_value);
-      if (!monitor_store(sqlite3_db, sw.device, sw.name, "", sw_state)) {
+      if (!monitor_store(sqlite3_db, sw.device, sw.name, "", "", "", sw_state)) {
         log_message(LOG_WARNING, "Error storing switch state monitor value into database");
       }
     }
@@ -356,7 +402,7 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     sensor_value = get_sensor_value(cur_terminal, s.name, 1);
     if (sensor_value != ERROR_SENSOR) {
       snprintf(se_value, WORDLENGTH*sizeof(char), "%.2f", sensor_value);
-      if (!monitor_store(sqlite3_db, s.device, "", s.name, se_value)) {
+      if (!monitor_store(sqlite3_db, s.device, "", s.name, "", "", se_value)) {
         log_message(LOG_WARNING, "Error storing sensor data monitor value into database");
       }
     }
@@ -372,19 +418,93 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
 }
 
 /**
+ * Monitor one dimmer and update next time value with the every value
+ */
+int monitor_dimmer(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, dimmer di) {
+  device * cur_terminal;
+  char di_value[WORDLENGTH+1] = {0};
+  char * sql_query = NULL;
+  time_t now, next_time;
+  int was_ran = 0;
+  int dimmer_value = 0;
+  int result = 1;
+  
+  time(&now);
+  if (is_scheduled_now(di.monitored_next) || di.monitored_next < now) {
+    // Monitor switch state
+    cur_terminal = get_device_from_name(di.device, terminal, nb_terminal);
+    was_ran = 1;
+    dimmer_value = get_dimmer_value(cur_terminal, di.name);
+    if (dimmer_value != ERROR_DIMMER) {
+      snprintf(di_value, WORDLENGTH*sizeof(char), "%d", dimmer_value);
+      if (!monitor_store(sqlite3_db, di.device, "", "", di.name, "", di_value)) {
+        log_message(LOG_WARNING, "Error storing switch state monitor value into database");
+      }
+    }
+  }
+  if (was_ran || (di.monitored_next <= now && di.monitored_every > 0)) {
+    next_time = calculate_next_time(now, REPEAT_MINUTE, di.monitored_every);
+    sql_query = sqlite3_mprintf("UPDATE an_dimmer SET di_monitored_next = '%ld' WHERE di_id = '%d'", next_time, di.id);
+    result = ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
+    sqlite3_free(sql_query);
+  }
+  return result;
+}
+
+/**
+ * Monitor one heater and update next time value with the every value
+ */
+int monitor_heater(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, heater he) {
+  device * cur_terminal;
+  char he_command[WORDLENGTH+1] = {0};
+  char * sql_query = NULL;
+  time_t now, next_time;
+  int was_ran = 0;
+  heater * he_tf = NULL;
+  int result = 1;
+  
+  time(&now);
+  if (is_scheduled_now(he.monitored_next) || he.monitored_next < now) {
+    // Monitor switch state
+    cur_terminal = get_device_from_name(he.device, terminal, nb_terminal);
+    was_ran = 1;
+    he_tf = get_heater(sqlite3_db, cur_terminal, he.name);
+    if (he_tf != NULL) {
+      if (he_tf->set) {
+        snprintf(he_command, WORDLENGTH*sizeof(char), "%.2f", he_tf->heat_max_value);
+      } else {
+        strcpy(he_command, "0.0");
+      }
+      if (!monitor_store(sqlite3_db, he.device, "", "", "", he.name, he_command)) {
+        log_message(LOG_WARNING, "Error storing switch state monitor value into database");
+      }
+    }
+  }
+  if (was_ran || (he.monitored_next <= now && he.monitored_every > 0)) {
+    next_time = calculate_next_time(now, REPEAT_MINUTE, he.monitored_every);
+    sql_query = sqlite3_mprintf("UPDATE an_heater SET he_monitored_next = '%ld' WHERE he_id = '%d'", next_time, he.id);
+    result = ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
+    sqlite3_free(sql_query);
+  }
+  free(he_tf);
+  return result;
+}
+
+/**
  * Insert monitor value into database
  */
-int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value) {
+int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * value) {
   char * sql_query = NULL;
   int result;
   
-  sql_query = sqlite3_mprintf("INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, mo_result)\
+  sql_query = sqlite3_mprintf("INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, di_id, he_id, mo_result)\
                   VALUES (strftime('%%s','now'), (SELECT de_id FROM an_device WHERE de_name = '%q'),\
-                  (SELECT sw_id FROM an_switch WHERE sw_name = '%q'\
-                  AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')),\
-                  (SELECT se_id FROM an_sensor WHERE se_name = '%q' and de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), '%q')",
-                  device_name, switch_name, device_name, sensor_name, device_name, value);
-  
+                  (SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), \
+                  (SELECT se_id FROM an_sensor WHERE se_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), \
+                  (SELECT di_id FROM an_dimmer WHERE di_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), \
+                  (SELECT he_id FROM an_heater WHERE he_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), \
+                  '%q')",
+                  device_name, switch_name, device_name, sensor_name, device_name, dimmer_name, device_name, heater_name, device_name, value);
   result = ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
   sqlite3_free(sql_query);
   return result;

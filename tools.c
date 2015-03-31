@@ -16,7 +16,7 @@
 
 #include "angharad.h"
 
-static const char json_template_tools_get_monitor[] = "{\"device\":\"%s\",\"switcher\":\"%s\",\"sensor\":\"%s\",\"start_date\":\"%s\",\"values\":[%s]}";
+static const char json_template_tools_get_monitor[] = "{\"device\":\"%s\",\"switcher\":\"%s\",\"sensor\":\"%s\",\"dimmer\":\"%s\",\"heater\":\"%s\",\"start_date\":\"%s\",\"values\":[%s]}";
 static const char json_template_tools_monitor_one_value[] = "{\"date_time\":\"%s\",\"value\":\"%s\"}";
 /**
  * Save the heat status in the database for startup init
@@ -121,7 +121,7 @@ int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer
 int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device) {
   char * sql_query = NULL, switch_name[WORDLENGTH+1];
   sqlite3_stmt *stmt;
-  int sql_result, row_result, state_result=1;
+  int sql_result, row_result, state_result = 1;
   
   // Do not initiate elements on device connect, because it takes a few seconds to pair elements
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
@@ -154,7 +154,7 @@ int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device) {
 int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device) {
   char * sql_query = NULL, dimmer_name[WORDLENGTH+1];
   sqlite3_stmt *stmt;
-  int sql_result, row_result, result=1;
+  int sql_result, row_result, result = 1;
   
   // Do not initiate elements on device connect, because it takes a few seconds to pair elements
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
@@ -221,7 +221,7 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
  */
 int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
   heater * heaters, * cur_heater;
-  int heat_status=1, i=0;
+  int heat_status = 1, switch_status = 1, dimmer_status = 1, i=0;
   
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
     heaters = get_startup_heater_status(sqlite3_db, cur_device->name);
@@ -233,7 +233,9 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
       free(cur_heater);
     }
     free(heaters);
-    return (heat_status && set_startup_all_switch(sqlite3_db, cur_device) && set_startup_all_dimmer_value(sqlite3_db, cur_device));
+    switch_status = set_startup_all_switch(sqlite3_db, cur_device);
+    dimmer_status = set_startup_all_dimmer_value(sqlite3_db, cur_device);
+    return (heat_status && switch_status && dimmer_status);
   } else {
     return 1;
   }
@@ -242,26 +244,30 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
 /**
  * Gets the monitored value using the given filters
  */
-char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * switcher_name, const char * sensor_name, const char * start_date) {
-  char * sql_query = NULL, * where_switch = NULL, * where_sensor = NULL;
+char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * switcher_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * start_date) {
+  char * sql_query = NULL, * where_switch = NULL, * where_sensor = NULL, * where_dimmer = NULL, * where_heater = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, first_result = 1, t_len, str_len;
-  char p_device[WORDLENGTH+1], p_switch[WORDLENGTH+1], p_sensor[WORDLENGTH+1], p_start_date[WORDLENGTH+1], monitor_date[WORDLENGTH+1], monitor_value[WORDLENGTH+1], * one_item = NULL, * all_items = NULL;;
+  char p_device[WORDLENGTH+1], p_switch[WORDLENGTH+1], p_sensor[WORDLENGTH+1], p_dimmer[WORDLENGTH+1], p_heater[WORDLENGTH+1];
+  char p_start_date[WORDLENGTH+1], monitor_date[WORDLENGTH+1], monitor_value[WORDLENGTH+1], * one_item = NULL, * all_items = NULL;
   time_t yesterday;
   char * to_return = NULL;
   
   snprintf(p_device, WORDLENGTH*sizeof(char), "%s", device_name);
   snprintf(p_switch, WORDLENGTH*sizeof(char), "%s", switcher_name);
   snprintf(p_sensor, WORDLENGTH*sizeof(char), "%s", sensor_name);
-  if (start_date == NULL) {
+  snprintf(p_dimmer, WORDLENGTH*sizeof(char), "%s", dimmer_name);
+  snprintf(p_heater, WORDLENGTH*sizeof(char), "%s", heater_name);
+  
+  if (start_date != NULL && 0 != strcmp("", start_date)) {
+    snprintf(p_start_date, WORDLENGTH*sizeof(char), "%s", start_date);
+  } else {
     time(&yesterday);
     yesterday -= 60*60*24; // set start_date to yesterday
     snprintf(p_start_date, WORDLENGTH*sizeof(char), "%ld", yesterday);
-  } else {
-    snprintf(p_start_date, WORDLENGTH*sizeof(char), "%s", start_date);
   }
   
-  if (switcher_name != NULL && 0 != strcmp("0", switcher_name)) {
+  if (switcher_name != NULL && 0 != strcmp("", switcher_name)) {
     where_switch = sqlite3_mprintf("AND mo.sw_id = (SELECT sw_id FROM an_switch WHERE sw_name='%q'\
                       AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_switch, p_device);
   } else {
@@ -269,7 +275,7 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
     where_switch = sqlite3_mprintf("");
   }
   
-  if (sensor_name != NULL && 0 != strcmp("0", sensor_name)) {
+  if (sensor_name != NULL && 0 != strcmp("", sensor_name)) {
     where_sensor = sqlite3_mprintf("AND mo.se_id = (SELECT se_id FROM an_sensor WHERE se_name='%q'\
                       AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_sensor, p_device);
   } else {
@@ -277,15 +283,39 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
     where_sensor = sqlite3_mprintf("");
   }
   
+  if (dimmer_name != NULL && 0 != strcmp("", dimmer_name)) {
+    where_dimmer = sqlite3_mprintf("AND mo.di_id = (SELECT di_id FROM an_dimmer WHERE di_name='%q'\
+                      AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_dimmer, p_device);
+  } else {
+    strcpy(p_dimmer, "");
+    where_dimmer = sqlite3_mprintf("");
+  }
+  
+  if (heater_name != NULL && 0 != strcmp("", heater_name)) {
+    where_heater = sqlite3_mprintf("AND mo.he_id = (SELECT he_id FROM an_heater WHERE he_name='%q'\
+                      AND de_id=(SELECT de_id FROM an_device WHERE de_name='%q'))", p_heater, p_device);
+  } else {
+    strcpy(p_heater, "");
+    where_heater = sqlite3_mprintf("");
+  }
+  
   sql_query = sqlite3_mprintf("SELECT mo.mo_date, mo.mo_result FROM an_monitor mo\
-                    LEFT OUTER JOIN an_device de ON de.de_id = mo.de_id LEFT OUTER JOIN an_switch sw ON sw.sw_id = mo.sw_id\
-                    LEFT OUTER JOIN an_sensor se ON se.se_id = mo.se_id WHERE mo.de_id = (SELECT de_id FROM an_device WHERE de_name='%q')\
-                    AND datetime(mo.mo_date, 'unixepoch') >= datetime('%q', 'unixepoch') %s %s ORDER BY mo.mo_date ASC",
-                    p_device, p_start_date, where_switch, where_sensor);
+                    LEFT OUTER JOIN an_device de ON de.de_id = mo.de_id\
+                    LEFT OUTER JOIN an_switch sw ON sw.sw_id = mo.sw_id\
+                    LEFT OUTER JOIN an_sensor se ON se.se_id = mo.se_id\
+                    LEFT OUTER JOIN an_dimmer di ON di.di_id = mo.di_id\
+                    LEFT OUTER JOIN an_heater he ON he.he_id = mo.he_id\
+                    WHERE mo.de_id = (SELECT de_id FROM an_device WHERE de_name='%q')\
+                    AND datetime(mo.mo_date, 'unixepoch') >= datetime('%q', 'unixepoch') %s %s %s %s\
+                    ORDER BY mo.mo_date ASC",
+                    p_device, p_start_date, where_switch, where_sensor, where_dimmer, where_heater);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   sqlite3_free(where_switch);
   sqlite3_free(where_sensor);
+  sqlite3_free(where_dimmer);
+  sqlite3_free(where_heater);
+  
   if (sql_result != SQLITE_OK) {
     log_message(LOG_WARNING, "Error preparing sql query (get_monitor)");
     sqlite3_finalize(stmt);
@@ -311,9 +341,9 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
       first_result = 0;
       row_result = sqlite3_step(stmt);
     }
-    t_len = snprintf(NULL, 0, json_template_tools_get_monitor, device_name, p_switch, p_sensor, p_start_date, all_items);
+    t_len = snprintf(NULL, 0, json_template_tools_get_monitor, device_name, p_switch, p_sensor, p_dimmer, p_heater, p_start_date, all_items);
     to_return = malloc((t_len+1)*sizeof(char));
-    snprintf(to_return, (t_len+1)*sizeof(char), json_template_tools_get_monitor, device_name, p_switch, p_sensor, p_start_date, all_items);
+    snprintf(to_return, (t_len+1)*sizeof(char), json_template_tools_get_monitor, device_name, p_switch, p_sensor, p_dimmer, p_heater, p_start_date, all_items);
     free(one_item);
     free(all_items);
   }

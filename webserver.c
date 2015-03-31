@@ -575,6 +575,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher_name, (status != NULL && (0 == strcmp("1", status))?1:0))) {
                     log_message(LOG_WARNING, "Error saving switcher status in the database");
                   }
+                  if (!monitor_store(config->sqlite3_db, cur_terminal->name, switcher_name, "", "", "", status)) {
+                    log_message(LOG_WARNING, "Error monitoring switcher");
+                  }
                 } else {
                   page_len = snprintf(NULL, 0, json_template_webserver_setswitch_error);
                   page = malloc((page_len+1)*sizeof(char));
@@ -589,6 +592,10 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_toggleswitch, switcher_name, result);
                   if (!save_startup_switch_status(config->sqlite3_db, cur_terminal->name, switcher_name, result)) {
                     log_message(LOG_WARNING, "Error saving switcher status in the database");
+                  }
+                  snprintf(status, WORDLENGTH, "%d", result);
+                  if (!monitor_store(config->sqlite3_db, cur_terminal->name, switcher_name, "", "", "", status)) {
+                    log_message(LOG_WARNING, "Error monitoring switcher");
                   }
                 } else {
                   page_len = strlen(json_template_webserver_toggleswitch_error);
@@ -606,6 +613,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_setdimmer, cur_terminal->name, dimmer_name, result);
                   if (!save_startup_dimmer_value(config->sqlite3_db, cur_terminal->name, dimmer_name, i_dimmer_value)) {
                     log_message(LOG_WARNING, "Error saving switcher status in the database");
+                  }
+                  if (!monitor_store(config->sqlite3_db, cur_terminal->name, "", "", dimmer_name, "", dimmer_value)) {
+                    log_message(LOG_WARNING, "Error monitoring dimmer");
                   }
                 } else {
                   page_len = strlen(json_template_webserver_setdimmer_error);
@@ -675,6 +685,9 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                     if (!save_startup_heater_status(config->sqlite3_db, cur_terminal->name, heater_name, i_heat_enabled, f_heat_value)) {
                       log_message(LOG_WARNING, "Error saving heater status in the database");
                     }
+                    if (!monitor_store(config->sqlite3_db, cur_terminal->name, "", heater_name, "", "", (i_heat_enabled?"0.0":heat_value))) {
+                      log_message(LOG_WARNING, "Error monitoring heater");
+                    }
                     page_len = snprintf(NULL, 0, json_template_webserver_setheater,
                               cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
                               heat_status->on?"true":"false", heat_status->set?"true":"false", heat_status->heat_max_value, heat_status->unit);
@@ -696,12 +709,12 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   free(to_free);
                 }
               } else if ( 0 == strncmp(MONITOR, command, strlen(MONITOR)) ) { // Get the monitor value of an element since a specified date
-                switcher_name = strtok_r( NULL, delim, &saveptr );
-                sensor_name = strtok_r( NULL, delim, &saveptr );
-                dimmer_name = strtok_r( NULL, delim, &saveptr );
-                heater_name = strtok_r( NULL, delim, &saveptr );
-                start_date = strtok_r( NULL, delim, &saveptr );
-                to_free = get_monitor(config->sqlite3_db, device_name, switcher_name, sensor_name, start_date);
+                switcher_name = strsep(&saveptr, delim);
+                sensor_name = strsep(&saveptr, delim);
+                dimmer_name = strsep(&saveptr, delim);
+                heater_name = strsep(&saveptr, delim);
+                start_date = strsep(&saveptr, delim);
+                to_free = get_monitor(config->sqlite3_db, device_name, switcher_name, sensor_name, dimmer_name, heater_name, start_date);
                 if (to_free != NULL) {
                   tf_len = snprintf(NULL, 0, json_template_webserver_monitor, to_free);
                   page = malloc((tf_len + 1)*sizeof(char));
@@ -1120,6 +1133,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
           sanitize_json_string(data, cur_action->device, WORDLENGTH*sizeof(char));
         }
       } else if (0 == strcmp (key, "type")) {
+        printf("type: %s\n", data);
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_action->type = strtol(data, NULL, 10);
         }

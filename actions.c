@@ -120,9 +120,15 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       if (ac.device != NULL) {
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal != NULL && cur_terminal->enabled) {
-          set_switch_state(cur_terminal, ac.switcher, (0 == strcmp(ac.params, "1")));
-          if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, (0 == strcmp(ac.params, "1")))) {
-            log_message(LOG_WARNING, "Error saving switcher status in the database");
+          if (set_switch_state(cur_terminal, ac.switcher, (0 == strcmp(ac.params, "1"))) != ERROR_SWITCH) {
+            if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, (0 == strcmp(ac.params, "1")))) {
+              log_message(LOG_WARNING, "Error saving switcher status in the database");
+            }
+            if (!monitor_store(sqlite3_db, cur_terminal->name, ac.switcher, "", "", "", ac.params)) {
+              log_message(LOG_WARNING, "Error monitoring switcher");
+            }
+          } else {
+            log_message(LOG_WARNING, "Error setting switcher status");
           }
         }
       }
@@ -133,8 +139,15 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal != NULL && cur_terminal->enabled) {
           toggle_set = toggle_switch_state(cur_terminal, ac.switcher);
-          if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, toggle_set)) {
-            log_message(LOG_WARNING, "Error saving switcher status in the database");
+          if (toggle_set != ERROR_SWITCH) {
+            if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, toggle_set)) {
+              log_message(LOG_WARNING, "Error saving switcher status in the database");
+            }
+            if (!monitor_store(sqlite3_db, cur_terminal->name, ac.switcher, "", "", "", (toggle_set==1?"1":"0"))) {
+              log_message(LOG_WARNING, "Error monitoring switcher");
+            }
+          } else {
+            log_message(LOG_WARNING, "Error setting switcher status");
           }
         }
       }
@@ -145,9 +158,15 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         if (cur_terminal != NULL && cur_terminal->enabled) {
           dimmer_value = strtol(ac.params, NULL, 10);
-          set_dimmer_value(cur_terminal, ac.dimmer, dimmer_value);
-          if (!save_startup_dimmer_value(sqlite3_db, cur_terminal->name, ac.dimmer, dimmer_value)) {
-            log_message(LOG_WARNING, "Error saving dimmer status in the database");
+          if (set_dimmer_value(cur_terminal, ac.dimmer, dimmer_value) != ERROR_DIMMER) {
+            if (!save_startup_dimmer_value(sqlite3_db, cur_terminal->name, ac.dimmer, dimmer_value)) {
+              log_message(LOG_WARNING, "Error saving dimmer status in the database");
+            }
+            if (!monitor_store(sqlite3_db, cur_terminal->name, "", "", ac.dimmer, "", ac.params)) {
+              log_message(LOG_WARNING, "Error monitoring dimmer");
+            }
+          } else {
+            log_message(LOG_WARNING, "Error setting dimmer value");
           }
         }
       }
@@ -159,12 +178,19 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         heat_max_value = strtof(ac.params+2, NULL);
         cur_terminal = get_device_from_name(ac.device, terminal, nb_terminal);
         cur_heater = set_heater(sqlite3_db, cur_terminal, ac.heater, heat_set, heat_max_value);
-        if (cur_terminal != NULL && cur_terminal->enabled && cur_heater != NULL) {
-          if (!save_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
-            log_message(LOG_WARNING, "Error saving heater status in the database");
+        if (cur_heater != NULL) {
+          if (cur_terminal != NULL && cur_terminal->enabled && cur_heater != NULL) {
+            if (!save_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
+              log_message(LOG_WARNING, "Error saving heater status in the database");
+            }
+            if (!monitor_store(sqlite3_db, cur_terminal->name, "", ac.heater, "", "", (heat_set?"0.0":ac.params))) {
+              log_message(LOG_WARNING, "Error monitoring heater");
+            }
           }
+          free(cur_heater);
+        } else {
+          log_message(LOG_WARNING, "Error setting heater");
         }
-        free(cur_heater);
       }
       break;
     case ACTION_SCRIPT:

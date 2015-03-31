@@ -348,8 +348,10 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
 // Monitor
 int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, switcher p);
 int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, sensor s);
-int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * value);
-char * get_monitor(sqlite3 * sqlite3_db, const char * device, const char * switcher, const char * sensor, const char * start_date);
+int monitor_dimmer(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, dimmer d);
+int monitor_heater(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, heater h);
+int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * value);
+char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * switcher_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * start_date);
 
 // Archive
 int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
