@@ -152,7 +152,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 			if( cur_node != NULL ) {
         if (get_device_value_id(cur_node, _notification->GetValueID().GetCommandClassId()) == NULL) {
           cur_node->values.push_back( _notification->GetValueID() );
-          log_message(LOG_DEBUG, "Adding ValueID type %x to node %d", _notification->GetValueID().GetCommandClassId(), cur_node->node_id);
+          log_message(LOG_LEVEL_DEBUG, "Adding ValueID type %x to node %d", _notification->GetValueID().GetCommandClassId(), cur_node->node_id);
         }
 			}
 			break;
@@ -165,7 +165,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 				for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
 					if( (*it) == _notification->GetValueID() ) {
 						cur_node->values.erase( it );
-            log_message(LOG_DEBUG, "Removing ValueID type %x from node %d", _notification->GetValueID().GetCommandClassId(), cur_node->node_id);
+            log_message(LOG_LEVEL_DEBUG, "Removing ValueID type %x from node %d", _notification->GetValueID().GetCommandClassId(), cur_node->node_id);
 						break;
 					}
 				}
@@ -192,7 +192,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 			cur_node->node_id = _notification->GetNodeId();
 			cur_node->polled = false;
 			nodes_list->push_back( cur_node );
-      log_message(LOG_DEBUG, "Adding Node %d", cur_node->node_id);
+      log_message(LOG_LEVEL_DEBUG, "Adding Node %d", cur_node->node_id);
 			break;
     }
 
@@ -201,7 +201,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 			for( list<node*>::iterator it = nodes_list->begin(); it != nodes_list->end(); ++it ) {
 				node* cur_node = *it;
 				if( get_device_node( terminal, cur_node->node_id != NULL ) ) {
-          log_message(LOG_DEBUG, "Removing Node %d", cur_node->node_id);
+          log_message(LOG_LEVEL_DEBUG, "Removing Node %d", cur_node->node_id);
 					nodes_list->erase( it );
 					delete cur_node;
 					break;
@@ -220,7 +220,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
       // Polling is disabled for this node
 			cur_node = get_device_node( terminal, _notification->GetNodeId() );
 			if( cur_node != NULL ) {
-        log_message(LOG_DEBUG, "Disabling polling for Node %d", cur_node->node_id);
+        log_message(LOG_LEVEL_DEBUG, "Disabling polling for Node %d", cur_node->node_id);
 				cur_node->polled = false;
 			}
 			break;
@@ -230,21 +230,21 @@ void on_notification_zwave ( Notification const * _notification, void * _context
       // Polling is enabled for this node
 			cur_node = get_device_node( terminal, _notification->GetNodeId() );
 			if( cur_node != NULL ) {
-        log_message(LOG_DEBUG, "Enabling polling for Node %d", cur_node->node_id);
+        log_message(LOG_LEVEL_DEBUG, "Enabling polling for Node %d", cur_node->node_id);
 				cur_node->polled = true;
 			}
 			break;
     }
 
 		case Notification::Type_DriverReady: {
-      log_message(LOG_INFO, "Driver ready");
+      log_message(LOG_LEVEL_INFO, "Driver ready");
 			zwave_terminal->home_id = _notification->GetHomeId();
 			zwave_terminal->init_failed = 0;
 			break;
     }
 
 		case Notification::Type_DriverFailed: {
-      log_message(LOG_WARNING, "Driver failed");
+      log_message(LOG_LEVEL_WARNING, "Driver failed");
 			zwave_terminal->home_id = UNDEFINED_HOME_ID;
 			zwave_terminal->init_failed = 1;
 			break;
@@ -318,7 +318,7 @@ int connect_device_zwave(device * terminal, device ** terminals, unsigned int nb
       return 1;
     }
   }
-  log_message(LOG_WARNING, "Error adding zwave dongle");
+  log_message(LOG_LEVEL_WARNING, "Error adding zwave dongle");
   return -1;
 }
 
@@ -382,7 +382,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
-          log_message(LOG_WARNING, "Error preparing sql query switch fetch");
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query switch fetch");
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
@@ -404,7 +404,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
                               terminal->name, switchers[nb_switchers].name, switchers[nb_switchers].name, switchers[nb_switchers].status);
             
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_switch %s", sql_query);
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_switch %s", sql_query);
             }
             sqlite3_free(sql_query);
           }
@@ -427,7 +427,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
-          log_message(LOG_WARNING, "Error preparing sql query dimmer fetch");
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query dimmer fetch");
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
@@ -447,7 +447,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
                               VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', 0, 0, 0)",
                               terminal->name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].value);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_dimmer");
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_dimmer");
             }
             sqlite3_free(sql_query);
           }

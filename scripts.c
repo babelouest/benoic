@@ -46,7 +46,7 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query");
     free(scripts);
     sqlite3_finalize(stmt);
     return NULL;
@@ -73,7 +73,7 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
         }
         actions = get_action_script(sqlite3_db, cur_id);
         if (actions == NULL) {
-          log_message(LOG_WARNING, "Error getting actions from script");
+          log_message(LOG_LEVEL_WARNING, "Error getting actions from script");
         }
         str_len = snprintf(NULL, 0, json_template_scripts_getscripts, cur_id, cur_name, cur_enabled?"true":"false", device_name, actions, tags);
         one_item = malloc((str_len+1)*sizeof(char));
@@ -108,7 +108,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   int rank, ac_id, enabled, oi_len;
   
   if (script_id == 0) {
-    log_message(LOG_WARNING, "Error getting action scripts, script_id is 0");
+    log_message(LOG_LEVEL_WARNING, "Error getting action scripts, script_id is 0");
     free(actions);
     return NULL;
   }
@@ -118,7 +118,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_action_script)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_action_script)");
     free(actions);
     sqlite3_finalize(stmt);
     return NULL;
@@ -167,7 +167,7 @@ char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_script)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_script)");
     sqlite3_finalize(stmt);
     return NULL;
   } else {
@@ -197,7 +197,7 @@ char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
       sqlite3_finalize(stmt);
       return to_return;
     } else {
-      log_message(LOG_WARNING, "Script %s not found", script_id);
+      log_message(LOG_LEVEL_WARNING, "Script %s not found", script_id);
       sqlite3_finalize(stmt);
       return NULL;
     }
@@ -223,7 +223,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (run_script)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (run_script)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -285,7 +285,7 @@ char * add_script(sqlite3 * sqlite3_db, script cur_script) {
   
   char * action, * saveptr, * action_id, * enabled, * saveptr2;
   
-  if (0 == strcmp("", cur_script.name)) {log_message(LOG_WARNING, "Error inserting script, wrong params"); return NULL;}
+  if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error inserting script, wrong params"); return NULL;}
   
   sql_query = sqlite3_mprintf("INSERT INTO an_script (sc_name, de_id, sc_enabled)\
                     VALUES ('%q', (SELECT de_id FROM an_device WHERE de_name='%q'), '%d')",
@@ -304,11 +304,11 @@ char * add_script(sqlite3 * sqlite3_db, script cur_script) {
                           VALUES ('%d', '%q', '%s', '%d')", cur_script.id, action, enabled, rank++);
         
         if ( sqlite3_exec(sqlite3_db, sql_query2, NULL, NULL, NULL) != SQLITE_OK ) {
-          log_message(LOG_WARNING, "Error inserting action (%d, %s, %d)", cur_script.id, action, rank++);
+          log_message(LOG_LEVEL_WARNING, "Error inserting action (%d, %s, %d)", cur_script.id, action, rank++);
         }
         sqlite3_free(sql_query2);
       } else {
-        log_message(LOG_WARNING, "Error inserting action list, wrong parameters");
+        log_message(LOG_LEVEL_WARNING, "Error inserting action list, wrong parameters");
       }
       action = strtok_r(NULL, ";", &saveptr);
     }
@@ -322,7 +322,7 @@ char * add_script(sqlite3 * sqlite3_db, script cur_script) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error inserting script");
+    log_message(LOG_LEVEL_WARNING, "Error inserting script");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -337,13 +337,13 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
   
   char * action_token, * action_id, * enabled, * saveptr, * saveptr2;
   
-  if (0 == strcmp("", cur_script.name)) {log_message(LOG_WARNING, "Error updating script, wrong params"); return NULL;}
-  if (cur_script.id == 0) {log_message(LOG_WARNING, "Error updating script, wrong params"); return NULL;}
+  if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
+  if (cur_script.id == 0) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   
   // Reinit action_script list
   sql_query = sqlite3_mprintf("DELETE FROM an_action_script WHERE sc_id='%d'", cur_script.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-    log_message(LOG_WARNING, "Error updating script, wrong params");
+    log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params");
   }
   sqlite3_free(sql_query);
   
@@ -359,11 +359,11 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
         sql_query2 = sqlite3_mprintf("INSERT INTO an_action_script (sc_id, ac_id, as_rank, as_enabled) VALUES ('%d', '%q', '%d', '%s')",
                           cur_script.id, action_id, rank++, enabled);
         if ( sqlite3_exec(sqlite3_db, sql_query2, NULL, NULL, NULL) != SQLITE_OK ) {
-          log_message(LOG_WARNING, "Error updating action (%d, %s, %d)", cur_script.id, action_token, rank++);
+          log_message(LOG_LEVEL_WARNING, "Error updating action (%d, %s, %d)", cur_script.id, action_token, rank++);
         }
         sqlite3_free(sql_query2);
       } else {
-        log_message(LOG_WARNING, "Error updating action list, wrong parameters");
+        log_message(LOG_LEVEL_WARNING, "Error updating action list, wrong parameters");
       }
       action_token = strtok_r(NULL, ";", &saveptr);
     }
@@ -377,7 +377,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error updating script");
+    log_message(LOG_LEVEL_WARNING, "Error updating script");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -404,22 +404,22 @@ int delete_script(sqlite3 * sqlite3_db, char * script_id) {
             if ( sqlite3_exec(sqlite3_db, sql_query6, NULL, NULL, NULL) == SQLITE_OK ) {
               result = 1;
             } else {
-              log_message(LOG_WARNING, "Error deleting script");
+              log_message(LOG_LEVEL_WARNING, "Error deleting script");
             }
           } else {
-            log_message(LOG_WARNING, "Error deleting action_script");
+            log_message(LOG_LEVEL_WARNING, "Error deleting action_script");
           }
         } else {
-          log_message(LOG_WARNING, "Error deleting action");
+          log_message(LOG_LEVEL_WARNING, "Error deleting action");
         }
       } else {
-        log_message(LOG_WARNING, "Error deleting schedules");
+        log_message(LOG_LEVEL_WARNING, "Error deleting schedules");
       }
     } else {
-      log_message(LOG_WARNING, "Error deleting tag");
+      log_message(LOG_LEVEL_WARNING, "Error deleting tag");
     }
   } else {
-    log_message(LOG_WARNING, "Error deleting tag_element");
+    log_message(LOG_LEVEL_WARNING, "Error deleting tag_element");
   }
   sqlite3_free(sql_query1);
   sqlite3_free(sql_query2);

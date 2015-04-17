@@ -715,29 +715,16 @@
   }
  }
 }
-,{"command":"ARCHIVE",
- "input":{
-  "parameters":{
-   "archive_until":"numeric"
-  }
- },
- "output":{
-  "result":"text",
-  "archive_from":"numeric",
-  "last_archive":"numeric",
-  "archive_running":"boolean"
- }
-}
-,{"command":"LASTARCHIVE",
+,{"command":"RESTARTSERVER",
  "input":{
   "parameters":{
   }
  },
  "output":{
-  "result":"text",
-  "archive_from":"numeric",
-  "last_archive":"numeric",
-  "archive_running":"boolean"
+  "result_ok":{},
+  "result_error":{
+   "message":"text"
+  }
  }
 }
 ,{"command":"HEARTBEAT",

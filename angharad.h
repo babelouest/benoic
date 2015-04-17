@@ -36,6 +36,7 @@
 #include <netinet/in.h>
 #include <arpa/inet.h>
 #include <pthread.h>
+#include <getopt.h>
 
 #include "arduino-serial-lib.h"
 
@@ -50,6 +51,21 @@
 #define TYPE_SERIAL 1
 #define TYPE_ZWAVE  2
 #define TYPE_NET    3
+
+#define LOG_MODE_NONE    0x0000
+#define LOG_MODE_CONSOLE 0x00F0
+#define LOG_MODE_SYSLOG  0x0F00
+#define LOG_MODE_FILE    0xF000
+#define LOG_MODE_CURRENT 0xFFFF
+
+#define LOG_LEVEL_NONE    0x0000
+#define LOG_LEVEL_ERROR   0x000F
+#define LOG_LEVEL_WARNING 0x00F0
+#define LOG_LEVEL_INFO    0x0F00
+#define LOG_LEVEL_DEBUG   0xF000
+#define LOG_LEVEL_CURRENT 0xFFFF
+
+#define CONFIG_BIND_ANY	  "any"
 
 #define ACTION_SET_SWITCH     0
 #define ACTION_TOGGLE_SWITCH  1
@@ -91,6 +107,10 @@
 #define ANGHARAD_RUNNING  0
 #define ANGHARAD_STOP     1
 #define ANGHARAD_ERROR    2
+#define ANGHARAD_RESTART  3
+
+#define ANGHARAD_CONFIG_FILE_ETC "/etc/angharad/angharad.conf"
+#define ANGHARAD_CONFIG_FILE_HOME ".angharad/angharad.conf"
 
 /**
  * Structures used to represent elements
@@ -236,22 +256,33 @@ struct connection_info_struct {
 };
 
 struct config_elements {
-  int auto_restart;
+  char * config_file;
   int tcp_port;
-  char url_prefix[WORDLENGTH+1];
-  struct MHD_Daemon *daemon;
+  char * bind_address;
+  char * url_prefix;
+  unsigned long log_mode;
+  unsigned long log_level;
+  char * log_file;
+  char * script_path;
+  int auto_restart;
   device ** terminal;
   unsigned int nb_terminal;
-  sqlite3 * sqlite3_db;
-  char db_archive_path[MSGLENGTH+1];
-  char script_path[MSGLENGTH+1];
+  char * master_db_path;
+  sqlite3 * master_db;
+  char * archive_db_path;
+  sqlite3 * archive_db;
+  struct MHD_Daemon * daemon;
 };
 
 // angharad.c
 int server(struct config_elements * config);
-int build_config(char * config_file, struct config_elements * config);
-void exit_handler(int);
+int init_server(struct config_elements * config);
+int build_config_from_args(int argc, char ** argv, struct config_elements * config);
+int build_config_from_file(struct config_elements * config);
+int check_config(struct config_elements * config);
+void exit_handler(int handler);
 void exit_server(struct config_elements ** config, int exit_value);
+void print_help(FILE * output);
 int global_handler_variable;
 
 
@@ -318,11 +349,14 @@ int set_dimmer_value_zwave(device * terminal, char * dimmer, int value);
 
 // System functions
 // misc.c
-void log_message(int type, const char * message, ...);
+void log_message(unsigned long type, const char * message, ...);
+int write_log(unsigned long init_mode, unsigned long init_level, char * init_log_file, unsigned long level, const char * message);
+void write_log_console(time_t date, unsigned long level, const char * message);
+void write_log_syslog(unsigned long level, const char * message);
+void write_log_file(time_t date, FILE * log_file, unsigned long level, const char * message);
 int str_replace(const char * source, char * target, size_t len, char * needle, char * haystack);
 int sanitize_json_string(const char * source, char * target, size_t len);
 int sanitize_json_string_url(const char * source, char * target, size_t len);
-int journal(sqlite3 * sqlite3_db, const char * origin, const char * command, const char * result);
 int num_digits(int n);
 int num_digits_l (long n);
 
@@ -352,19 +386,6 @@ int monitor_dimmer(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
 int monitor_heater(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, heater h);
 int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * switch_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * value);
 char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * switcher_name, const char * sensor_name, const char * dimmer_name, const char * heater_name, const char * start_date);
-
-// Archive
-int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
-int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
-int archive(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from);
-unsigned int get_last_archive(char * db_archive_path);
-int is_archive_running(char * db_archive_path);
-void * thread_archive_run(void * args);
-struct archive_args {
-  sqlite3 * sqlite3_db;
-  char db_archive_path[MSGLENGTH+1];
-  unsigned int epoch_from;
-};
 
 // add/modify/remove elements
 char * set_device_data(sqlite3 * sqlite3_db, device cur_device);

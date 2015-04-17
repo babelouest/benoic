@@ -46,7 +46,7 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_actions)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_actions)");
     sqlite3_finalize(stmt);
     return NULL;
   } else {
@@ -106,7 +106,7 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
  * Run the specified action, evaluate the result and return if the result is valid
  */
 int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 * sqlite3_db, char * script_path) {
-  char tmp[WORDLENGTH+1] = {0}, jo_command[MSGLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
+  char tmp[WORDLENGTH+1] = {0}, message_log[MSGLENGTH+1] = {0}, str_system[MSGLENGTH+1] = {0};
   int heat_set, sleep_val, toggle_set;
   float heat_max_value;
   int dimmer_value;
@@ -122,13 +122,13 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         if (cur_terminal != NULL && cur_terminal->enabled) {
           if (set_switch_state(cur_terminal, ac.switcher, (0 == strcmp(ac.params, "1"))) != ERROR_SWITCH) {
             if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, (0 == strcmp(ac.params, "1")))) {
-              log_message(LOG_WARNING, "Error saving switcher status in the database");
+              log_message(LOG_LEVEL_WARNING, "Error saving switcher status in the database");
             }
             if (!monitor_store(sqlite3_db, cur_terminal->name, ac.switcher, "", "", "", ac.params)) {
-              log_message(LOG_WARNING, "Error monitoring switcher");
+              log_message(LOG_LEVEL_WARNING, "Error monitoring switcher");
             }
           } else {
-            log_message(LOG_WARNING, "Error setting switcher status");
+            log_message(LOG_LEVEL_WARNING, "Error setting switcher status");
           }
         }
       }
@@ -141,13 +141,13 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
           toggle_set = toggle_switch_state(cur_terminal, ac.switcher);
           if (toggle_set != ERROR_SWITCH) {
             if (!save_startup_switch_status(sqlite3_db, cur_terminal->name, ac.switcher, toggle_set)) {
-              log_message(LOG_WARNING, "Error saving switcher status in the database");
+              log_message(LOG_LEVEL_WARNING, "Error saving switcher status in the database");
             }
             if (!monitor_store(sqlite3_db, cur_terminal->name, ac.switcher, "", "", "", (toggle_set==1?"1":"0"))) {
-              log_message(LOG_WARNING, "Error monitoring switcher");
+              log_message(LOG_LEVEL_WARNING, "Error monitoring switcher");
             }
           } else {
-            log_message(LOG_WARNING, "Error setting switcher status");
+            log_message(LOG_LEVEL_WARNING, "Error setting switcher status");
           }
         }
       }
@@ -160,13 +160,13 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
           dimmer_value = strtol(ac.params, NULL, 10);
           if (set_dimmer_value(cur_terminal, ac.dimmer, dimmer_value) != ERROR_DIMMER) {
             if (!save_startup_dimmer_value(sqlite3_db, cur_terminal->name, ac.dimmer, dimmer_value)) {
-              log_message(LOG_WARNING, "Error saving dimmer status in the database");
+              log_message(LOG_LEVEL_WARNING, "Error saving dimmer status in the database");
             }
             if (!monitor_store(sqlite3_db, cur_terminal->name, "", "", ac.dimmer, "", ac.params)) {
-              log_message(LOG_WARNING, "Error monitoring dimmer");
+              log_message(LOG_LEVEL_WARNING, "Error monitoring dimmer");
             }
           } else {
-            log_message(LOG_WARNING, "Error setting dimmer value");
+            log_message(LOG_LEVEL_WARNING, "Error setting dimmer value");
           }
         }
       }
@@ -181,15 +181,15 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
         if (cur_heater != NULL) {
           if (cur_terminal != NULL && cur_terminal->enabled && cur_heater != NULL) {
             if (!save_startup_heater_status(sqlite3_db, cur_terminal->name, ac.heater, heat_set, heat_max_value)) {
-              log_message(LOG_WARNING, "Error saving heater status in the database");
+              log_message(LOG_LEVEL_WARNING, "Error saving heater status in the database");
             }
             if (!monitor_store(sqlite3_db, cur_terminal->name, "", ac.heater, "", "", (heat_set?"0.0":ac.params))) {
-              log_message(LOG_WARNING, "Error monitoring heater");
+              log_message(LOG_LEVEL_WARNING, "Error monitoring heater");
             }
           }
           free(cur_heater);
         } else {
-          log_message(LOG_WARNING, "Error setting heater");
+          log_message(LOG_LEVEL_WARNING, "Error setting heater");
         }
       }
       break;
@@ -212,23 +212,21 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
       snprintf(str_system, MSGLENGTH*sizeof(char), "%s/%s", script_path, ac.params);
       command_stream = popen(str_system, "r");
       if (command_stream == NULL) {
-        log_message(LOG_WARNING, "unable to run command %s", ac.params);
+        log_message(LOG_LEVEL_WARNING, "unable to run command %s", ac.params);
         return 0;
       } else {
-        log_message(LOG_INFO, "Begin command result");
+        log_message(LOG_LEVEL_INFO, "Begin command result");
         while (fgets(tmp, WORDLENGTH*sizeof(char), command_stream) != NULL) {
-          log_message(LOG_INFO, tmp);
+          log_message(LOG_LEVEL_INFO, tmp);
         }
-        log_message(LOG_INFO, "End command result");
+        log_message(LOG_LEVEL_INFO, "End command result");
       }
       pclose(command_stream);
       break;
     default:
       break;
   }
-  snprintf(jo_command, MSGLENGTH*sizeof(char), "run_action \"%s\" (id:%d, type:%d)", ac.name, ac.id, ac.type);
-  journal(sqlite3_db, "run_script", jo_command, "");
-  log_message(LOG_INFO, message_log);
+  log_message(LOG_LEVEL_INFO, "run_action \"%s\" (id:%d, type:%d)", ac.name, ac.id, ac.type);
   return 1;
 }
 
@@ -240,16 +238,16 @@ char * add_action(sqlite3 * sqlite3_db, action cur_action) {
   int tr_len;
   
   // Verify input data
-  if (0 == strcmp(cur_action.name, "")) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
+  if (0 == strcmp(cur_action.name, "")) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) ||
-      0 == strcmp(cur_action.params, ""))) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
-  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
+      0 == strcmp(cur_action.params, ""))) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
+  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_DIMMER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.dimmer, "") ||
-      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
+      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") ||
-      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
+      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) &&
-      0 == strcmp(cur_action.params, "")) {log_message(LOG_WARNING, "Error inserting action, wrong params"); return NULL;}
+      0 == strcmp(cur_action.params, "")) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   
   if (cur_action.type == ACTION_SET_SWITCH) {
     snprintf(device, WORDLENGTH*sizeof(char), "%s", cur_action.device);
@@ -315,7 +313,7 @@ char * add_action(sqlite3 * sqlite3_db, action cur_action) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error inserting action");
+    log_message(LOG_LEVEL_WARNING, "Error inserting action");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -330,16 +328,16 @@ char * set_action(sqlite3 * sqlite3_db, action cur_action) {
   int tr_len;
   
   // Verify input data
-  if (0 == strcmp(cur_action.name, "")) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
+  if (0 == strcmp(cur_action.name, "")) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) ||
-      0 == strcmp(cur_action.params, ""))) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
-  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
+      0 == strcmp(cur_action.params, ""))) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
+  if (cur_action.type == ACTION_TOGGLE_SWITCH && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.switcher, ""))) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_DIMMER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.dimmer, "") ||
-      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
+      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_HEATER && (0 == strcmp(cur_action.device, "") || 0 == strcmp(cur_action.heater, "") ||
-      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
+      (0 == strcmp(cur_action.params, "")))) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   if ((cur_action.type == ACTION_SYSTEM || cur_action.type == ACTION_SLEEP || cur_action.type == ACTION_SCRIPT) &&
-      0 == strcmp(cur_action.params, "")) {log_message(LOG_WARNING, "Error updating action, wrong params"); return NULL;}
+      0 == strcmp(cur_action.params, "")) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   
   if (cur_action.type == ACTION_SET_SWITCH) {
     snprintf(device, WORDLENGTH*sizeof(char), "%s", cur_action.device);
@@ -410,7 +408,7 @@ char * set_action(sqlite3 * sqlite3_db, action cur_action) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error updating action");
+    log_message(LOG_LEVEL_WARNING, "Error updating action");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -433,16 +431,16 @@ int delete_action(sqlite3 * sqlite3_db, char * action_id) {
         if ( sqlite3_exec(sqlite3_db, sql_query4, NULL, NULL, NULL) == SQLITE_OK ) {
           result = 1;
         } else {
-          log_message(LOG_WARNING, "Error deleting action");
+          log_message(LOG_LEVEL_WARNING, "Error deleting action");
         }
       } else {
-        log_message(LOG_WARNING, "Error deleting action_script");
+        log_message(LOG_LEVEL_WARNING, "Error deleting action_script");
       }
     } else {
-      log_message(LOG_WARNING, "Error deleting tag");
+      log_message(LOG_LEVEL_WARNING, "Error deleting tag");
     }
   } else {
-    log_message(LOG_WARNING, "Error deleting tag_element");
+    log_message(LOG_LEVEL_WARNING, "Error deleting tag_element");
   }
   sqlite3_free(sql_query1);
   sqlite3_free(sql_query2);

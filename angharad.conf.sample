@@ -13,24 +13,37 @@
 # config sample file using a zwave dongle on /dev/ttyUSB device
 # and an arduino UNO device on /dev/ttyACM
 #
+#
 
-# does the server restarts by itself when a crash occurs ?
-auto_restart=true
-
-# what port to listen to for the webserver ?
+# port to open for remote commands
 port=1473
 
-# prefix used for the webserver
-prefix="angharad"
+# address to listen to
+bind_address="any"
+
+# prefix for the webserver
+url_prefix="angharad"
 
 # path to the main database
-dbpath="/var/cache/angharad/angharad.db"
+dbpath_master="/var/cache/angharad/master.db"
 
 # path to the archive database (optional)
 dbpath_archive="/var/cache/angharad/archive.db"
 
 # path to the folder where are stored the scripts when you use the SYSTEM action
 scriptpath="/media/donjon/scripts/angharad/scripts"
+
+# log mode (console, syslog, file)
+log_mode="console"
+
+# log level: NONE, ERROR, WARNING, INFO, DEBUG
+log_level="DEBUG"
+
+# output to log file (required if log_mode is file)
+log_file="/var/log/angharad.log"
+
+# does the server restarts by itself when a crash occurs ?
+auto_restart=true
 
 # devices definition
 devices = (

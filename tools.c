@@ -31,7 +31,7 @@ int save_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heate
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (save_startup_heater_status)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (save_startup_heater_status)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -66,7 +66,7 @@ int save_startup_switch_status(sqlite3 * sqlite3_db, char * device, char * switc
   sqlite3_free(sql_query);
   
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (save_startup_switch_status)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (save_startup_switch_status)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -97,7 +97,7 @@ int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (save_startup_dimmer_value)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (save_startup_dimmer_value)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -130,14 +130,14 @@ int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device) {
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (set_startup_all_switch)");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (set_startup_all_switch)");
       state_result = 0;
     } else {
       row_result = sqlite3_step(stmt);
       while (row_result == SQLITE_ROW) {
         snprintf(switch_name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 0));
         if (set_switch_state(cur_device, switch_name, sqlite3_column_int(stmt, 1)) == ERROR_SWITCH) {
-          log_message(LOG_WARNING, "Error setting switcher %s on device %s", switch_name, cur_device->name);
+          log_message(LOG_LEVEL_WARNING, "Error setting switcher %s on device %s", switch_name, cur_device->name);
           state_result = 0;
         }
         row_result = sqlite3_step(stmt);
@@ -162,14 +162,14 @@ int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device) {
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query set_startup_all_dimmer");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query set_startup_all_dimmer");
       result = 0;
     } else {
       row_result = sqlite3_step(stmt);
       while (row_result == SQLITE_ROW) {
         snprintf(dimmer_name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 0));
         if (set_dimmer_value(cur_device, dimmer_name, sqlite3_column_int(stmt, 1)) == ERROR_DIMMER) {
-          log_message(LOG_WARNING, "Error setting dimmer %s on device %s", dimmer_name, cur_device->name);
+          log_message(LOG_LEVEL_WARNING, "Error setting dimmer %s on device %s", dimmer_name, cur_device->name);
           result = 0;
         }
         row_result = sqlite3_step(stmt);
@@ -195,7 +195,7 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_startup_heater_status)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_startup_heater_status)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -224,17 +224,17 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
   int heat_status = 1, switch_status = 1, dimmer_status = 1, i=0;
   
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
+    switch_status = set_startup_all_switch(sqlite3_db, cur_device);
+    dimmer_status = set_startup_all_dimmer_value(sqlite3_db, cur_device);
     heaters = get_startup_heater_status(sqlite3_db, cur_device->name);
     for (i=0; heaters[i].id != -1; i++) {
       cur_heater = set_heater(sqlite3_db, cur_device, heaters[i].name, heaters[i].set, heaters[i].heat_max_value);
-      if (cur_heater != NULL) {
+      if (cur_heater == NULL) {
         heat_status = 0;
       }
       free(cur_heater);
     }
     free(heaters);
-    switch_status = set_startup_all_switch(sqlite3_db, cur_device);
-    dimmer_status = set_startup_all_dimmer_value(sqlite3_db, cur_device);
     return (heat_status && switch_status && dimmer_status);
   } else {
     return 1;
@@ -317,7 +317,7 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
   sqlite3_free(where_heater);
   
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_monitor)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_monitor)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -352,248 +352,154 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
 }
 
 /**
- * archive the journal data from the main db to the archive db, until epoch_from, then vacuum the main db
+ * Write the message given in parameters to the current outputs if the current level matches
  */
-int archive_journal(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
-  char * sql_query = NULL;
-  sqlite3_stmt *stmt;
-  int sql_result, row_result, result = 0;
+void log_message(unsigned long level, const char * message, ...) {
+  va_list argp;
+  size_t out_len = 0;
+  char * out = NULL;
+  va_start(argp, message);
+  out_len = vsnprintf(NULL, 0, message, argp);
+  out = malloc(out_len+sizeof(char));
+  vsnprintf(out, (out_len+sizeof(char)), message, argp);
+  write_log(LOG_MODE_CURRENT, LOG_LEVEL_CURRENT, NULL, level, out);
+  free(out);
+  va_end(argp);
+}
+
+/**
+ * Main function for logging messages
+ * Warning ! Contains static variables used for not having to pass general configuration values every time you call log_message
+ */
+int write_log(unsigned long init_mode, unsigned long init_level, char * init_log_file, unsigned long level, const char * message) {
+  static unsigned long cur_mode, cur_level;
+  static FILE * cur_log_file;
+  time_t now;
   
-  if (sqlite3_db != NULL && sqlite3_archive_db != NULL) {
-    sql_query = sqlite3_mprintf("SELECT jo_date, jo_origin, jo_command, jo_result FROM an_journal WHERE jo_date < '%d'", epoch_from);
-    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    sqlite3_free(sql_query);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (archive_journal)");
-      sqlite3_finalize(stmt);
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        while (row_result == SQLITE_ROW) {
-          sql_query = sqlite3_mprintf("INSERT INTO an_journal (jo_date, jo_origin, jo_command, jo_result) VALUES ('%q', '%q', '%q', '%q')", 
-                           (char*)sqlite3_column_text(stmt, 0),
-                           (char*)sqlite3_column_text(stmt, 1),
-                           (char*)sqlite3_column_text(stmt, 2),
-                           (char*)sqlite3_column_text(stmt, 3));
-          if ( sqlite3_exec(sqlite3_archive_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-            log_message(LOG_WARNING, "Error archiving journal");
-            sqlite3_finalize(stmt);
-          }
-          sqlite3_free(sql_query);
-          row_result = sqlite3_step(stmt);
-        }
-        sqlite3_finalize(stmt);
-        sql_query = sqlite3_mprintf("DELETE FROM an_journal WHERE jo_date < '%d'; vacuum", epoch_from);
-        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-          log_message(LOG_INFO, "End archiving journal, limit date %d", epoch_from);
-          result = 1;
-        } else {
-          log_message(LOG_WARNING, "Error deleting old journal data");
-        }
-        sqlite3_free(sql_query);
-      } else {
-        log_message(LOG_INFO, "End archiving journal, no data archived, limit date %d", epoch_from);
-        sqlite3_finalize(stmt);
-        result = 1;
-      }
-    }
+  time(&now);
+  
+  if (init_mode != LOG_MODE_CURRENT) {
+    cur_mode = init_mode;
   }
-  return result;
-}
-
-/**
- * archive the monitor data from the main db to the archive db, until epoch_from, then vacuum the main db
- */
-int archive_monitor(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
-  char * sql_query = NULL;
-  sqlite3_stmt *stmt;
-  int sql_result, row_result, result = 0;
   
-  if (sqlite3_db != NULL && sqlite3_archive_db != NULL) {
-    sql_query = sqlite3_mprintf("SELECT mo_date, de_id, sw_id, se_id, he_id, di_id, mo_result FROM an_monitor WHERE mo_date < '%d'", epoch_from);
-    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    sqlite3_free(sql_query);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (archive_monitor)");
-      sqlite3_finalize(stmt);
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        while (row_result == SQLITE_ROW) {
-          sql_query = sqlite3_mprintf("INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, he_id, di_id, mo_result) VALUES ('%q', '%d', '%d', '%d', '%d', '%d', '%q')", 
-                           (char*)sqlite3_column_text(stmt, 0),
-                           sqlite3_column_int(stmt, 1),
-                           sqlite3_column_int(stmt, 2),
-                           sqlite3_column_int(stmt, 3),
-                           sqlite3_column_int(stmt, 4),
-                           sqlite3_column_int(stmt, 5),
-                           (char*)sqlite3_column_text(stmt, 6));
-          if ( sqlite3_exec(sqlite3_archive_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-            log_message(LOG_WARNING, "Error archiving monitor");
-            sqlite3_finalize(stmt);
-          }
-          sqlite3_free(sql_query);
-          row_result = sqlite3_step(stmt);
-        }
-        sqlite3_finalize(stmt);
-        sql_query = sqlite3_mprintf("DELETE FROM an_monitor WHERE mo_date < '%d'; vacuum", epoch_from);
-        if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-          log_message(LOG_INFO, "End archiving monitor, limit date %d", epoch_from);
-          result = 1;
-        } else {
-          log_message(LOG_WARNING, "Error deleting old monitor data");
-        }
-        sqlite3_free(sql_query);
-      } else {
-        log_message(LOG_INFO, "End archiving monitor, no data archived, limit date %d", epoch_from);
-        sqlite3_finalize(stmt);
-        result = 1;
-      }
-    }
+  if (init_level != LOG_LEVEL_CURRENT) {
+    cur_level = init_level;
   }
-  return result;
-}
 
-/**
- * archive journal and monitor data from main db, until epoch_from
- */
-int archive(sqlite3 * sqlite3_db, sqlite3 * sqlite3_archive_db, unsigned int epoch_from) {
-  return archive_journal(sqlite3_db, sqlite3_archive_db, epoch_from) && archive_monitor(sqlite3_db, sqlite3_archive_db, epoch_from);
-}
-
-/**
- * Thread run to archive data
- */
-void * thread_archive_run(void * args) {
-  sqlite3 * sqlite3_db = ((struct archive_args *) args)->sqlite3_db, * sqlite3_archive_db;
-  char * db_archive_path = ((struct archive_args *) args)->db_archive_path;
-  unsigned int epoch_from = ((struct archive_args *) args)->epoch_from;
-  char * sql_query, * sql_query2;
-  int rc, la_id;
-  
-  if (!is_archive_running(db_archive_path)) {
-    rc = sqlite3_open_v2(db_archive_path, &sqlite3_archive_db, SQLITE_OPEN_READWRITE, NULL);
-    if (rc != SQLITE_OK && sqlite3_archive_db != NULL) {
-      log_message(LOG_WARNING, "Database error: %s", sqlite3_errmsg(sqlite3_archive_db));
-    } else {
-      sql_query = sqlite3_mprintf("INSERT INTO an_archive_list (la_date_begin, la_status) VALUES (strftime('%%s', 'now'), 0)");
-      if ( sqlite3_exec(sqlite3_archive_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-        la_id = (int)sqlite3_last_insert_rowid(sqlite3_archive_db);
-        if (archive(sqlite3_db, sqlite3_archive_db, epoch_from)) {
-          sql_query2 = sqlite3_mprintf("UPDATE an_archive_list SET la_date_end = strftime('%%s', 'now'), la_status = 1 WHERE la_id = '%d'", la_id);
-        } else {
-          sql_query2 = sqlite3_mprintf("UPDATE an_archive_list SET la_date_end = strftime('%%s', 'now'), la_status = 2 WHERE la_id = '%d'", la_id);
-        }
-        if ( sqlite3_exec(sqlite3_archive_db, sql_query2, NULL, NULL, NULL) != SQLITE_OK ) {
-          log_message(LOG_WARNING, "Error logging archiving end date");
-        }
-        sqlite3_free(sql_query2);
-      } else {
-        log_message(LOG_WARNING, "Error logging archiving start date");
-      }
-      sqlite3_free(sql_query);
-    }
-    sqlite3_close(sqlite3_archive_db);
-  }
-  return NULL;
-}
-
-/**
- * Return the epoch time of the last archive
- */
-unsigned int get_last_archive(char * db_archive_path) {
-  int rc;
-  sqlite3 * sqlite3_archive_db;
-  char * sql_query = NULL;
-  sqlite3_stmt *stmt;
-  int sql_result, row_result, result = 0;
-  
-  rc = sqlite3_open_v2(db_archive_path, &sqlite3_archive_db, SQLITE_OPEN_READWRITE, NULL);
-  if (rc != SQLITE_OK && sqlite3_archive_db != NULL) {
-    log_message(LOG_WARNING, "Database error: %s", sqlite3_errmsg(sqlite3_archive_db));
-    sqlite3_close(sqlite3_archive_db);
-    return 0;
-  } else {
-    sql_query = sqlite3_mprintf("SELECT la_date_end FROM an_archive_list WHERE la_status=1 ORDER BY la_date_end DESC LIMIT 1");
-    sql_result = sqlite3_prepare_v2(sqlite3_archive_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    sqlite3_free(sql_query);
-    if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (get_last_archive)");
-    } else {
-      row_result = sqlite3_step(stmt);
-      if (row_result == SQLITE_ROW) {
-        result = strtol((char*)sqlite3_column_text(stmt, 0), NULL, 10);
-      }
-    }
-    sqlite3_finalize(stmt);
-    sqlite3_close(sqlite3_archive_db);
-  }
-  return result;
-}
-
-/**
- * Return true if an archive is currently running
- */
-int is_archive_running(char * db_archive_path) {
-  int rc;
-  sqlite3 * sqlite3_archive_db;
-  char * sql_query = NULL;
-  sqlite3_stmt *stmt;
-  int sql_result, row_result;
-  
-  rc = sqlite3_open_v2(db_archive_path, &sqlite3_archive_db, SQLITE_OPEN_READWRITE, NULL);
-  if (rc != SQLITE_OK && sqlite3_archive_db != NULL) {
-    log_message(LOG_WARNING, "Database error: %s", sqlite3_errmsg(sqlite3_archive_db));
-    sqlite3_close(sqlite3_archive_db);
-    return 0;
-  } else {
-    sql_query = sqlite3_mprintf("SELECT la_id FROM an_archive_list WHERE la_status=0");
-    sql_result = sqlite3_prepare_v2(sqlite3_archive_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
-    sqlite3_free(sql_query);
-    if (sql_result != SQLITE_OK) {
-      row_result = sqlite3_step(stmt);
-      sqlite3_finalize(stmt);
-      sqlite3_close(sqlite3_archive_db);
-      return (row_result == SQLITE_ROW);
-    } else {
-      sqlite3_finalize(stmt);
-      sqlite3_close(sqlite3_archive_db);
+  if (init_log_file != NULL) {
+    if ((cur_log_file = fopen(init_log_file, "a+")) == NULL) {
+      perror("Error opening log file");
       return 0;
     }
   }
+  
+  // write message to expected output if level expected
+  if (cur_level >= level) {
+    if (message != NULL) {
+      if (cur_mode & LOG_MODE_CONSOLE) {
+        write_log_console(now, level, message);
+      }
+      if (cur_mode & LOG_MODE_SYSLOG) {
+        write_log_syslog(level, message);
+      }
+      if (cur_mode & LOG_MODE_FILE) {
+        write_log_file(now, cur_log_file, level, message);
+      }
+    }
+  }
+  
+  return 1;
 }
 
 /**
- * Send a message to syslog
- * and prints the message to stdout if DEBUG mode is on
+ * Write log message to console output (stdout or stderr)
  */
-void log_message(int type, const char * message, ...) {
-	va_list argp;
-#ifdef DEBUG
-  char * out = NULL;
-  int out_len = 0;
-#endif
+void write_log_console(time_t date, unsigned long level, const char * message) {
+  char * level_name = NULL, date_stamp[20];
+  FILE * output = NULL;
+  struct tm * tm_stamp;
   
-#ifndef DEBUG
-  if (type != LOG_DEBUG) {
-#endif
-    if (message != NULL) {
-      va_start(argp, message);
-      openlog("Angharad", LOG_PID|LOG_CONS, LOG_USER);
-      vsyslog( type, message, argp );
-      closelog();
-#ifdef DEBUG
-      out_len = strlen(message)+1;
-      out = malloc(out_len+1);
-      snprintf(out, (out_len+1)*sizeof(char), "%s\n", message);
-      vfprintf(stdout, out, argp);
-      free(out);
-#endif
-      va_end(argp);
-    }
-#ifndef DEBUG
+  tm_stamp = localtime (&date);
+  
+  strftime (date_stamp, sizeof(date_stamp), "%Y-%m-%d %H:%M:%S", tm_stamp);
+  switch (level) {
+    case LOG_LEVEL_ERROR:
+      level_name = "ERROR";
+      break;
+    case LOG_LEVEL_WARNING:
+      level_name = "WARNING";
+      break;
+    case LOG_LEVEL_INFO:
+      level_name = "INFO";
+      break;
+    case LOG_LEVEL_DEBUG:
+      level_name = "DEBUG";
+      break;
+    default:
+      level_name = "NONE";
+      break;
   }
-#endif
+  if (level & LOG_LEVEL_WARNING) {
+    // Write to stderr
+    output = stderr;
+  } else {
+    // Write to stdout
+    output = stdout;
+  }
+  fprintf(output, "%s - Angharad %s: %s\n", date_stamp, level_name, message);
+  fflush(output);
+}
+
+/**
+ * Write log message to syslog
+ */
+void write_log_syslog(unsigned long level, const char * message) {
+  openlog("Angharad", LOG_PID|LOG_CONS, LOG_USER);
+  switch (level) {
+    case LOG_LEVEL_ERROR:
+      syslog( LOG_ERR, message );
+      break;
+    case LOG_LEVEL_WARNING:
+      syslog( LOG_WARNING, message );
+      break;
+    case LOG_LEVEL_INFO:
+      syslog( LOG_INFO, message );
+      break;
+    case LOG_LEVEL_DEBUG:
+      syslog( LOG_DEBUG, message );
+      break;
+  }
+  closelog();
+}
+
+/**
+ * Append log message to the log file
+ */
+void write_log_file(time_t date, FILE * log_file, unsigned long level, const char * message) {
+  char * level_name = NULL, date_stamp[20];
+  struct tm * tm_stamp;
+  
+  tm_stamp = localtime (&date);
+  strftime (date_stamp, sizeof(date_stamp), "%Y-%m-%d %H:%M:%S", tm_stamp);
+  switch (level) {
+    case LOG_LEVEL_ERROR:
+      level_name = "ERROR";
+      break;
+    case LOG_LEVEL_WARNING:
+      level_name = "WARNING";
+      break;
+    case LOG_LEVEL_INFO:
+      level_name = "INFO";
+      break;
+    case LOG_LEVEL_DEBUG:
+      level_name = "DEBUG";
+      break;
+    default:
+      level_name = "NONE";
+      break;
+  }
+  fprintf(log_file, "%s - Angharad %s: %s\n", date_stamp, level_name, message);
+  fflush(log_file);
 }
 
 /**

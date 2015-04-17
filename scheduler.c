@@ -41,15 +41,15 @@ void * thread_scheduler_run(void * args) {
   struct config_elements * config = (struct config_elements *) args;
   
   // Run scheduler manager
-  run_scheduler(config->sqlite3_db, config->terminal, config->nb_terminal, config->script_path);
+  run_scheduler( config->master_db, config->terminal, config->nb_terminal, config->script_path);
   
   // Monitor switches
   sql_query = sqlite3_mprintf("SELECT sw.sw_id, sw.sw_name, de.de_name, sw.sw_monitored_every, sw.sw_monitored_next\
                     FROM an_switch sw, an_device de WHERE sw_monitored=1 AND de.de_id = sw.de_id");
-  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sql_result = sqlite3_prepare_v2( config->master_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (switches monitored)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (switches monitored)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -58,7 +58,7 @@ void * thread_scheduler_run(void * args) {
       snprintf(sw.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
       sw.monitored_every = sqlite3_column_int(stmt, 3);
       sw.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
-      monitor_switch(config->sqlite3_db, config->terminal, config->nb_terminal, sw);
+      monitor_switch( config->master_db, config->terminal, config->nb_terminal, sw);
       row_result = sqlite3_step(stmt);
     }
   }
@@ -68,10 +68,10 @@ void * thread_scheduler_run(void * args) {
   // Monitor sensors
   sql_query = sqlite3_mprintf("SELECT se.se_id, se.se_name, de.de_name, se.se_monitored_every, se.se_monitored_next\
                     FROM an_sensor se, an_device de WHERE se_monitored=1 AND de.de_id = se.de_id");
-  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sql_result = sqlite3_prepare_v2( config->master_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (sensors monitored)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (sensors monitored)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -80,7 +80,7 @@ void * thread_scheduler_run(void * args) {
       snprintf(se.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
       se.monitored_every = sqlite3_column_int(stmt, 3);
       se.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
-      monitor_sensor(config->sqlite3_db, config->terminal, config->nb_terminal, se);
+      monitor_sensor( config->master_db, config->terminal, config->nb_terminal, se);
       row_result = sqlite3_step(stmt);
     }
   }
@@ -90,10 +90,10 @@ void * thread_scheduler_run(void * args) {
   // Monitor dimmers
   sql_query = sqlite3_mprintf("SELECT di.di_id, di.di_name, de.de_name, di.di_monitored_every, di.di_monitored_next\
                     FROM an_dimmer di, an_device de WHERE di_monitored=1 AND de.de_id = di.de_id");
-  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sql_result = sqlite3_prepare_v2( config->master_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (sensors monitored)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (sensors monitored)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -102,7 +102,7 @@ void * thread_scheduler_run(void * args) {
       snprintf(di.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
       di.monitored_every = sqlite3_column_int(stmt, 3);
       di.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
-      monitor_dimmer(config->sqlite3_db, config->terminal, config->nb_terminal, di);
+      monitor_dimmer( config->master_db, config->terminal, config->nb_terminal, di);
       row_result = sqlite3_step(stmt);
     }
   }
@@ -112,10 +112,10 @@ void * thread_scheduler_run(void * args) {
   // Monitor heaters
   sql_query = sqlite3_mprintf("SELECT he.he_id, he.he_name, de.de_name, he.he_monitored_every, he.he_monitored_next\
                     FROM an_heater he, an_device de WHERE he_monitored=1 AND de.de_id = he.de_id");
-  sql_result = sqlite3_prepare_v2(config->sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sql_result = sqlite3_prepare_v2( config->master_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (sensors monitored)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (sensors monitored)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -124,7 +124,7 @@ void * thread_scheduler_run(void * args) {
       snprintf(he.device, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 2));
       he.monitored_every = sqlite3_column_int(stmt, 3);
       he.monitored_next = (time_t)sqlite3_column_int(stmt, 4);
-      monitor_heater(config->sqlite3_db, config->terminal, config->nb_terminal, he);
+      monitor_heater( config->master_db, config->terminal, config->nb_terminal, he);
       row_result = sqlite3_step(stmt);
     }
   }
@@ -147,9 +147,9 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   // If not responding, try to reconnect device
   for (i=0; i<nb_terminal; i++) {
     if (!send_heartbeat(terminal[i])) {
-      log_message(LOG_INFO, "Connection attempt to %s, result: %s", terminal[i]->name, reconnect_device(terminal[i], terminal, nb_terminal)!=-1?"Success":"Error");
+      log_message(LOG_LEVEL_INFO, "Connection attempt to %s, result: %s", terminal[i]->name, reconnect_device(terminal[i], terminal, nb_terminal)!=-1?"Success":"Error");
       if (terminal[i]->enabled) {
-        log_message(LOG_INFO, "Initialization of %s, result: %s", terminal[i]->name, init_device_status(sqlite3_db, terminal[i])==1?"Success":"Error");
+        log_message(LOG_LEVEL_INFO, "Initialization of %s, result: %s", terminal[i]->name, init_device_status(sqlite3_db, terminal[i])==1?"Success":"Error");
       }
     }
   }
@@ -158,7 +158,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (run_scheduler)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (run_scheduler)");
     sqlite3_finalize(stmt);
     return 0;
   } else {
@@ -176,13 +176,12 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
       
       if (is_scheduled_now(cur_schedule.next_time)) {
         // Run the specified script
-        log_message(LOG_WARNING, "Scheduled script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
+        log_message(LOG_LEVEL_INFO, "Scheduled script \"%s\", (id: %d)", cur_schedule.name, cur_schedule.id);
         snprintf(buf, WORDLENGTH*sizeof(char), "%d", cur_schedule.script);
         if (!run_script(sqlite3_db, terminal, nb_terminal, script_path, buf)) {
-          log_message(LOG_WARNING, "Script \"%s\" failed", cur_schedule.name);
+          log_message(LOG_LEVEL_WARNING, "Script \"%s\" failed", cur_schedule.name);
         } else {
           snprintf(buf, MSGLENGTH*sizeof(char), "run_script \"%s\", (id: %d) finished", cur_schedule.name, cur_schedule.id);
-          journal(sqlite3_db, "scheduler", buf, "success");
         }
       }
       // Update the scheduler
@@ -367,7 +366,7 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     if (switch_value != ERROR_SWITCH) {
       snprintf(sw_state, WORDLENGTH*sizeof(char), "%d", switch_value);
       if (!monitor_store(sqlite3_db, sw.device, sw.name, "", "", "", sw_state)) {
-        log_message(LOG_WARNING, "Error storing switch state monitor value into database");
+        log_message(LOG_LEVEL_WARNING, "Error storing switch state monitor value into database");
       }
     }
   }
@@ -403,7 +402,7 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     if (sensor_value != ERROR_SENSOR) {
       snprintf(se_value, WORDLENGTH*sizeof(char), "%.2f", sensor_value);
       if (!monitor_store(sqlite3_db, s.device, "", s.name, "", "", se_value)) {
-        log_message(LOG_WARNING, "Error storing sensor data monitor value into database");
+        log_message(LOG_LEVEL_WARNING, "Error storing sensor data monitor value into database");
       }
     }
   }
@@ -438,7 +437,7 @@ int monitor_dimmer(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     if (dimmer_value != ERROR_DIMMER) {
       snprintf(di_value, WORDLENGTH*sizeof(char), "%d", dimmer_value);
       if (!monitor_store(sqlite3_db, di.device, "", "", di.name, "", di_value)) {
-        log_message(LOG_WARNING, "Error storing switch state monitor value into database");
+        log_message(LOG_LEVEL_WARNING, "Error storing switch state monitor value into database");
       }
     }
   }
@@ -476,7 +475,7 @@ int monitor_heater(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
         strcpy(he_command, "0.0");
       }
       if (!monitor_store(sqlite3_db, he.device, "", "", "", he.name, he_command)) {
-        log_message(LOG_WARNING, "Error storing switch state monitor value into database");
+        log_message(LOG_LEVEL_WARNING, "Error storing switch state monitor value into database");
       }
     }
   }
@@ -521,7 +520,7 @@ char * add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
       (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) ||
       (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) ||
       cur_schedule.script == 0) {
-    log_message(LOG_WARNING, "Error inserting schedule, wrong params");
+    log_message(LOG_LEVEL_WARNING, "Error inserting schedule, wrong params");
     return NULL;
   }
   
@@ -552,7 +551,7 @@ char * add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error inserting action");
+    log_message(LOG_LEVEL_WARNING, "Error inserting action");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -570,7 +569,7 @@ char * set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
       (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || 
       (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) || 
       cur_schedule.script == 0) {
-    log_message(LOG_WARNING, "Error updating schedule, wrong params");
+    log_message(LOG_LEVEL_WARNING, "Error updating schedule, wrong params");
     return 0;
   }
   
@@ -600,7 +599,7 @@ char * set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
     free(tags_json);
     free_tags(tags);
   } else {
-    log_message(LOG_WARNING, "Error updating action");
+    log_message(LOG_LEVEL_WARNING, "Error updating action");
   }
   sqlite3_free(sql_query);
   return to_return;
@@ -613,7 +612,7 @@ int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
   char * sql_query1, * sql_query2, * sql_query3;
   int i_value = 0;
   
-  if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_WARNING, "Error deleting schedule, wrong params"); return 0;}
+  if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_LEVEL_WARNING, "Error deleting schedule, wrong params"); return 0;}
   
   sql_query1 = sqlite3_mprintf("DELETE FROM an_tag_element WHERE sh_id='%q'", schedule_id);
   if ( sqlite3_exec(sqlite3_db, sql_query1, NULL, NULL, NULL) == SQLITE_OK ) {
@@ -623,11 +622,11 @@ int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
       i_value = ( sqlite3_exec(sqlite3_db, sql_query3, NULL, NULL, NULL) == SQLITE_OK );
       sqlite3_free(sql_query3);
     } else {
-      log_message(LOG_WARNING, "Error deleting tag");
+      log_message(LOG_LEVEL_WARNING, "Error deleting tag");
     }
     sqlite3_free(sql_query2);
   } else {
-    log_message(LOG_WARNING, "Error deleting tag_element");
+    log_message(LOG_LEVEL_WARNING, "Error deleting tag_element");
   }
   sqlite3_free(sql_query1);
   return i_value;
@@ -660,7 +659,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_schedules)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_schedules)");
     sqlite3_finalize(stmt);
     return NULL;
   } else {
@@ -733,7 +732,7 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query2, strlen(sql_query2)+1, &stmt, NULL);
     sqlite3_free(sql_query2);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (enable_schedule)");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (enable_schedule)");
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
@@ -747,7 +746,7 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
         cur_schedule.repeat_schedule_value = sqlite3_column_int(stmt, 5);
         cur_schedule.remove_after_done = sqlite3_column_int(stmt, 6);
         if (!update_schedule(sqlite3_db, &cur_schedule)) {
-          log_message(LOG_WARNING, "Error updating schedule on database");
+          log_message(LOG_LEVEL_WARNING, "Error updating schedule on database");
         }
         snprintf(script_id, WORDLENGTH*sizeof(char), "%d", sqlite3_column_int(stmt, 7));
         script = get_script(sqlite3_db, script_id, 0);
@@ -766,11 +765,11 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
         free(tags);
         free_tags(tags_array);
       } else {
-        log_message(LOG_WARNING, "Error getting schedule data");
+        log_message(LOG_LEVEL_WARNING, "Error getting schedule data");
       }
     }
   } else {
-    log_message(LOG_WARNING, "Error updating schedule");
+    log_message(LOG_LEVEL_WARNING, "Error updating schedule");
   }
   sqlite3_free(sql_query1);
   sqlite3_finalize(stmt);

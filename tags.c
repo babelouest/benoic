@@ -62,7 +62,7 @@ char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_
   to_return = malloc(sizeof(char *));
   to_return[0] = NULL;
   if (sql_result != SQLITE_OK) {
-    log_message(LOG_WARNING, "Error preparing sql query (get_tags)");
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_tags)");
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
@@ -177,13 +177,13 @@ int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type
     }
     sql_query = sqlite3_mprintf("DELETE FROM an_tag_element WHERE %q = %s", element_row, where_element);
     if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
-      log_message(LOG_WARNING, "Error deleting old tags");
+      log_message(LOG_LEVEL_WARNING, "Error deleting old tags");
     } else {
       while (tags[counter] != NULL) {
         cur_tag = get_or_create_tag_id(sqlite3_db, tags[counter]);
         sql_query2 = sqlite3_mprintf("INSERT INTO an_tag_element (%s, ta_id) VALUES (%s, %d)", element_row, where_element, cur_tag);
         if ( sqlite3_exec(sqlite3_db, sql_query2, NULL, NULL, NULL) != SQLITE_OK ) {
-          log_message(LOG_WARNING, "Error inserting tag_element %s (%d)", tags[counter], cur_tag);
+          log_message(LOG_LEVEL_WARNING, "Error inserting tag_element %s (%d)", tags[counter], cur_tag);
         }
         sqlite3_free(sql_query2);
         counter++;
@@ -209,7 +209,7 @@ int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (get_or_create_tag_id)");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (get_or_create_tag_id)");
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {

@@ -134,7 +134,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_INFO, "Error preparing sql query (get_devices)");
+      log_message(LOG_LEVEL_INFO, "Error preparing sql query (get_devices)");
       one_item = malloc(3*sizeof(char));
       strcpy(one_item, json_template_control_meta_empty);
     } else {
@@ -144,7 +144,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
         sql_query = sqlite3_mprintf("INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)",
                         terminal[i]->name, terminal[i]->name);
         if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-          log_message(LOG_INFO, "Error inserting an_device %s", sql_query);
+          log_message(LOG_LEVEL_INFO, "Error inserting an_device %s", sql_query);
         }
         sqlite3_free(sql_query);
         strncpy(cur_name, terminal[i]->name, WORDLENGTH);

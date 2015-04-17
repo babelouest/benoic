@@ -57,13 +57,13 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
       sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
       sqlite3_free(sql_query);
       if (sql_result != SQLITE_OK) {
-        log_message(LOG_WARNING, "Error preparing sql query (parse_overview_arduino)");
+        log_message(LOG_LEVEL_WARNING, "Error preparing sql query (parse_overview_arduino)");
       } else {
         row_result = sqlite3_step(stmt);
         if (row_result != SQLITE_ROW) {
           sql_query = sqlite3_mprintf("INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)", device_name, device_name);
           if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-            log_message(LOG_WARNING, "Error inserting Device");
+            log_message(LOG_LEVEL_WARNING, "Error inserting Device");
           }
           sqlite3_free(sql_query);
         }
@@ -95,7 +95,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
-          log_message(LOG_WARNING, "Error preparing sql query switch fetch");
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query switch fetch");
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
@@ -116,7 +116,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
                              VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', 1, 0, 0, 0, 0)",
                              device_name, key, key, value);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_switch");
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_switch");
             }
             sqlite3_free(sql_query);
           }
@@ -151,7 +151,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
-          log_message(LOG_WARNING, "Error preparing sql query dimmer fetch");
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query dimmer fetch");
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
@@ -171,7 +171,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
                               VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', 0, 0, 0)",
                               device_name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].name, dimmers[nb_dimmers].value);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_dimmer");
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_dimmer");
             }
             sqlite3_free(sql_query);
           }
@@ -205,7 +205,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
         if (sql_result != SQLITE_OK) {
-          log_message(LOG_WARNING, "Error preparing sql query sensor fetch");
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query sensor fetch");
         } else {
           row_result = sqlite3_step(stmt);
           if (row_result == SQLITE_ROW) {
@@ -222,7 +222,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
                               VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', 1, '', 0, 0, 0)",
                               device_name, key, key);
             if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
-              log_message(LOG_WARNING, "Error inserting an_sensor %s", sql_query);
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_sensor %s", sql_query);
             }
             sqlite3_free(sql_query);
           }
@@ -736,7 +736,7 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
   heat_on = strtok_r(NULL, "|", &saveptr);
   heat_max_value = strtok_r(NULL, "|", &saveptr);
   if (heat_set == NULL || heat_on == NULL || heat_max_value == NULL || cur_heater == NULL) {
-    log_message(LOG_WARNING, "Error parsing heater data");
+    log_message(LOG_LEVEL_WARNING, "Error parsing heater data");
     return 0;
   } else {
     strncpy(cur_heater->name, heater_name, WORDLENGTH);
@@ -755,7 +755,7 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_WARNING, "Error preparing sql query (parse_heater)");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (parse_heater)");
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {

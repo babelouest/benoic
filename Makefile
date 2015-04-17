@@ -109,4 +109,4 @@ debug: clean api_rest.o
 	$(CPP) $(LIBS) $(LDFLAGS) $(DEBUGFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o api_rest.o
 	
 test: debug
-	./angharad ./angharad.conf
+	./angharad --config-file=./angharad.conf
