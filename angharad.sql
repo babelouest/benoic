@@ -137,16 +137,6 @@ CREATE TABLE an_scheduler(
 CREATE INDEX ischeduler ON an_scheduler(sh_id);
 CREATE INDEX ischedulernexttime ON an_scheduler(sh_next_time);
 
-CREATE TABLE an_journal(
-  jo_id INTEGER PRIMARY KEY AUTOINCREMENT,
-  jo_date TEXT NOT NULL,
-  jo_origin TEXT NOT NULL,
-  jo_command TEXT NOT NULL,
-  jo_result TEXT NOT NULL
-);
-CREATE INDEX ijournal ON an_journal(jo_id);
-CREATE INDEX ijournaldate ON an_journal(jo_date);
-
 CREATE TABLE an_monitor(
   mo_id INTEGER PRIMARY KEY AUTOINCREMENT,
   mo_date TEXT NOT NULL,
@@ -158,12 +148,17 @@ CREATE TABLE an_monitor(
   mo_result TEXT NOT NULL,
   FOREIGN KEY(de_id) REFERENCES an_device(de_id),
   FOREIGN KEY(sw_id) REFERENCES an_switch(sw_id),
-  FOREIGN KEY(se_id) REFERENCES an_sensor(se_id)
-  FOREIGN KEY(he_id) REFERENCES an_heater(he_id)
-  FOREIGN KEY(di_id) REFERENCES an_dimmer(di_id)
+  FOREIGN KEY(se_id) REFERENCES an_sensor(se_id),
+  FOREIGN KEY(he_id) REFERENCES an_heater(he_id),
+  FOREIGN KEY(di_id) REFERENCES an_dimmer(di_id),
 );
 CREATE INDEX imonitor ON an_monitor(mo_id);
 CREATE INDEX imonitordate ON an_monitor(mo_date);
+CREATE INDEX imonitorde ON an_monitor(de_id);
+CREATE INDEX imonitorsw ON an_monitor(sw_id);
+CREATE INDEX imonitorse ON an_monitor(se_id);
+CREATE INDEX imonitorhe ON an_monitor(he_id);
+CREATE INDEX imonitordi ON an_monitor(di_id);
 
 CREATE TABLE an_tag(
   ta_id INTEGER PRIMARY KEY AUTOINCREMENT,

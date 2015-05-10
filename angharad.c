@@ -154,13 +154,13 @@ void exit_server(struct config_elements ** config, int exit_value) {
     sqlite3_close((*config)->master_db);
     (*config)->master_db = NULL;
 
-	free((*config)->config_file);
-	free((*config)->bind_address);
-	free((*config)->url_prefix);
-	free((*config)->log_file);
-	free((*config)->script_path);
-	free((*config)->master_db_path);
-	free((*config)->archive_db_path);
+		free((*config)->config_file);
+		free((*config)->bind_address);
+		free((*config)->url_prefix);
+		free((*config)->log_file);
+		free((*config)->script_path);
+		free((*config)->master_db_path);
+		free((*config)->archive_db_path);
     
     MHD_stop_daemon ((*config)->daemon);
     (*config)->daemon = NULL;

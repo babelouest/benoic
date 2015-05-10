@@ -3,7 +3,7 @@ angharad
 
 Angharad server with JSON/REST interface to command domotic devices
 
-Clients available: [Angharadweb](https://github.com/babelouest/angharadweb )
+Clients available: [Angharadweb](https://github.com/babelouest/angharadweb ), [Logres](https://github.com/babelouest/logres )
 
 Installation
 ============
@@ -14,12 +14,12 @@ You must have the following development libraries installed to compile:
 - libsqlite3
 - libmath
 - libpthread
+- openzwave library 1.3 or higher
 
 Create the database:
 ```shell
 $ mkdir /var/cache/angharad
-$ sqlite3 /var/cache/angharad/angharad.db < angharad.sql
-$ sqlite3 /var/cache/angharad/archive.db < angharad-archive.sql
+$ sqlite3 /var/cache/angharad/master.db < angharad.sql
 ```
 
 Run the command 
@@ -31,10 +31,10 @@ Using angharad server
 To compile and run the server, run the command
 ```shell
 $ make angharad
-$ ./angharad path/to/config/file
+$ ./angharad --config-file=path/to/config/file
 ```
 
-To install the compiled server in /usr/local/bin, run the command
+To install the compiled server in /usr/bin, run the command
 ```shell
 $ make install
 ```

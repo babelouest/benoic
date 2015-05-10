@@ -503,19 +503,6 @@ void write_log_file(time_t date, FILE * log_file, unsigned long level, const cha
 }
 
 /**
- * Logs the commands, its origin (remote ip address or internal schedule) and its result into the database journal table
- */
-int journal(sqlite3 * sqlite3_db, const char * origin, const char * command, const char * result) {
-  char * sql_query = NULL;
-  int i_result;
-  
-  sql_query = sqlite3_mprintf("INSERT INTO an_journal (jo_date, jo_origin, jo_command, jo_result) VALUES (strftime('%%s', 'now'), '%q', '%q', '%q')", origin, command, result);
-  i_result = ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK );
-  sqlite3_free(sql_query);
-  return i_result;
-}
-
-/**
  * get the commands list on json format
  * it returns the content of the api_rest.json compiled as a binary file
  * It's not magic ! You MUST manually update the api_rest.json file if you add/remove/modify output commands

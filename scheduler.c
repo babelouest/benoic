@@ -640,7 +640,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   char * sql_query = NULL, * one_item = NULL, cur_name[WORDLENGTH+1], cur_device[WORDLENGTH+1],
-  cur_schedule[WORDLENGTH+1], * tags = NULL, ** tags_array = NULL, script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char)), * script = NULL;
+  cur_schedule[WORDLENGTH+1], * tags = NULL, ** tags_array = NULL, script_id[WORDLENGTH+1], * scripts = malloc(2*sizeof(char));
   int cur_id, remove_after_done = 0, str_len;
   
   long next_time;
@@ -686,24 +686,18 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
         strcpy(cur_device, "");
       }
       remove_after_done = sqlite3_column_int(stmt, 8);
-      script = get_script(sqlite3_db, script_id, 0);
-      if (script == NULL) {
-        script = malloc(3*sizeof(char));
-        strcpy(script, json_template_scheduler_empty);
-      }
       
       str_len = snprintf(NULL, 0, json_template_scheduler_getschedules,
               cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value,
-              remove_after_done, tags, script);
+              remove_after_done, tags, script_id);
       one_item = malloc((str_len+1)*sizeof(char));
       
       snprintf(one_item, (str_len+1)*sizeof(char), json_template_scheduler_getschedules,
               cur_id, cur_name, enabled?"true":"false", cur_device, next_time, repeat_schedule, repeat_schedule_value,
-              remove_after_done, tags, script);
+              remove_after_done, tags, script_id);
       scripts = realloc(scripts, (strlen(scripts)+strlen(one_item)+1)*sizeof(char));
       strcat(scripts, one_item);
       free(one_item);
-      free(script);
       free(tags);
       free_tags(tags_array);
       one_item = NULL;
@@ -718,7 +712,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
  * Change the state of a schedule
  */
 char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status) {
-  char * sql_query1 = NULL, * sql_query2 = NULL, * script = NULL, script_id[WORDLENGTH+1], * to_return = NULL, * tags = NULL, ** tags_array = NULL, * device_name = NULL;
+  char * sql_query1 = NULL, * sql_query2 = NULL, script_id[WORDLENGTH+1], * to_return = NULL, * tags = NULL, ** tags_array = NULL, * device_name = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, str_len;
   schedule cur_schedule;
@@ -749,19 +743,13 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
           log_message(LOG_LEVEL_WARNING, "Error updating schedule on database");
         }
         snprintf(script_id, WORDLENGTH*sizeof(char), "%d", sqlite3_column_int(stmt, 7));
-        script = get_script(sqlite3_db, script_id, 0);
-        if (script == NULL) {
-          script = malloc(3*sizeof(char));
-          strcpy(script, json_template_scheduler_empty);
-        }
         str_len = snprintf(NULL, 0, json_template_scheduler_enableschedule,
                 cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", device_name, cur_schedule.next_time,
-                cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, script, tags);
+                cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, script_id, tags);
         to_return = malloc((str_len+1)*sizeof(char));
         snprintf(to_return, (str_len+1)*sizeof(char), json_template_scheduler_enableschedule,
                 cur_schedule.id, cur_schedule.name, cur_schedule.enabled?"true":"false", device_name, cur_schedule.next_time,
-                cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, script, tags);
-        free(script);
+                cur_schedule.repeat_schedule, cur_schedule.repeat_schedule_value, cur_schedule.remove_after_done, script_id, tags);
         free(tags);
         free_tags(tags_array);
       } else {

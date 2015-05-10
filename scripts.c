@@ -211,7 +211,7 @@ char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
  */
 int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal, char * script_path, char * script_id) {
   sqlite3_stmt *stmt;
-  int sql_result, row_result;
+  int sql_result, row_result, script_found = 0;
   char * sql_query = NULL;
   action ac;
     
@@ -229,6 +229,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   } else {
     row_result = sqlite3_step(stmt);
     while (row_result == SQLITE_ROW) {
+      script_found = 1;
       if (sqlite3_column_type(stmt, 0) != SQLITE_NULL) {
         snprintf(ac.name, WORDLENGTH*sizeof(char), "%s", (char*)sqlite3_column_text(stmt, 0));
       } else {
@@ -271,9 +272,11 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
       }
       row_result = sqlite3_step(stmt);
     }
+    sqlite3_finalize(stmt);
+    return (script_found == 1);
   }
   sqlite3_finalize(stmt);
-  return 1;
+  return 0;
 }
 
 /**
@@ -428,4 +431,55 @@ int delete_script(sqlite3 * sqlite3_db, char * script_id) {
   sqlite3_free(sql_query5);
   sqlite3_free(sql_query6);
   return result;
+}
+
+/**
+ * Detect if a script is called recursively by itself
+ */
+int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int script_id) {
+	char needle[num_digits(script_id)+3];
+  sqlite3_stmt *stmt;
+  int sql_result, row_result, scripts_list_len, next_script_id;
+  char * sql_query = NULL;
+	if (sqlite3_db != NULL && scripts_list != NULL && (*scripts_list) != NULL && script_id != 0) {
+		sprintf(needle, "#%d#", script_id);
+		if (strstr((*scripts_list), needle) != NULL) {
+			// script_id already exists in the scripts_list
+			return 0;
+		} else {
+			// Append script_id to scripts_list and test them
+			scripts_list_len = snprintf(NULL, 0, "%s%d#", (*scripts_list), script_id);
+			(*scripts_list) = realloc((*scripts_list), (scripts_list_len+1));
+			snprintf((*scripts_list), (scripts_list_len+1), "%s%d#", (*scripts_list), script_id);
+			
+			// Get all scripts called by this script
+			sql_query = sqlite3_mprintf("SELECT ac_params FROM an_action WHERE ac_id in \
+																	(SELECT ac_id FROM an_action_script WHERE sc_id='%d')\
+																	AND ac_type=77", script_id);
+			sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+			sqlite3_free(sql_query);
+			if (sql_result != SQLITE_OK) {
+				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (detect_infinite_loop)");
+				sqlite3_finalize(stmt);
+				return 0;
+			} else {
+				row_result = sqlite3_step(stmt);
+				while (row_result == SQLITE_ROW) {
+					next_script_id = sqlite3_column_int(stmt, 0);
+					if (!detect_infinite_loop_script(sqlite3_db, scripts_list, next_script_id)) {
+						// Infinite loop detected, exiting with 0
+						sqlite3_finalize(stmt);
+						return 0;
+					} else {
+						row_result = sqlite3_step(stmt);
+					}
+				}
+				// No infinite loop detected in the script
+				sqlite3_finalize(stmt);
+				return 1;
+			}
+		}
+	} else {
+		return 0;
+	}
 }
