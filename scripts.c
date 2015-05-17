@@ -335,14 +335,46 @@ char * add_script(sqlite3 * sqlite3_db, script cur_script) {
  * Modifies the specified script
  */
 char * set_script(sqlite3 * sqlite3_db, script cur_script) {
-  char * sql_query = NULL, * sql_query2 = NULL, ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1], * to_return = NULL;
+  char * sql_query = NULL, * sql_query2 = NULL, ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1], * to_return = NULL, * scripts_list = NULL;
   int rank=0, tr_len;
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
   
   char * action_token, * action_id, * enabled, * saveptr, * saveptr2;
   
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   if (cur_script.id == 0) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   
+  // Before updating script, check if its actions don't lead to infinite loop
+  scripts_list = malloc((num_digits(cur_script.id)+3)*sizeof(char));
+  sprintf(scripts_list, "#%d#", cur_script.id);
+  action_token = strtok_r(cur_script.actions, ";", &saveptr);
+  while (action_token != NULL) {
+    action_id = strtok_r(action_token, ",", &saveptr2);
+    enabled = strtok_r(NULL, ",", &saveptr2);
+    if (action_id != NULL && enabled != NULL) {
+      sql_query = sqlite3_mprintf("SELECT ac_params FROM an_action WHERE ac_id = '%q' AND ac_type = %d", action_id, ACTION_SCRIPT);
+			sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+			sqlite3_free(sql_query);
+			if (sql_result != SQLITE_OK) {
+				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (set_script) %s", sql_query);
+				sqlite3_finalize(stmt);
+				return 0;
+			} else {
+        row_result = sqlite3_step(stmt);
+        if (row_result == SQLITE_ROW) {
+          if (!detect_infinite_loop_script(sqlite3_db, &scripts_list, sqlite3_column_int(stmt, 0))) {
+            free(scripts_list);
+            log_message(LOG_LEVEL_WARNING, "Error updating script, infinite loop detected");
+            return NULL;
+          }
+        }
+      }
+    }
+    action_token = strtok_r(NULL, ";", &saveptr);
+  }
+  free(scripts_list);
+    
   // Reinit action_script list
   sql_query = sqlite3_mprintf("DELETE FROM an_action_script WHERE sc_id='%d'", cur_script.id);
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) != SQLITE_OK ) {
@@ -355,6 +387,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
   if ( sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
     // Parsing actions, then insert into an_action_script
     action_token = strtok_r(cur_script.actions, ";", &saveptr);
+    
     while (action_token != NULL) {
       action_id = strtok_r(action_token, ",", &saveptr2);
       enabled = strtok_r(NULL, ",", &saveptr2);
@@ -441,6 +474,8 @@ int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int 
   sqlite3_stmt *stmt;
   int sql_result, row_result, scripts_list_len, next_script_id;
   char * sql_query = NULL;
+  char * scripts_list_append = NULL;
+  
 	if (sqlite3_db != NULL && scripts_list != NULL && (*scripts_list) != NULL && script_id != 0) {
 		sprintf(needle, "#%d#", script_id);
 		if (strstr((*scripts_list), needle) != NULL) {
@@ -450,16 +485,19 @@ int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int 
 			// Append script_id to scripts_list and test them
 			scripts_list_len = snprintf(NULL, 0, "%s%d#", (*scripts_list), script_id);
 			(*scripts_list) = realloc((*scripts_list), (scripts_list_len+1));
-			snprintf((*scripts_list), (scripts_list_len+1), "%s%d#", (*scripts_list), script_id);
+      scripts_list_append = malloc((num_digits(script_id)+2)*sizeof(char));
+      sprintf(scripts_list_append, "%d#", script_id);
+      strncat((*scripts_list), scripts_list_append, scripts_list_len);
+      free(scripts_list_append);
 			
 			// Get all scripts called by this script
 			sql_query = sqlite3_mprintf("SELECT ac_params FROM an_action WHERE ac_id in \
 																	(SELECT ac_id FROM an_action_script WHERE sc_id='%d')\
-																	AND ac_type=77", script_id);
+																	AND ac_type = %d", script_id, ACTION_SCRIPT);
 			sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
 			sqlite3_free(sql_query);
 			if (sql_result != SQLITE_OK) {
-				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (detect_infinite_loop)");
+				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (detect_infinite_loop_script)");
 				sqlite3_finalize(stmt);
 				return 0;
 			} else {

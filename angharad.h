@@ -359,6 +359,7 @@ int sanitize_json_string(const char * source, char * target, size_t len);
 int sanitize_json_string_url(const char * source, char * target, size_t len);
 int num_digits(int n);
 int num_digits_l (long n);
+int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int script_id);
 
 // Actions and lists
 char * get_scripts(sqlite3 * sqlite3_db, char * device);
