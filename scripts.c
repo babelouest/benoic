@@ -340,7 +340,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
-  char * action_token, * action_id, * enabled, * saveptr, * saveptr2;
+  char * action_token, * action_id, * enabled, * saveptr, * saveptr2, * actions;
   
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   if (cur_script.id == 0) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
@@ -348,7 +348,8 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
   // Before updating script, check if its actions don't lead to infinite loop
   scripts_list = malloc((num_digits(cur_script.id)+3)*sizeof(char));
   sprintf(scripts_list, "#%d#", cur_script.id);
-  action_token = strtok_r(cur_script.actions, ";", &saveptr);
+  actions = strdup(cur_script.actions);
+  action_token = strtok_r(actions, ";", &saveptr);
   while (action_token != NULL) {
     action_id = strtok_r(action_token, ",", &saveptr2);
     enabled = strtok_r(NULL, ",", &saveptr2);
@@ -374,6 +375,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
     action_token = strtok_r(NULL, ";", &saveptr);
   }
   free(scripts_list);
+  free(actions);
     
   // Reinit action_script list
   sql_query = sqlite3_mprintf("DELETE FROM an_action_script WHERE sc_id='%d'", cur_script.id);
