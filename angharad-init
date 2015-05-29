@@ -22,8 +22,7 @@ pidfile=/var/run/angharad.pid
 case "$1" in
   stop)
     echo -n "Stopping angharad "
-    start-stop-daemon --stop --quiet --pidfile $pidfile --retry 4
-    > $pidfile
+    killall -9 angharad
     echo "OK"
     ;;
 
