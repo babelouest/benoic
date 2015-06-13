@@ -381,8 +381,8 @@ int build_config_from_file(struct config_elements * config) {
         config->terminal[config->nb_terminal]->display[0] = 0;
         config->terminal[config->nb_terminal]->type = TYPE_NONE;
         config->terminal[config->nb_terminal]->uri[0] = 0;
+        
         snprintf(config->terminal[config->nb_terminal]->name, WORDLENGTH*sizeof(char), "%s", cur_name);
-
         snprintf(config->terminal[config->nb_terminal]->uri, WORDLENGTH*sizeof(char), "%s", cur_uri);
 
         if (0 == strncmp("serial", cur_type, WORDLENGTH)) {
@@ -433,7 +433,7 @@ int build_config_from_file(struct config_elements * config) {
 int build_config_from_args(int argc, char ** argv, struct config_elements * config) {
   int next_option, str_len;
   const char * short_options = "c::p::b::u::d::a::s::m::l::f::r::h::";
-  char * tmp, * to_free, * one_log_mode = NULL;
+  char * tmp = NULL, * to_free = NULL, * one_log_mode = NULL;
   static const struct option long_options[]= {
     {"config-file", optional_argument,NULL, 'c'},
     {"port", optional_argument,NULL, 'p'},
@@ -519,6 +519,7 @@ int build_config_from_args(int argc, char ** argv, struct config_elements * conf
           if (optarg != NULL) {
             str_len = strlen(optarg);
             tmp = malloc(str_len+sizeof(char));
+            memset(tmp, 0, str_len+sizeof(char));
             to_free = tmp;
             strncpy(tmp, optarg, str_len);
             one_log_mode = strtok(tmp, ",");

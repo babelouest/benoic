@@ -125,3 +125,21 @@ int sanitize_json_string_url(const char * source, char * target, size_t len) {
   snprintf(target, len, "%s", tmp1);
   return 1;
 }
+
+/**
+ * Convert a fahrenheit value to celsius and round it to the nearest half value
+ * The Celsius value is the only temperature unit stored in angharad
+ * So if a Fahrenheit values is read, it's converted and returned as celsius
+ */
+float fahrenheit_to_celsius(float fahrenheit) {
+  return (roundf(2.0*((fahrenheit-32.0)/1.8))/2.0);
+}
+
+/**
+ * Convert a celsuis value to fahrenheit and round it to the nearest half value
+ * The Celsius value is the only temperature unit stored in angharad
+ * So if a Fahrenheit values is to be set, it's converted from celsius
+ */
+float celsius_to_fahrenheit(float celsius) {
+  return (roundf(2.0*((celsius*1.8)+32.0))/2.0);
+}

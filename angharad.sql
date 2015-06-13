@@ -57,6 +57,7 @@ CREATE TABLE an_sensor(
   se_name TEXT NOT NULL,
   se_display TEXT,
   se_unit TEXT,
+  se_value_type INT DEFAULT 0, -- 0 None, 1 Celsius, 2 Fahrenheit, 3 Percent
   se_active INT DEFAULT 1,
   se_monitored INT DEFAULT 0,
   se_monitored_every INT DEFAULT 0,
@@ -74,6 +75,7 @@ CREATE TABLE an_heater(
   he_set INT DEFAULT 0,
   he_max_heat_value FLOAT DEFAULT 0,
   he_unit TEXT,
+  he_value_type INT DEFAULT 0, -- 0 None, 1 Celsius, 2 Fahrenheit, 3 Percent
   he_active DEFAULT 1,
   he_monitored INT DEFAULT 0,
   he_monitored_every INT DEFAULT 0,

@@ -208,11 +208,12 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         snprintf(sensors[nb_sensors].value, WORDLENGTH*sizeof(char), "%s", value);
         snprintf(sensors[nb_sensors].display, WORDLENGTH*sizeof(char), "%s", sensors[nb_sensors].name);
         strcpy(sensors[nb_sensors].unit, "");
+        sensors[nb_sensors].value_type = VALUE_TYPE_NONE;
         sensors[nb_sensors].enabled = 1;
         sensors[nb_sensors].monitored = 0;
         sensors[nb_sensors].monitored_every = 0;
         sensors[nb_sensors].monitored_next = 0;
-        sql_query = sqlite3_mprintf("SELECT se_display, se_unit, se_active, se_monitored, se_monitored_every, se_monitored_next\
+        sql_query = sqlite3_mprintf("SELECT se_display, se_unit, se_value_type, se_active, se_monitored, se_monitored_every, se_monitored_next\
                         FROM an_sensor WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", key, device_name);
         sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
         sqlite3_free(sql_query);
@@ -223,10 +224,11 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
           if (row_result == SQLITE_ROW) {
             strncpy(sensors[nb_sensors].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
             strncpy(sensors[nb_sensors].unit, (char*)sqlite3_column_text(stmt, 1), WORDLENGTH);
-            sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 2);
-            sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 3);
-            sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 4);
-            sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 5);
+            sensors[nb_sensors].value_type = sqlite3_column_int(stmt, 2);
+            sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 3);
+            sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 4);
+            sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 5);
+            sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 6);
           } else {
             // Creating data in database
             sql_query = sqlite3_mprintf("INSERT INTO an_sensor\
@@ -256,7 +258,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
         
         heaters = realloc(heaters, (nb_heaters+1)*sizeof(struct _heater));
         snprintf(heater_value, WORDLENGTH*sizeof(char), "%s", value);
-        parse_heater(sqlite3_db, device_name, key, heater_value, &heaters[nb_heaters]);
+        parse_heater_arduino(sqlite3_db, device_name, key, heater_value, &heaters[nb_heaters]);
         nb_heaters++;
         data = strtok_r( NULL, ",", &saveptr2);
       }
@@ -622,7 +624,7 @@ heater * get_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    if (parse_heater(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
+    if (parse_heater_arduino(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
       pthread_mutex_unlock(&terminal->lock);
       return cur_heater;
     } else {
@@ -654,7 +656,7 @@ heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat
   if (serial_result != -1) {
     serial_result = serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
     serial_read[strlen(serial_read) - 1] = '\0';
-    if (parse_heater(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
+    if (parse_heater_arduino(sqlite3_db, terminal->name, heat_id, serial_read+1, cur_heater)) {
       pthread_mutex_unlock(&terminal->lock);
       return cur_heater;
     } else {
@@ -738,7 +740,7 @@ int set_dimmer_value_arduino(device * terminal, char * dimmer, int value) {
 /**
  * Parse the get heater results
  */
-int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater) {
+int parse_heater_arduino(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater) {
   char * heat_set, * heat_on, * heat_max_value, * saveptr;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
@@ -757,17 +759,18 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
     cur_heater->set = strcmp(heat_set,"1")==0?1:0;
     cur_heater->on = strcmp(heat_on,"1")==0?1:0;
     cur_heater->heat_max_value = strtof(heat_max_value, NULL);
+    cur_heater->value_type = VALUE_TYPE_NONE;
     strcpy(cur_heater->unit, "");
     cur_heater->monitored = 0;
     cur_heater->monitored_every = 0;
     cur_heater->monitored_next = 0;
     
-    sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_monitored, he_monitored_every, he_monitored_next FROM an_heater WHERE he_name='%q'\
+    sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_value_type, he_monitored, he_monitored_every, he_monitored_next FROM an_heater WHERE he_name='%q'\
                       and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heater_name, device);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
     sqlite3_free(sql_query);
     if (sql_result != SQLITE_OK) {
-      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (parse_heater)");
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query (parse_heater_arduino)");
     } else {
       row_result = sqlite3_step(stmt);
       if (row_result == SQLITE_ROW) {
@@ -778,9 +781,10 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
         if (sqlite3_column_text(stmt, 2) != NULL) {
           strncpy(cur_heater->unit, (char*)sqlite3_column_text(stmt, 2), WORDLENGTH);
         }
-        cur_heater->monitored = sqlite3_column_int(stmt, 3);
-        cur_heater->monitored_every = sqlite3_column_int(stmt, 4);
-        cur_heater->monitored_next = sqlite3_column_int(stmt, 5);
+        cur_heater->value_type = sqlite3_column_int(stmt, 3);
+        cur_heater->monitored = sqlite3_column_int(stmt, 4);
+        cur_heater->monitored_every = sqlite3_column_int(stmt, 5);
+        cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
         
       } else {
         snprintf(cur_heater->display, WORDLENGTH*sizeof(char), "%s", heater_name);
@@ -789,6 +793,9 @@ int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char *
       }
     }
     sqlite3_finalize(stmt);
+    if (cur_heater->value_type == VALUE_TYPE_FAHRENHEIT) {
+      cur_heater->heat_max_value = fahrenheit_to_celsius(cur_heater->heat_max_value);
+    }
     return 1;
   }
 }

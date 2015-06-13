@@ -89,8 +89,18 @@ extern "C" {
 /**
  * COMMAND_CLASS used
  */
-#define COMMAND_CLASS_SWITCH_BINARY 0x25
-#define COMMAND_CLASS_SWITCH_MULTILEVEL 0x26
+#define COMMAND_CLASS_SWITCH_BINARY               0x25
+#define COMMAND_CLASS_SWITCH_MULTILEVEL           0x26
+#define COMMAND_CLASS_SENSOR_MULTILEVEL           0x31
+#define COMMAND_CLASS_THERMOSTAT_MODE             0x40
+#define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE  0x42
+#define COMMAND_CLASS_THERMOSTAT_SETPOINT         0x43
+
+#define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_IDLE     "Idle"
+#define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING  "Heating"
+#define COMMAND_CLASS_THERMOSTAT_MODE_HEAT                "Heat"
+#define COMMAND_CLASS_THERMOSTAT_MODE_COOL                "Cool"
+#define COMMAND_CLASS_THERMOSTAT_MODE_OFF                 "Off"
 
 using namespace OpenZWave;
 using namespace std;
@@ -361,14 +371,34 @@ int send_heartbeat_zwave(device * terminal) {
  * Returns an overview of all zwave devices connected and their last status
  */
 char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
-  int nb_switchers = 0, nb_dimmers = 0;
+  int nb_switchers = 0, nb_dimmers = 0, nb_sensors = 0, nb_heaters = 0;
   switcher * switchers = NULL;
   dimmer * dimmers = NULL;
+  sensor * sensors = NULL;
+  heater * heaters = NULL;
   char * to_return = NULL;
   
   char * sql_query = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result;
+  
+  
+  sql_query = sqlite3_mprintf("SELECT de_id FROM an_device WHERE de_name='%q'", terminal->name);
+  sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query (parse_overview_arduino)");
+  } else {
+    row_result = sqlite3_step(stmt);
+    if (row_result != SQLITE_ROW) {
+      sql_query = sqlite3_mprintf("INSERT INTO an_device (de_name, de_display, de_active) VALUES ('%q', '%q', 1)", terminal->name, terminal->name);
+      if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+        log_message(LOG_LEVEL_WARNING, "Error inserting Device");
+      }
+      sqlite3_free(sql_query);
+    }
+  }
+  sqlite3_finalize(stmt);
 
   list<node*> * nodes_list = (list<node*> *) ((struct _zwave_device *) terminal->element)->nodes_list;
   for( list<node*>::iterator it = nodes_list->begin(); it != nodes_list->end(); ++it ) {
@@ -423,7 +453,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         }
         sqlite3_finalize(stmt);
         nb_switchers++;
-      } else if ( v.GetCommandClassId() == 0x26 ) { // COMMAND_CLASS_SWITCH_MULTILEVEL - Dimmer
+      } else if ( v.GetCommandClassId() == COMMAND_CLASS_SWITCH_MULTILEVEL ) { // COMMAND_CLASS_SWITCH_MULTILEVEL - Dimmer
         dimmers = (dimmer *) realloc(dimmers, (nb_dimmers+1)*sizeof(struct _dimmer));
         snprintf(dimmers[nb_dimmers].name, WORDLENGTH*sizeof(char), "%d", node->node_id);
         dimmers[nb_dimmers].value = get_dimmer_value_zwave(terminal, dimmers[nb_dimmers].name);
@@ -466,13 +496,147 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         }
         sqlite3_finalize(stmt);
         nb_dimmers++;
+      } else if ( v.GetCommandClassId() == COMMAND_CLASS_SENSOR_MULTILEVEL ) { // COMMAND_CLASS_SENSOR_MULTILEVEL - sensor
+        sensors = (sensor *) realloc(sensors, (nb_sensors+1)*sizeof(struct _sensor));
+        snprintf(sensors[nb_sensors].name, WORDLENGTH*sizeof(char), "%d", node->node_id);
+        snprintf(sensors[nb_sensors].display, WORDLENGTH*sizeof(char), "%s", sensors[nb_sensors].name);
+        strcpy(sensors[nb_sensors].unit, "");
+        sensors[nb_sensors].value_type = VALUE_TYPE_NONE;
+        sensors[nb_sensors].enabled = 1;
+        sensors[nb_sensors].monitored = 0;
+        sensors[nb_sensors].monitored_every = 0;
+        sensors[nb_sensors].monitored_next = 0;
+        sql_query = sqlite3_mprintf("SELECT se_display, se_unit, se_value_type, se_active, se_monitored, se_monitored_every, se_monitored_next\
+                        FROM an_sensor WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", sensors[nb_sensors].name, terminal->name);
+        sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+        sqlite3_free(sql_query);
+        if (sql_result != SQLITE_OK) {
+          log_message(LOG_LEVEL_WARNING, "Error preparing sql query sensor fetch");
+        } else {
+          row_result = sqlite3_step(stmt);
+          if (row_result == SQLITE_ROW) {
+            strncpy(sensors[nb_sensors].display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+            strncpy(sensors[nb_sensors].unit, (char*)sqlite3_column_text(stmt, 1), WORDLENGTH);
+            sensors[nb_sensors].value_type = sqlite3_column_int(stmt, 2);
+            sensors[nb_sensors].enabled = sqlite3_column_int(stmt, 3);
+            sensors[nb_sensors].monitored = sqlite3_column_int(stmt, 4);
+            sensors[nb_sensors].monitored_every = sqlite3_column_int(stmt, 5);
+            sensors[nb_sensors].monitored_next = sqlite3_column_int(stmt, 6);
+          } else {
+            // Creating data in database
+            sql_query = sqlite3_mprintf("INSERT INTO an_sensor\
+                              (de_id, se_name, se_display, se_active, se_unit, se_monitored, se_monitored_every, se_monitored_next)\
+                              VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', 1, '', 0, 0, 0)",
+                              terminal->name, sensors[nb_sensors].name, sensors[nb_sensors].name);
+            if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+              log_message(LOG_LEVEL_WARNING, "Error inserting an_sensor %s", sql_query);
+            }
+            sqlite3_free(sql_query);
+          }
+        }
+        sqlite3_finalize(stmt);
+        if (sensors[nb_sensors].value_type == VALUE_TYPE_FAHRENHEIT) {
+          snprintf(sensors[nb_sensors].value, WORDLENGTH*sizeof(char), "%.2f", fahrenheit_to_celsius(get_sensor_value_zwave(terminal, sensors[nb_sensors].name, 0)));
+        } else {
+          snprintf(sensors[nb_sensors].value, WORDLENGTH*sizeof(char), "%.2f", get_sensor_value_zwave(terminal, sensors[nb_sensors].name, 0));
+        }
+        nb_sensors++;
+      } else if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_OPERATING_STATE
+                || v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_MODE
+                || v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_SETPOINT ) {
+        heater * cur_heater = NULL;
+        int i;
+        char node_id[WORDLENGTH+1];
+        
+        snprintf(node_id, WORDLENGTH, "%d", node->node_id);
+        for (i=0; i < nb_heaters; i++) {
+          if (strncmp(heaters[i].name, node_id, WORDLENGTH) == 0) {
+            // Heater found
+            cur_heater = &heaters[i];
+          }
+        }
+        
+        if (cur_heater == NULL) {
+          heaters = (heater *) realloc(heaters, (nb_heaters+1)*sizeof(heater));
+          cur_heater = &heaters[nb_heaters];
+          snprintf(cur_heater->name, WORDLENGTH*sizeof(char), "%d", node->node_id);
+          snprintf(cur_heater->display, WORDLENGTH*sizeof(char), "%d", node->node_id);
+          strcpy(cur_heater->unit, "");
+          cur_heater->value_type = VALUE_TYPE_NONE;
+          cur_heater->enabled = 1;
+          cur_heater->monitored = 0;
+          cur_heater->monitored_every = 0;
+          cur_heater->monitored_next = 0;
+          sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_value_type, he_active, he_monitored, he_monitored_every, he_monitored_next\
+                          FROM an_heater WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", cur_heater->name, terminal->name);
+          sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+          sqlite3_free(sql_query);
+          if (sql_result != SQLITE_OK) {
+            log_message(LOG_LEVEL_WARNING, "Error preparing sql query heater fetch");
+          } else {
+            row_result = sqlite3_step(stmt);
+            if (row_result == SQLITE_ROW) {
+              strncpy(cur_heater->display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+              cur_heater->enabled = sqlite3_column_int(stmt, 1);
+              strncpy(cur_heater->unit, (char*)sqlite3_column_text(stmt, 2), WORDLENGTH);
+              cur_heater->value_type = sqlite3_column_int(stmt, 3);
+              cur_heater->monitored = sqlite3_column_int(stmt, 4);
+              cur_heater->monitored_every = sqlite3_column_int(stmt, 5);
+              cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
+            } else {
+              // Creating data in database
+              sql_query = sqlite3_mprintf("INSERT INTO an_heater\
+                                (de_id, he_name, he_display, he_active, he_unit, he_monitored, he_monitored_every, he_monitored_next)\
+                                VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', 1, '', 0, 0, 0)",
+                                terminal->name, cur_heater->name, cur_heater->name);
+              if ( !sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL) == SQLITE_OK ) {
+                log_message(LOG_LEVEL_WARNING, "Error inserting an_heater %s", sql_query);
+              }
+              sqlite3_free(sql_query);
+            }
+          }
+          sqlite3_finalize(stmt);
+          nb_heaters++;
+        }
+        
+        // Processing CommandClass
+        Manager::Get()->RefreshValue(v);
+        if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_OPERATING_STATE ) {
+          string * s_status = new string();
+          Manager::Get()->GetValueAsString(v, s_status);
+          if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
+            cur_heater->on = 1;
+          } else {
+            cur_heater->on = 0;
+          }
+          delete(s_status);
+        } else if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_MODE ) {
+          string * s_status = new string();
+          Manager::Get()->GetValueAsString(v, s_status);
+          if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_MODE_HEAT) == 0) {
+            cur_heater->set = 1;
+          } else {
+            cur_heater->set = 0;
+          }
+          delete(s_status);
+        } else if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_SETPOINT ) {
+          string * s_status = new string();
+          Manager::Get()->GetValueAsString(v, s_status);
+          cur_heater->heat_max_value = strtof(s_status->c_str(), NULL);
+          delete(s_status);
+          if (cur_heater->value_type == VALUE_TYPE_FAHRENHEIT) {
+            cur_heater->heat_max_value = fahrenheit_to_celsius(cur_heater->heat_max_value);
+          }
+        }
       }
     }
   }
 
-  to_return = build_overview_output(sqlite3_db, terminal->name, switchers, nb_switchers, NULL, 0, NULL, 0, dimmers, nb_dimmers);
+  to_return = build_overview_output(sqlite3_db, terminal->name, switchers, nb_switchers, sensors, nb_sensors, heaters, nb_heaters, dimmers, nb_dimmers);
   free(switchers);
   free(dimmers);
+  free(heaters);
+  free(sensors);
   return to_return;
 }
 
@@ -604,20 +768,194 @@ int set_dimmer_value_zwave(device * terminal, char * dimmer_name, int value) {
 /**
  * get the value of a sensor
  */
-float get_sensor_value_zwave(device * terminal, char * sensor, int force) {
-  return ERROR_SENSOR;
+float get_sensor_value_zwave(device * terminal, char * sensor_name, int force) {
+  ValueID * v = NULL;
+  string * s_status = NULL;
+  float result = ERROR_SENSOR;
+  uint8 node_id;
+  char * end_ptr;
+  
+  node_id = strtol(sensor_name, &end_ptr, 10);
+  if (sensor_name != end_ptr) {
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SENSOR_MULTILEVEL);
+    if (v != NULL) {
+      if (force) {
+        Manager::Get()->RefreshValue(*v);
+      }
+      s_status = new string();
+      if (Manager::Get()->GetValueAsString((*v), s_status)) {
+        result = strtof(s_status->c_str(), NULL);
+      }
+      delete s_status;
+    }
+  }
+  return result;
 }
 
 /**
  * get the status of a heater
  */
 heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
-  return NULL;
+  ValueID * v = NULL;
+  string * s_status = NULL;
+  uint8 node_id;
+  char * end_ptr;
+  heater * cur_heater = (heater *)malloc(sizeof(heater));
+  strncpy(cur_heater->name, heat_id, WORDLENGTH);
+  cur_heater->value_type = VALUE_TYPE_NONE;
+  strncpy(cur_heater->display, heat_id, WORDLENGTH);
+
+  char * sql_query = NULL;
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
+
+  sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_value_type, he_monitored, he_monitored_every, he_monitored_next FROM an_heater\
+                                WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heat_id, terminal->name);
+  sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query get_heater");
+  } else {
+    row_result = sqlite3_step(stmt);
+    if (row_result == SQLITE_ROW) {
+      if (sqlite3_column_text(stmt, 0) != NULL) {
+        strncpy(cur_heater->display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+      }
+      cur_heater->enabled = sqlite3_column_int(stmt, 1);
+      if (sqlite3_column_text(stmt, 2) != NULL) {
+        strncpy(cur_heater->unit, (char*)sqlite3_column_text(stmt, 2), WORDLENGTH);
+      }
+      cur_heater->value_type = sqlite3_column_int(stmt, 3);
+      cur_heater->monitored = sqlite3_column_int(stmt, 4);
+      cur_heater->monitored_every = sqlite3_column_int(stmt, 5);
+      cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
+    }
+  }
+
+  node_id = strtol(heat_id, &end_ptr, 10);
+  if (heat_id != end_ptr) {
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_MODE);
+    Manager::Get()->RefreshValue(*v);
+    if (v != NULL) {
+      s_status = new string();
+      Manager::Get()->GetValueAsString(*v, s_status);
+      if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_MODE_HEAT) == 0) {
+        cur_heater->set = 1;
+      } else {
+        cur_heater->set = 0;
+      }
+      delete(s_status);
+    }
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE);
+    Manager::Get()->RefreshValue(*v);
+    if (v != NULL) {
+      s_status = new string();
+      Manager::Get()->GetValueAsString(*v, s_status);
+      if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
+        cur_heater->on = 1;
+      } else {
+        cur_heater->on = 0;
+      }
+      delete(s_status);
+    }
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_SETPOINT);
+    Manager::Get()->RefreshValue(*v);
+    if (v != NULL) {
+      s_status = new string();
+      Manager::Get()->GetValueAsString(*v, s_status);
+      cur_heater->heat_max_value = strtof(s_status->c_str(), NULL);
+      delete(s_status);
+      if (cur_heater->value_type == VALUE_TYPE_FAHRENHEIT) {
+        cur_heater->heat_max_value = fahrenheit_to_celsius(cur_heater->heat_max_value);
+      }
+    }
+    return cur_heater;
+  } else {
+    return NULL;
+  }
 }
 
 /**
  * set the status of a heater
  */
 heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value) {
-  return NULL;
+  ValueID * v = NULL;
+  string * s_status = NULL;
+  uint8 node_id;
+  char * end_ptr;
+  char val[4];
+  
+  heater * cur_heater = (heater *)malloc(sizeof(heater));
+  strncpy(cur_heater->name, heat_id, WORDLENGTH);
+  cur_heater->value_type = VALUE_TYPE_NONE;
+  strncpy(cur_heater->display, heat_id, WORDLENGTH);
+  cur_heater->set = heat_enabled;
+  cur_heater->heat_max_value = max_heat_value;
+
+  char * sql_query = NULL;
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
+
+  sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_value_type, he_monitored, he_monitored_every, he_monitored_next FROM an_heater\
+                                WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heat_id, terminal->name);
+  sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+  sqlite3_free(sql_query);
+  if (sql_result != SQLITE_OK) {
+    log_message(LOG_LEVEL_WARNING, "Error preparing sql query get_heater");
+  } else {
+    row_result = sqlite3_step(stmt);
+    if (row_result == SQLITE_ROW) {
+      if (sqlite3_column_text(stmt, 0) != NULL) {
+        strncpy(cur_heater->display, (char*)sqlite3_column_text(stmt, 0), WORDLENGTH);
+      }
+      cur_heater->enabled = sqlite3_column_int(stmt, 1);
+      if (sqlite3_column_text(stmt, 2) != NULL) {
+        strncpy(cur_heater->unit, (char*)sqlite3_column_text(stmt, 2), WORDLENGTH);
+      }
+      cur_heater->value_type = sqlite3_column_int(stmt, 3);
+      cur_heater->monitored = sqlite3_column_int(stmt, 4);
+      cur_heater->monitored_every = sqlite3_column_int(stmt, 5);
+      cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
+    }
+  }
+
+  node_id = strtol(heat_id, &end_ptr, 10);
+  if (heat_id != end_ptr) {
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_MODE);
+    if (v != NULL) {
+      if (cur_heater->set) {
+        Manager::Get()->SetValue(*v, string(COMMAND_CLASS_THERMOSTAT_MODE_HEAT));
+      } else {
+        Manager::Get()->SetValue(*v, string(COMMAND_CLASS_THERMOSTAT_MODE_OFF));
+      }
+    }
+
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_SETPOINT);
+    if (v != NULL) {
+      if (cur_heater->value_type == VALUE_TYPE_FAHRENHEIT) {
+        snprintf(val, 3, "%.0f", celsius_to_fahrenheit( cur_heater->heat_max_value) );
+      } else {
+        snprintf(val, 3, "%.0f", cur_heater->heat_max_value);
+      }
+      if (!Manager::Get()->SetValue(*v, string(val))) {
+        free(cur_heater);
+        return NULL;
+      }
+    }
+    v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE);
+    Manager::Get()->RefreshValue(*v);
+    if (v != NULL) {
+      s_status = new string();
+      Manager::Get()->GetValueAsString(*v, s_status);
+      if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
+        cur_heater->on = 1;
+      } else {
+        cur_heater->on = 0;
+      }
+      delete(s_status);
+    }
+    return cur_heater;
+  } else {
+    return NULL;
+  }
 }

@@ -410,7 +410,7 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
     cur_terminal = get_device_from_name(s.device, terminal, nb_terminal);
 
     was_ran = 1;
-    sensor_value = get_sensor_value(cur_terminal, s.name, 1);
+    sensor_value = get_sensor_value(sqlite3_db, cur_terminal, s.name, 1);
     if (sensor_value != ERROR_SENSOR) {
       snprintf(se_value, WORDLENGTH*sizeof(char), "%.2f", sensor_value);
       if (!monitor_store(sqlite3_db, s.device, "", s.name, "", "", se_value)) {

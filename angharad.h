@@ -56,10 +56,6 @@
 #define MSGLENGTH   2047
 #define WORDLENGTH  63
 
-#define TEMPEXT "TEMPEXT"
-#define TEMPINT "TEMPINT"
-#define HUMINT  "HUMINT"
-
 #define TYPE_NONE   0
 #define TYPE_SERIAL 1
 #define TYPE_ZWAVE  2
@@ -114,6 +110,11 @@
 #define ERROR_SENSOR  -999.
 #define ERROR_SWITCH  -1
 #define ERROR_DIMMER  -1
+
+#define VALUE_TYPE_NONE       0
+#define VALUE_TYPE_CELSIUS    1
+#define VALUE_TYPE_FAHRENHEIT 2
+#define VALUE_TYPE_PERCENT    3
 
 #define UNDEFINED_HOME_ID 0
 
@@ -177,6 +178,7 @@ typedef struct _sensor {
   char name[WORDLENGTH+1];
   char display[WORDLENGTH+1];
   char unit[WORDLENGTH+1];
+  unsigned int value_type;
   char value[WORDLENGTH+1];
   int enabled;
   int monitored;
@@ -195,6 +197,7 @@ typedef struct _heater {
   unsigned int on;
   float heat_max_value;
   char unit[WORDLENGTH+1];
+  unsigned int value_type;
   int monitored;
   int monitored_every;
   time_t monitored_next;
@@ -310,14 +313,13 @@ int close_device(device * terminal);
 int set_switch_state(device * terminal, char * switcher, int status);
 int get_switch_state(device * terminal, char * switcher, int force);
 int toggle_switch_state(device * terminal, char * switcher);
-float get_sensor_value(device * terminal, char * sensor, int force);
+float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, int force);
 char * get_overview(sqlite3 * sqlite3_db, device * terminal);
 char * get_refresh(sqlite3 * sqlite3_db, device * terminal);
 char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher * switchers, int nb_switchers, sensor * sensors, int nb_sensors, heater * heaters, int nb_heaters, dimmer * dimmers, int nb_dimmers);
 char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_terminal);
 heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
 heater * set_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
-int parse_heater(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater);
 int get_dimmer_value(device * terminal, char * dimmer);
 int set_dimmer_value(device * terminal, char * dimmer, int value);
 
@@ -338,6 +340,7 @@ char * get_refresh_arduino(sqlite3 * sqlite3_db, device * terminal);
 char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result);
 heater * get_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
 heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
+int parse_heater_arduino(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater);
 int is_file_opened_arduino(char * serial_file, device ** terminal, unsigned int nb_terminal);
 int get_dimmer_value_arduino(device * terminal, char * dimmer);
 int set_dimmer_value_arduino(device * terminal, char * dimmer, int value);
@@ -373,6 +376,8 @@ int sanitize_json_string_url(const char * source, char * target, size_t len);
 int num_digits(int n);
 int num_digits_l (long n);
 int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int script_id);
+float fahrenheit_to_celsius(float fahrenheit);
+float celsius_to_fahrenheit(float celsius);
 
 // Actions and lists
 char * get_scripts(sqlite3 * sqlite3_db, char * device);

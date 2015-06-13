@@ -31,8 +31,8 @@
 static const char json_template_control_meta_getdevices[] = "{\"name\":\"%s\",\"display\":\"%s\",\"connected\":%s,\"enabled\":%s,\"tags\":%s}";
 static const char json_template_control_meta_overview_final[] = "{\"name\":\"%s\",\"switches\":%s,\"sensors\":%s,\"heaters\":%s,\"dimmers\":%s}";
 static const char json_template_control_meta_overview_switcher[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"type\":%d,\"status\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
-static const char json_template_control_meta_overview_sensor[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"value\":%s,\"unit\":\"%s\",\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
-static const char json_template_control_meta_overview_heater[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\",\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_overview_sensor[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"value\":%s,\"unit\":\"%s\",\"value_type\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
+static const char json_template_control_meta_overview_heater[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"set\":%s,\"on\":%s,\"max_value\":%.2f,\"unit\":\"%s\",\"value_type\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
 static const char json_template_control_meta_overview_dimmer[] = "%s{\"name\":\"%s\",\"display\":\"%s\",\"enabled\":%s,\"value\":%d,\"monitored\":%s,\"monitored_every\":%d,\"monitored_next\":%ld,\"tags\":%s}";
 static const char json_template_control_meta_empty[] = "{}";
 
@@ -283,14 +283,32 @@ int toggle_switch_state(device * terminal, char * switcher) {
 /**
  * Return the value of a sensor
  */
-float get_sensor_value(device * terminal, char * sensor, int force) {
+float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, int force) {
+  int is_fahrenheit = 0;
+  char * sql_query = NULL;
+  sqlite3_stmt *stmt;
+  int sql_result, row_result;
+
   if (terminal != NULL && terminal->enabled) {
+    
+    sql_query = sqlite3_mprintf("SELECT se_value_type FROM an_sensor\
+                                  WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", sensor, terminal->name);
+    sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
+    sqlite3_free(sql_query);
+    if (sql_result != SQLITE_OK) {
+      log_message(LOG_LEVEL_WARNING, "Error preparing sql query get_sensor_value");
+    } else {
+      row_result = sqlite3_step(stmt);
+      if (row_result == SQLITE_ROW) {
+        is_fahrenheit = (sqlite3_column_int(stmt, 0) == VALUE_TYPE_FAHRENHEIT);
+      }
+    }
     switch (terminal->type) {
       case TYPE_SERIAL:
-        return get_sensor_value_arduino(terminal, sensor, force);
+        return (is_fahrenheit?fahrenheit_to_celsius(get_sensor_value_arduino(terminal, sensor, force)):get_sensor_value_arduino(terminal, sensor, force));
         break;
       case TYPE_ZWAVE:
-        return get_sensor_value_zwave(terminal, sensor, force);
+        return (is_fahrenheit?fahrenheit_to_celsius(get_sensor_value_zwave(terminal, sensor, force)):get_sensor_value_zwave(terminal, sensor, force));
         break;
       case TYPE_NONE:
       default:
@@ -387,13 +405,13 @@ char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher 
     tags_array = get_tags(sqlite3_db, device_name, DATA_SENSOR, sensors[i].name);
     tags = build_json_tags(tags_array);
 
-    str_len = snprintf(NULL, 0, json_template_control_meta_overview_sensor, 
-                        i>0?",":"", sensors[i].name, sensors[i].display, sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit,
+    str_len = snprintf(NULL, 0, json_template_control_meta_overview_sensor, i>0?",":"", sensors[i].name, sensors[i].display, 
+                        sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit, sensors[i].value_type,
                         sensors[i].monitored?"true":"false", sensors[i].monitored_every, sensors[i].monitored_next, tags);
     
     one_element = malloc((str_len+1)*sizeof(char));
-    snprintf(one_element, (str_len+1)*sizeof(char), json_template_control_meta_overview_sensor,
-                        i>0?",":"", sensors[i].name, sensors[i].display, sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit,
+    snprintf(one_element, (str_len+1)*sizeof(char), json_template_control_meta_overview_sensor,i>0?",":"", sensors[i].name, 
+                        sensors[i].display, sensors[i].enabled?"true":"false", sensors[i].value, sensors[i].unit, sensors[i].value_type,
                         sensors[i].monitored?"true":"false", sensors[i].monitored_every, sensors[i].monitored_next, tags);
     
     str_sensors = realloc(str_sensors, strlen(str_sensors)+strlen(one_element)+1);
@@ -414,13 +432,13 @@ char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher 
     
     str_len = snprintf(NULL, 0, json_template_control_meta_overview_heater, 
                         i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false",
-                        heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit,
+                        heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit, heaters[i].value_type,
                         heaters[i].monitored?"true":"false", heaters[i].monitored_every, heaters[i].monitored_next, tags);
     
     one_element = malloc((str_len+1)*sizeof(char));
     snprintf(one_element, (str_len+1)*sizeof(char), json_template_control_meta_overview_heater,
               i>0?",":"", heaters[i].name, heaters[i].display, heaters[i].enabled?"true":"false", heaters[i].set?"true":"false",
-              heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit,
+              heaters[i].on?"true":"false", heaters[i].heat_max_value, heaters[i].unit, heaters[i].value_type,
               heaters[i].monitored?"true":"false", heaters[i].monitored_every, heaters[i].monitored_next, tags);
     
     str_heaters = realloc(str_heaters, strlen(str_heaters)+strlen(one_element)+1);
@@ -477,6 +495,7 @@ char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher 
  * Get the current heater command
  */
 heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
+
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:

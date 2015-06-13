@@ -249,12 +249,14 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         con_info_post->data = malloc(sizeof(struct _sensor));
         memset(((struct _sensor *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
         memset(((struct _sensor *)con_info_post->data)->unit, 0, WORDLENGTH*sizeof(char));
+        ((struct _sensor *)con_info_post->data)->value_type = VALUE_TYPE_NONE;
         memset(((struct _sensor *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_SENSOR;
       } else if (0 == strncmp(SETHEATERDATA, command, strlen(SETHEATERDATA))) {
         con_info_post->data = malloc(sizeof(struct _heater));
         memset(((struct _heater *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
         memset(((struct _heater *)con_info_post->data)->unit, 0, WORDLENGTH*sizeof(char));
+        ((struct _heater *)con_info_post->data)->value_type = VALUE_TYPE_NONE;
         memset(((struct _heater *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_HEATER;
       } else if (0 == strncmp(SETDIMMERDATA, command, strlen(SETDIMMERDATA))) {
@@ -627,13 +629,10 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                 }
               } else if ( 0 == strncmp(SENSOR, command, strlen(SENSOR)) ) { // Get a sensor value
                 sensor_name = strtok_r( NULL, delim, &saveptr );
-                if (sensor_name != NULL && 
-                  ((0 == strncmp(TEMPEXT, sensor_name, strlen(TEMPEXT))) || 
-                  (0 == strncmp(TEMPINT, sensor_name, strlen(TEMPINT))) || 
-                  (0 == strncmp(HUMINT, sensor_name, strlen(HUMINT))))) {
+                if (sensor_name != NULL) {
                   force = strtok_r( NULL, delim, &saveptr );
                   iforce=(force != NULL && (0 == strcmp("1", force)))?1:0;
-                  sensor_value = get_sensor_value(cur_terminal, sensor_name, iforce);
+                  sensor_value = get_sensor_value( config->master_db, cur_terminal, sensor_name, iforce);
                   if (sensor_value == ERROR_SENSOR) {
                     page_len = snprintf(NULL, 0, json_template_webserver_sensor_error);
                     page = malloc((page_len+1)*sizeof(char));
@@ -1025,6 +1024,10 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
         if ((size > 0) && (size <= WORDLENGTH)) {
           sanitize_json_string(data, cur_sensor->unit, WORDLENGTH*sizeof(char));
         }
+      } else if (0 == strcmp (key, "value_type")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_sensor->value_type = strtol(data, NULL, 10);
+        }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           cur_sensor->enabled=(0==strcmp("true", data))?1:0;
@@ -1060,6 +1063,10 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
       } else if (0 == strcmp (key, "unit")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
           sanitize_json_string(data, cur_heater->unit, WORDLENGTH*sizeof(char));
+        }
+      } else if (0 == strcmp (key, "value_type")) {
+        if ((size > 0) && (size <= WORDLENGTH)) {
+          cur_heater->value_type = strtol(data, NULL, 10);
         }
       } else if (0 == strcmp (key, "enabled")) {
         if ((size > 0) && (size <= WORDLENGTH)) {
