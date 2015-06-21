@@ -831,6 +831,7 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
       cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
     }
   }
+  sqlite3_finalize(stmt);
 
   node_id = strtol(heat_id, &end_ptr, 10);
   if (heat_id != end_ptr) {
@@ -864,13 +865,14 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
       s_status = new string();
       Manager::Get()->GetValueAsString(*v, s_status);
       cur_heater->heat_max_value = strtof(s_status->c_str(), NULL);
-      delete(s_status);
       if (cur_heater->value_type == VALUE_TYPE_FAHRENHEIT) {
         cur_heater->heat_max_value = fahrenheit_to_celsius(cur_heater->heat_max_value);
       }
+      delete(s_status);
     }
     return cur_heater;
   } else {
+    free(cur_heater);
     return NULL;
   }
 }
@@ -918,6 +920,7 @@ heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
       cur_heater->monitored_next = sqlite3_column_int(stmt, 6);
     }
   }
+  sqlite3_finalize(stmt);
 
   node_id = strtol(heat_id, &end_ptr, 10);
   if (heat_id != end_ptr) {
@@ -956,6 +959,7 @@ heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
     }
     return cur_heater;
   } else {
+    free(cur_heater);
     return NULL;
   }
 }

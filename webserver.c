@@ -383,7 +383,6 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
               page = malloc((page_len+1)*sizeof(char));
               snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_script_error);
             }
-            free(to_free);
           }
         } else if ( 0 == strncmp(RUNSCRIPT, command, strlen(RUNSCRIPT))) { // Run a script
           script = strtok_r( NULL, delim, &saveptr );
@@ -658,6 +657,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
                   snprintf(page, (page_len+1)*sizeof(char), json_template_webserver_getheater, 
                             cur_terminal->name, heat_status->name, heat_status->enabled?"true":"false",
                             heat_status->set?"true":"false", heat_status->on?"true":"false", heat_status->heat_max_value, heat_status->unit);
+                  free(heat_status);
                 } else {
                   page_len = strlen(json_template_webserver_getheater_error);
                   page = malloc((page_len+1)*sizeof(char));

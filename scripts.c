@@ -370,8 +370,10 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
 			sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
 			sqlite3_free(sql_query);
 			if (sql_result != SQLITE_OK) {
-				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (set_script) %s", sql_query);
+				log_message(LOG_LEVEL_WARNING, "Error preparing sql query (set_script)");
 				sqlite3_finalize(stmt);
+        free(scripts_list);
+        free(actions);
 				return 0;
 			} else {
         row_result = sqlite3_step(stmt);
@@ -379,6 +381,9 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
           if (!detect_infinite_loop_script(sqlite3_db, &scripts_list, sqlite3_column_int(stmt, 0))) {
             free(scripts_list);
             log_message(LOG_LEVEL_WARNING, "Error updating script, infinite loop detected");
+            sqlite3_finalize(stmt);
+            free(scripts_list);
+            free(actions);
             return NULL;
           }
         }
@@ -386,6 +391,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
     }
     action_token = strtok_r(NULL, ";", &saveptr);
   }
+  sqlite3_finalize(stmt);
   free(scripts_list);
   free(actions);
     

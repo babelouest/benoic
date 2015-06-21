@@ -303,6 +303,7 @@ float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, i
         is_fahrenheit = (sqlite3_column_int(stmt, 0) == VALUE_TYPE_FAHRENHEIT);
       }
     }
+    sqlite3_finalize(stmt);
     switch (terminal->type) {
       case TYPE_SERIAL:
         return (is_fahrenheit?fahrenheit_to_celsius(get_sensor_value_arduino(terminal, sensor, force)):get_sensor_value_arduino(terminal, sensor, force));

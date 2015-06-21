@@ -371,12 +371,13 @@ int build_config_from_file(struct config_elements * config) {
           config_setting_lookup_string(cfg_device, "type", &cur_type) &&
           config_setting_lookup_string(cfg_device, "uri", &cur_uri))) {
         if (config->nb_terminal == 0) {
-          config->terminal = malloc(sizeof(device *));
+          config->terminal = malloc(sizeof(struct _device *));
         } else {
-          config->terminal = realloc(config->terminal, (config->nb_terminal+1)*sizeof(device *));
+          config->terminal = realloc(config->terminal, (config->nb_terminal+1)*sizeof(struct _device *));
         }
         
-        config->terminal[config->nb_terminal] = malloc(sizeof(device));
+        config->terminal[config->nb_terminal] = NULL;
+        config->terminal[config->nb_terminal] = malloc(sizeof(struct _device));
         config->terminal[config->nb_terminal]->enabled = 0;
         config->terminal[config->nb_terminal]->display[0] = 0;
         config->terminal[config->nb_terminal]->type = TYPE_NONE;
@@ -672,7 +673,7 @@ int init_server(struct config_elements * config) {
     // Initialize MUTEX for each device
     pthread_mutexattr_init ( &mutexattr );
     pthread_mutexattr_settype( &mutexattr, PTHREAD_MUTEX_RECURSIVE );
-    if (pthread_mutex_init(&config->terminal[i]->lock, &mutexattr) != 0) {
+    if (pthread_mutex_init(&(config->terminal[i]->lock), &mutexattr) != 0) {
       log_message(LOG_LEVEL_ERROR, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
     }
     pthread_mutexattr_destroy( &mutexattr );
