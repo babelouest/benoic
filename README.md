@@ -14,7 +14,7 @@ You must have the following development libraries installed to compile:
 - libsqlite3
 - libmath
 - libpthread
-- openzwave library 1.3 or higher
+- openzwave library 1.2 or higher
 
 Create the database:
 ```shell
