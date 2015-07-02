@@ -469,16 +469,16 @@ void write_log_syslog(unsigned long level, const char * message) {
   openlog("Angharad", LOG_PID|LOG_CONS, LOG_USER);
   switch (level) {
     case LOG_LEVEL_ERROR:
-      syslog( LOG_ERR, message );
+      syslog( LOG_ERR, "%s", message );
       break;
     case LOG_LEVEL_WARNING:
-      syslog( LOG_WARNING, message );
+      syslog( LOG_WARNING, "%s", message );
       break;
     case LOG_LEVEL_INFO:
-      syslog( LOG_INFO, message );
+      syslog( LOG_INFO, "%s", message );
       break;
     case LOG_LEVEL_DEBUG:
-      syslog( LOG_DEBUG, message );
+      syslog( LOG_DEBUG, "%s", message );
       break;
   }
   closelog();

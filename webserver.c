@@ -167,7 +167,7 @@ static const char json_template_webserver_device_not_found[]            = "{\"co
 static const char json_template_webserver_unknown_command[]             = "{\"command\":\"%s\",\"result\":\"error\",\"message\":\"Unknown command\",\"command\":\"%s\",\"commands_available\":%s}";
 static const char json_template_webserver_wrong_http_method[]           = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Wrong http method\"}}";
 static const char json_template_webserver_wrong_prefix[]                = "{\"result\":\"syntax_error\":{\"message\":\"Unknown prefix\",\"prefix\":\"%s\",\"available_prefix\":\"%s\"}}";
-static const char json_template_webserver_wrong_url[]                   = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Can not parse url\",\"url\":\"%s\",\"size\":%d}}";
+static const char json_template_webserver_wrong_url[]                   = "{\"result\":\"ok\"\"syntax_error\":{\"message\":\"Can not parse url\",\"url\":\"%s\",\"size\":%zu}}";
 
 /**
  * Main libmicrohttpd answer callback function

@@ -87,6 +87,7 @@ arduino-serial-lib.o: arduino-serial-lib.c arduino-serial-lib.h
 	$(CC) $(CFLAGS) $(FLAGS) arduino-serial-lib.c
 
 api_rest.o: api_rest.json
+#	objcopy --input binary --output elf64-little --binary-architecture i386 api_rest.json api_rest.o
 	objcopy --input binary --output elf32-littlearm --binary-architecture arm api_rest.json api_rest.o
 
 clean:
