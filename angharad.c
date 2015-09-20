@@ -196,9 +196,11 @@ int server(struct config_elements * config) {
   int duration = 0;
   struct sockaddr_in bind_address;
   
-  if (!init_server(config)) {
+  if (!init_server(config) == -1) {
     log_message(LOG_LEVEL_ERROR, "Error initializing configuration");
     return 1;
+  } else {
+    log_message(LOG_LEVEL_ERROR, "Error initializing one or multiple devices");
   }
   
   if (global_handler_variable == ANGHARAD_RESTART) {
@@ -654,6 +656,7 @@ int check_config(struct config_elements * config) {
 
 int init_server(struct config_elements * config) {
   int i = 0;
+  int to_return = 1;
   pthread_mutexattr_t mutexattr;
 
   // Initialize Log with configuration variables
@@ -664,7 +667,7 @@ int init_server(struct config_elements * config) {
   if (sqlite3_open_v2(config->master_db_path, &config->master_db, SQLITE_OPEN_READWRITE, NULL) != SQLITE_OK) {
     log_message(LOG_LEVEL_ERROR, "Database error: %s", sqlite3_errmsg(config->master_db));
     sqlite3_close(config->master_db);
-    return 0;
+    return -1;
   }
   
   // Connect each device
@@ -674,24 +677,25 @@ int init_server(struct config_elements * config) {
     pthread_mutexattr_init ( &mutexattr );
     pthread_mutexattr_settype( &mutexattr, PTHREAD_MUTEX_RECURSIVE );
     if (pthread_mutex_init(&(config->terminal[i]->lock), &mutexattr) != 0) {
+		to_return = 0;
       log_message(LOG_LEVEL_ERROR, "Impossible to initialize Mutex Lock for %s", config->terminal[config->nb_terminal]->name);
     }
     pthread_mutexattr_destroy( &mutexattr );
     
     if (connect_device(config->terminal[i], config->terminal, config->nb_terminal) == -1) {
       log_message(LOG_LEVEL_WARNING, "Error connecting device %s, using uri: %s", config->terminal[i]->name, config->terminal[i]->uri);
-      return 0;
+      to_return = 0;
     } else {
       log_message(LOG_LEVEL_INFO, "Device %s connected", config->terminal[i]->name);
       if (init_device_status(config->master_db, config->terminal[i])) {
         log_message(LOG_LEVEL_INFO, "Device %s initialized", config->terminal[i]->name);
       } else {
         log_message(LOG_LEVEL_WARNING, "Error initializing device %s", config->terminal[i]->name);
-        return 0;
+        to_return = 0;
       }
     }
   }
-  return 1;
+  return to_return;
 }
 
 /**

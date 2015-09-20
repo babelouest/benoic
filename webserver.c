@@ -261,6 +261,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
         con_info_post->data_type = DATA_HEATER;
       } else if (0 == strncmp(SETDIMMERDATA, command, strlen(SETDIMMERDATA))) {
         con_info_post->data = malloc(sizeof(struct _dimmer));
+        memset(((struct _dimmer *)con_info_post->data)->display, 0, WORDLENGTH*sizeof(char));
         memset(((struct _dimmer *)con_info_post->data)->tags, 0, MSGLENGTH*sizeof(char));
         con_info_post->data_type = DATA_DIMMER;
       } else if (0 == strncmp(SETACTION, command, strlen(SETACTION)) || 0 == strncmp(ADDACTION, command, strlen(ADDACTION))) {
