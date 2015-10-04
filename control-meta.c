@@ -47,6 +47,9 @@ int connect_device(device * terminal, device ** terminals, unsigned int nb_termi
     case TYPE_ZWAVE:
       return connect_device_zwave(terminal, terminals, nb_terminal);
       break;
+    case TYPE_NET:
+      return connect_device_net(terminal, terminals, nb_terminal);
+      break;
     case TYPE_NONE:
     default:
       return -1;
@@ -64,6 +67,9 @@ int reconnect_device(device * terminal, device ** terminals, unsigned int nb_ter
       break;
     case TYPE_ZWAVE:
       return reconnect_device_zwave(terminal, terminals, nb_terminal);
+      break;
+    case TYPE_NET:
+      return reconnect_device_net(terminal, terminals, nb_terminal);
       break;
     case TYPE_NONE:
     default:
@@ -83,6 +89,9 @@ int close_device(device * terminal) {
         break;
       case TYPE_ZWAVE:
         return close_device_zwave(terminal);
+        break;
+      case TYPE_NET:
+        return close_device_net(terminal);
         break;
       case TYPE_NONE:
       default:
@@ -104,6 +113,9 @@ int is_connected(device * terminal) {
         break;
       case TYPE_ZWAVE:
         return is_connected_zwave(terminal);
+        break;
+      case TYPE_NET:
+        return is_connected_net(terminal);
         break;
       case TYPE_NONE:
       default:
@@ -208,6 +220,9 @@ int send_heartbeat(device * terminal) {
       case TYPE_ZWAVE:
         return send_heartbeat_zwave(terminal);
         break;
+      case TYPE_NET:
+        return send_heartbeat_net(terminal);
+        break;
       case TYPE_NONE:
       default:
         return 0;
@@ -228,6 +243,9 @@ int set_switch_state(device * terminal, char * switcher, int status) {
         break;
       case TYPE_ZWAVE:
         return set_switch_state_zwave(terminal, switcher, status);
+        break;
+      case TYPE_NET:
+        return set_switch_state_net(terminal, switcher, status);
         break;
       case TYPE_NONE:
       default:
@@ -250,6 +268,9 @@ int get_switch_state(device * terminal, char * switcher, int force) {
       case TYPE_ZWAVE:
         return get_switch_state_zwave(terminal, switcher, force);
         break;
+      case TYPE_NET:
+        return get_switch_state_net(terminal, switcher, force);
+        break;
       case TYPE_NONE:
       default:
         return ERROR_SWITCH;
@@ -270,6 +291,9 @@ int toggle_switch_state(device * terminal, char * switcher) {
         break;
       case TYPE_ZWAVE:
         return toggle_switch_state_zwave(terminal, switcher);
+        break;
+      case TYPE_NET:
+        return toggle_switch_state_net(terminal, switcher);
         break;
       case TYPE_NONE:
       default:
@@ -311,6 +335,9 @@ float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, i
       case TYPE_ZWAVE:
         return (is_fahrenheit?fahrenheit_to_celsius(get_sensor_value_zwave(terminal, sensor, force)):get_sensor_value_zwave(terminal, sensor, force));
         break;
+      case TYPE_NET:
+        return (is_fahrenheit?fahrenheit_to_celsius(get_sensor_value_net(terminal, sensor, force)):get_sensor_value_net(terminal, sensor, force));
+        break;
       case TYPE_NONE:
       default:
         return ERROR_SENSOR;
@@ -332,6 +359,9 @@ char * get_overview(sqlite3 * sqlite3_db, device * terminal) {
       case TYPE_ZWAVE:
         return get_overview_zwave(sqlite3_db, terminal);
         break;
+      case TYPE_NET:
+        return get_overview_net(sqlite3_db, terminal);
+        break;
       case TYPE_NONE:
       default:
         return NULL;
@@ -352,6 +382,9 @@ char * get_refresh(sqlite3 * sqlite3_db, device * terminal) {
         break;
       case TYPE_ZWAVE:
         return get_refresh_zwave(sqlite3_db, terminal);
+        break;
+      case TYPE_NET:
+        return get_refresh_net(sqlite3_db, terminal);
         break;
       case TYPE_NONE:
       default:
@@ -505,6 +538,9 @@ heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
       case TYPE_ZWAVE:
         return get_heater_zwave(sqlite3_db, terminal, heat_id);
         break;
+      case TYPE_NET:
+        return get_heater_net(sqlite3_db, terminal, heat_id);
+        break;
       case TYPE_NONE:
       default:
         return NULL;
@@ -525,6 +561,9 @@ heater * set_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int
         break;
       case TYPE_ZWAVE:
         return set_heater_zwave(sqlite3_db, terminal, heat_id, heat_enabled, max_heat_value);
+        break;
+      case TYPE_NET:
+        return set_heater_net(sqlite3_db, terminal, heat_id, heat_enabled, max_heat_value);
         break;
       case TYPE_NONE:
       default:
@@ -547,6 +586,9 @@ int get_dimmer_value(device * terminal, char * dimmer) {
       case TYPE_ZWAVE:
         return get_dimmer_value_zwave(terminal, dimmer);
         break;
+      case TYPE_NET:
+        return get_dimmer_value_net(terminal, dimmer);
+        break;
       case TYPE_NONE:
       default:
         return 0;
@@ -567,6 +609,9 @@ int set_dimmer_value(device * terminal, char * dimmer, int value) {
         break;
       case TYPE_ZWAVE:
         return set_dimmer_value_zwave(terminal, dimmer, value);
+        break;
+      case TYPE_NET:
+        return set_dimmer_value_net(terminal, dimmer, value);
         break;
       case TYPE_NONE:
       default:
