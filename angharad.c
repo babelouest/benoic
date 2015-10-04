@@ -257,8 +257,9 @@ int build_config_from_file(struct config_elements * config) {
   config_t cfg;
   config_setting_t *root, *cfg_devices;
   const char * cur_prefix, * cur_bind_address, * cur_name, * cur_dbpath_master, * cur_dbpath_archive, * cur_uri, * cur_type, * cur_scriptpath, 
-              * cur_config_path, * cur_user_path, * cur_command_line, * cur_log_path, * cur_log_mode, * cur_log_level, * cur_log_file, * one_log_mode;
-  int count, i, serial_baud;
+              * cur_config_path, * cur_user_path, * cur_command_line, * cur_log_path, * cur_log_mode, * cur_log_level, * cur_log_file = NULL, * one_log_mode,
+              * cur_http_user = NULL, * cur_http_password = NULL;
+  int count, i, serial_baud, do_not_check_certificate;
 
   config_init(&cfg);
   
@@ -382,6 +383,7 @@ int build_config_from_file(struct config_elements * config) {
         config->terminal[config->nb_terminal] = malloc(sizeof(struct _device));
         config->terminal[config->nb_terminal]->enabled = 0;
         config->terminal[config->nb_terminal]->display[0] = 0;
+        config->terminal[config->nb_terminal]->name[0] = 0;
         config->terminal[config->nb_terminal]->type = TYPE_NONE;
         config->terminal[config->nb_terminal]->uri[0] = 0;
         
@@ -420,6 +422,26 @@ int build_config_from_file(struct config_elements * config) {
           snprintf(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->log_path, WORDLENGTH*sizeof(char), "%s", cur_log_path);
           
           memset(((struct _zwave_device *) config->terminal[config->nb_terminal]->element)->usb_file, '\0', WORDLENGTH*sizeof(char));
+        } else if (0 == strncmp("net", cur_type, WORDLENGTH)) {
+          config->terminal[config->nb_terminal]->type = TYPE_NET;
+          config->terminal[config->nb_terminal]->element = malloc(sizeof(struct _net_device));
+          
+          config_setting_lookup_string(cfg_device, "http_user", &cur_http_user);
+          if (cur_http_user != NULL) {
+            ((struct _net_device *) config->terminal[config->nb_terminal]->element)->http_user = strdup(cur_http_user);
+          } else {
+            ((struct _net_device *) config->terminal[config->nb_terminal]->element)->http_user = NULL;
+          }
+          
+          config_setting_lookup_string(cfg_device, "http_password", &cur_http_password);
+          if (cur_http_password != NULL) {
+            ((struct _net_device *) config->terminal[config->nb_terminal]->element)->http_password = strdup(cur_http_password);
+          } else {
+            ((struct _net_device *) config->terminal[config->nb_terminal]->element)->http_password = NULL;
+          }
+          
+          config_setting_lookup_bool(cfg_device, "do_not_check_certificate", &do_not_check_certificate);
+          ((struct _net_device *) config->terminal[config->nb_terminal])->do_not_check_certificate = do_not_check_certificate;
         }
 
         config->nb_terminal++;

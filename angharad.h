@@ -50,6 +50,7 @@
 #include <arpa/inet.h>
 #include <pthread.h>
 #include <getopt.h>
+#include <curl/curl.h>
 
 #include "arduino-serial-lib.h"
 
@@ -157,6 +158,13 @@ typedef struct _zwave_device {
   char            command_line[WORDLENGTH+1];
   char            log_path[WORDLENGTH+1];
 } zwave_device;
+
+typedef struct _net_device {
+  char            * http_user;
+  char            * http_password;
+  int             do_not_check_certificate;
+  CURL            * curl_handle;
+} net_device;
 
 typedef struct _switcher {
   unsigned int id;
@@ -362,6 +370,28 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
 heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
 int      get_dimmer_value_zwave(device * terminal, char * dimmer);
 int      set_dimmer_value_zwave(device * terminal, char * dimmer, int value);
+
+// Interface with the net devices
+// control-net.c
+int      get_name_net(device * terminal, char * output);
+int      is_connected_net(device * terminal);
+int      connect_device_net(device * terminal, device ** terminals, unsigned int nb_terminal);
+int      reconnect_device_net(device * terminal, device ** terminals, unsigned int nb_terminal);
+int      close_device_net(device * terminal);
+int      send_heartbeat_net(device * terminal);
+int      set_switch_state_net(device * terminal, char * switcher, int status);
+int      get_switch_state_net(device * terminal, char * switcher, int force);
+int      toggle_switch_state_net(device * terminal, char * switcher);
+float    get_sensor_value_net(device * terminal, char * sensor, int force);
+char *   get_overview_net(sqlite3 * sqlite3_db, device * terminal);
+char *   get_refresh_net(sqlite3 * sqlite3_db, device * terminal);
+char *   parse_overview_net(sqlite3 * sqlite3_db, char * overview_result);
+heater * get_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id);
+heater * set_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value);
+int      parse_heater_net(sqlite3 * sqlite3_db, char * device, char * heater_name, char * source, heater * cur_heater);
+int      get_dimmer_value_net(device * terminal, char * dimmer);
+int      set_dimmer_value_net(device * terminal, char * dimmer, int value);
+int      get_http_response(device * terminal, char * action, char * read, size_t len);
 
 // System functions
 // misc.c

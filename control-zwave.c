@@ -276,25 +276,12 @@ void on_notification_zwave ( Notification const * _notification, void * _context
       break;
     }
     
-		case Notification::Type_DriverReset: {
+		case Notification::Type_DriverReset:
+		case Notification::Type_Notification:
+		case Notification::Type_NodeNaming:
+		case Notification::Type_NodeProtocolInfo:
+		default:
       break;
-    }
-      
-		case Notification::Type_Notification: {
-    // An error has occured that we need to report.
-      break;
-    }
-		case Notification::Type_NodeNaming: {
-    // An error has occured that we need to report.
-      break;
-    }
-		case Notification::Type_NodeProtocolInfo: {
-    // An error has occured that we need to report.
-      break;
-    }
-		default: {
-      break;
-    }
 	}
 
 	pthread_mutex_unlock( &terminal->lock );
@@ -686,6 +673,7 @@ int get_switch_state_zwave(device * terminal, char * switcher, int force) {
       }
     }
   }
+  log_message(LOG_LEVEL_DEBUG, "Switch value returned %d", result);
   return result;
 }
 
@@ -708,6 +696,7 @@ int set_switch_state_zwave(device * terminal, char * switcher, int status) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_BINARY);
     if (v != NULL && Manager::Get()->SetValue((*v), (status?true:false))) {
       result =  get_switch_state_zwave(terminal, switcher, 1);
+      log_message(LOG_LEVEL_DEBUG, "Switch value returned %d", result);
     }
   }
   pthread_mutex_unlock(&terminal->lock);
@@ -739,6 +728,7 @@ int get_dimmer_value_zwave(device * terminal, char * dimmer_name) {
       s_status = new string();
       if (Manager::Get()->GetValueAsString((*v), s_status)) {
         result = strtol(s_status->c_str(), NULL, 10);
+        log_message(LOG_LEVEL_DEBUG, "Dimmer value returned %d", result);
       }
       delete s_status;
     }
@@ -767,6 +757,7 @@ int set_dimmer_value_zwave(device * terminal, char * dimmer_name, int value) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_MULTILEVEL);
     if (v != NULL && Manager::Get()->SetValue((*v), string(val)) ) {
       result =  get_dimmer_value_zwave(terminal, dimmer_name);
+      log_message(LOG_LEVEL_DEBUG, "Dimmer value returned %d", result);
     }
   }
   pthread_mutex_unlock(&terminal->lock);
