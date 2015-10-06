@@ -41,6 +41,7 @@ char * set_device_data(sqlite3 * sqlite3_db, device cur_device) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_device (de_id, de_name, de_display, de_active)\
                     VALUES ((SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d')",
                     cur_device.name, cur_device.name, cur_device.display, cur_device.enabled);
@@ -65,6 +66,7 @@ char * set_switch_data(sqlite3 * sqlite3_db, switcher cur_switch) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_switch\
                     (sw_id, de_id, sw_name, sw_display, sw_type, sw_active, sw_status, sw_monitored, sw_monitored_every, sw_monitored_next)\
                     VALUES ((SELECT sw_id FROM an_switch WHERE sw_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
@@ -94,6 +96,7 @@ char * set_sensor_data(sqlite3 * sqlite3_db, sensor cur_sensor) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_sensor (se_id, de_id, se_name, se_display, se_unit, se_value_type, se_active,\
                     se_monitored, se_monitored_every, se_monitored_next) VALUES\
                     ((SELECT se_id FROM an_sensor WHERE se_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
@@ -122,6 +125,7 @@ char * set_heater_data(sqlite3 * sqlite3_db, heater cur_heater) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_heater (he_id, de_id, he_name, he_display, he_unit, he_value_type, he_enabled, he_monitored, he_monitored_every)\
                     VALUES ((SELECT he_id FROM an_heater WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%q', '%d', '%d', '%d', '%d')",
@@ -149,6 +153,7 @@ char * set_dimmer_data(sqlite3 * sqlite3_db, dimmer cur_dimmer) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, * to_return = NULL;
   int str_len=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT OR REPLACE INTO an_dimmer (di_id, de_id, di_name, di_display, di_active, di_monitored, di_monitored_every)\
                     VALUES ((SELECT di_id FROM an_dimmer WHERE di_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')),\
                     (SELECT de_id FROM an_device WHERE de_name='%q'), '%q', '%q', '%d', '%d', '%d')",

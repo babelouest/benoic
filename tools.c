@@ -38,6 +38,7 @@ int save_startup_heater_status(sqlite3 * sqlite3_db, char * device, char * heate
   sqlite3_stmt *stmt;
   int sql_result, row_result, he_id;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT he_id FROM an_heater WHERE he_name = '%q'\
                     AND de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heater_name, device);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
@@ -73,6 +74,7 @@ int save_startup_switch_status(sqlite3 * sqlite3_db, char * device, char * switc
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT sw_id FROM an_switch WHERE de_id IN (SELECT de_id FROM an_device WHERE de_name='%q') AND sw_name = '%q'", device, switcher);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
@@ -104,6 +106,7 @@ int save_startup_dimmer_value(sqlite3 * sqlite3_db, char * device, char * dimmer
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT di_id FROM an_dimmer\
                     WHERE de_id IN (SELECT de_id FROM an_device WHERE de_name='%q') AND di_name = '%q'", device, dimmer);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
@@ -135,6 +138,7 @@ int set_startup_all_switch(sqlite3 * sqlite3_db, device * cur_device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result, state_result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Do not initiate elements on device connect, because it takes a few seconds to pair elements
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
     sql_query = sqlite3_mprintf("SELECT sw_name, sw_status FROM an_switch\
@@ -168,6 +172,7 @@ int set_startup_all_dimmer_value(sqlite3 * sqlite3_db, device * cur_device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result, result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Do not initiate elements on device connect, because it takes a few seconds to pair elements
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
     sql_query = sqlite3_mprintf("SELECT di_name, di_value FROM an_dimmer WHERE de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", cur_device->name);
@@ -201,6 +206,7 @@ heater * get_startup_heater_status(sqlite3 * sqlite3_db, char * device) {
   sqlite3_stmt *stmt;
   int sql_result, row_result, nb_heaters=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT he.he_id, he.he_name, de.de_name, he.he_enabled, he.he_set, he.he_max_heat_value\
                     FROM an_heater he LEFT OUTER JOIN an_device de on de.de_id = he.de_id\
                     WHERE he.de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", device);
@@ -235,6 +241,7 @@ int init_device_status(sqlite3 * sqlite3_db, device * cur_device) {
   heater * heaters, * cur_heater;
   int heat_status = 1, switch_status = 1, dimmer_status = 1, i=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_device != NULL && cur_device->enabled && cur_device->type != TYPE_ZWAVE) {
     switch_status = set_startup_all_switch(sqlite3_db, cur_device);
     dimmer_status = set_startup_all_dimmer_value(sqlite3_db, cur_device);
@@ -265,6 +272,7 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
   time_t yesterday;
   char * to_return = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   snprintf(p_device, WORDLENGTH*sizeof(char), "%s", device_name);
   snprintf(p_switch, WORDLENGTH*sizeof(char), "%s", switcher_name);
   snprintf(p_sensor, WORDLENGTH*sizeof(char), "%s", sensor_name);
@@ -491,27 +499,29 @@ void write_log_file(time_t date, FILE * log_file, unsigned long level, const cha
   char * level_name = NULL, date_stamp[20];
   struct tm * tm_stamp;
   
-  tm_stamp = localtime (&date);
-  strftime (date_stamp, sizeof(date_stamp), "%Y-%m-%d %H:%M:%S", tm_stamp);
-  switch (level) {
-    case LOG_LEVEL_ERROR:
-      level_name = "ERROR";
-      break;
-    case LOG_LEVEL_WARNING:
-      level_name = "WARNING";
-      break;
-    case LOG_LEVEL_INFO:
-      level_name = "INFO";
-      break;
-    case LOG_LEVEL_DEBUG:
-      level_name = "DEBUG";
-      break;
-    default:
-      level_name = "NONE";
-      break;
+  if (log_file != NULL) {
+    tm_stamp = localtime (&date);
+    strftime (date_stamp, sizeof(date_stamp), "%Y-%m-%d %H:%M:%S", tm_stamp);
+    switch (level) {
+      case LOG_LEVEL_ERROR:
+        level_name = "ERROR";
+        break;
+      case LOG_LEVEL_WARNING:
+        level_name = "WARNING";
+        break;
+      case LOG_LEVEL_INFO:
+        level_name = "INFO";
+        break;
+      case LOG_LEVEL_DEBUG:
+        level_name = "DEBUG";
+        break;
+      default:
+        level_name = "NONE";
+        break;
+    }
+    fprintf(log_file, "%s - Angharad %s: %s\n", date_stamp, level_name, message);
+    fflush(log_file);
   }
-  fprintf(log_file, "%s - Angharad %s: %s\n", date_stamp, level_name, message);
-  fflush(log_file);
 }
 
 /**
@@ -524,6 +534,7 @@ char * get_json_list_commands() {
   extern char _binary_api_rest_json_start;
   extern char _binary_api_rest_json_end;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   size_t json_list_len = (size_t)((void *)binary_api_rest_json_size);
   char * json_list_data = malloc(json_list_len+sizeof(char));
   char * json_list_p = &_binary_api_rest_json_start;

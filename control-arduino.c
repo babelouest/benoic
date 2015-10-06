@@ -49,6 +49,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   overview_result_cpy = malloc(strlen(overview_result));
   snprintf(overview_result_cpy, strlen(overview_result)-1, "%s", overview_result+1);
   overview_result_cpy[strlen(overview_result_cpy) - 1] = '\0';
@@ -279,6 +280,7 @@ char * parse_overview_arduino(sqlite3 * sqlite3_db, char * overview_result) {
  * Tell if the terminal is connected
  */
 int is_connected_arduino(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (!(terminal != NULL && terminal->enabled && ((struct _arduino_device *) terminal->element)->serial_fd != -1)) {
     if (terminal!=NULL) {
       terminal->enabled=0;
@@ -297,6 +299,7 @@ int connect_device_arduino(device * terminal, device ** terminals, unsigned int 
   char filename[WORDLENGTH+1] = {0};
   char cur_name[WORDLENGTH+1] = {0};
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL) {
     return -1;
   } else {
@@ -327,6 +330,7 @@ int connect_device_arduino(device * terminal, device ** terminals, unsigned int 
  */
 int is_file_opened_arduino(char * serial_file, device ** terminal, unsigned int nb_terminal) {
   int i;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   for (i=0; i<nb_terminal; i++) {
     if (terminal[i] != NULL && 0 == strncmp(serial_file, ((struct _arduino_device *) terminal[i])->serial_file, WORDLENGTH)) {
       return 1;
@@ -339,6 +343,7 @@ int is_file_opened_arduino(char * serial_file, device ** terminal, unsigned int 
  * Reconnect the device if it was disconnected for example
  */
 int reconnect_device_arduino(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL) {
     return -1;
   } else {
@@ -359,6 +364,7 @@ int reconnect_device_arduino(device * terminal, device ** terminals, unsigned in
  * Close the connection to the device
  */
 int close_device_arduino(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL) {
     return 0;
   } else {
@@ -378,6 +384,7 @@ int set_switch_state_arduino(device * terminal, char * switcher, int status) {
   int result = ERROR_SWITCH;
   char * read_cpy, * end_ptr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -404,31 +411,32 @@ int set_switch_state_arduino(device * terminal, char * switcher, int status) {
  */
 int toggle_switch_state_arduino(device * terminal, char * switcher) {
   char eolchar = '}';
-    char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
-    int serial_result;
-    int timeout = TIMEOUT;
-    int result=ERROR_SWITCH;
-    char * read_cpy, * end_ptr;
+  char serial_command[WORDLENGTH+1] = {0}, serial_read[WORDLENGTH+1] = {0};
+  int serial_result;
+  int timeout = TIMEOUT;
+  int result=ERROR_SWITCH;
+  char * read_cpy, * end_ptr;
 
-    if (pthread_mutex_lock(&terminal->lock)) {
-      return result;
-    }
-    snprintf(serial_command, WORDLENGTH*sizeof(char), "TOGGLESWITCH,%s\n", switcher);
-    serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
-    if (serial_result != -1) {
-      serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
-      serial_read[strlen(serial_read) - 1] = '\0';
-      read_cpy = malloc(strlen(serial_read)+1);
-      strcpy(read_cpy, serial_read+1);
-      result = strtol(read_cpy, &end_ptr, 10);
-      if (read_cpy == end_ptr) {
-        result = ERROR_SWITCH;
-      }
-      free(read_cpy);
-    }
-    //serialport_flush(terminal->serial_fd);
-    pthread_mutex_unlock(&terminal->lock);
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  if (pthread_mutex_lock(&terminal->lock)) {
     return result;
+  }
+  snprintf(serial_command, WORDLENGTH*sizeof(char), "TOGGLESWITCH,%s\n", switcher);
+  serial_result = serialport_write(((struct _arduino_device *) terminal->element)->serial_fd, serial_command);
+  if (serial_result != -1) {
+    serialport_read_until(((struct _arduino_device *) terminal->element)->serial_fd, serial_read, eolchar, WORDLENGTH, timeout);
+    serial_read[strlen(serial_read) - 1] = '\0';
+    read_cpy = malloc(strlen(serial_read)+1);
+    strcpy(read_cpy, serial_read+1);
+    result = strtol(read_cpy, &end_ptr, 10);
+    if (read_cpy == end_ptr) {
+      result = ERROR_SWITCH;
+    }
+    free(read_cpy);
+  }
+  //serialport_flush(terminal->serial_fd);
+  pthread_mutex_unlock(&terminal->lock);
+  return result;
 }
 
 /**
@@ -442,6 +450,7 @@ int get_switch_state_arduino(device * terminal, char * switcher, int force) {
   int result=ERROR_SWITCH;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -477,6 +486,7 @@ float get_sensor_value_arduino(device * terminal, char * sensor, int force) {
   float result = ERROR_SENSOR;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -514,6 +524,7 @@ int send_heartbeat_arduino(device * terminal) {
   int timeout = TIMEOUT;
   int result = 0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (!terminal->enabled) {
     return 0;
   }
@@ -545,6 +556,7 @@ char * get_overview_arduino(sqlite3 * sqlite3_db, device * terminal) {
   int timeout = TIMEOUT;
   char output[MSGLENGTH+1] = {0};
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
@@ -567,6 +579,7 @@ char * get_refresh_arduino(sqlite3 * sqlite3_db, device * terminal) {
   int timeout = TIMEOUT;
   char output[MSGLENGTH+1];
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
@@ -589,6 +602,7 @@ int get_name_arduino(device * terminal, char * output) {
   int timeout = TIMEOUT;
   char buffer[WORDLENGTH+1];
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -616,6 +630,7 @@ heater * get_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat
   int timeout = TIMEOUT;
   heater * cur_heater = malloc(sizeof(heater));
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -648,6 +663,7 @@ heater * set_heater_arduino(sqlite3 * sqlite3_db, device * terminal, char * heat
   int timeout = TIMEOUT;
   heater * cur_heater = malloc(sizeof(heater));
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -683,6 +699,7 @@ int get_dimmer_value_arduino(device * terminal, char * dimmer){
   int result=ERROR_DIMMER;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -716,6 +733,7 @@ int set_dimmer_value_arduino(device * terminal, char * dimmer, int value) {
   int result = ERROR_DIMMER;
   char * read_cpy, * end_ptr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -746,6 +764,7 @@ int parse_heater_arduino(sqlite3 * sqlite3_db, char * device, char * heater_name
   int sql_result, row_result;
   char * sql_query = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   heat_set = strtok_r(source, "|", &saveptr);
   heat_on = strtok_r(NULL, "|", &saveptr);
   heat_max_value = strtok_r(NULL, "|", &saveptr);

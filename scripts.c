@@ -47,6 +47,7 @@ char * get_scripts(sqlite3 * sqlite3_db, char * device) {
   char * scripts = malloc(2*sizeof(char)), * sql_query = NULL, * one_item = NULL, * actions = NULL, * tags = NULL, ** tags_array = NULL;
   int str_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device == NULL) {
     sql_query = sqlite3_mprintf("SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name\
                       FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id");
@@ -119,6 +120,7 @@ char * get_action_script(sqlite3 * sqlite3_db, int script_id) {
   char * sql_query = NULL, ac_name[WORDLENGTH+1], * actions = malloc(sizeof(char)), * one_item = NULL;
   int rank, ac_id, enabled, oi_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (script_id == 0) {
     log_message(LOG_LEVEL_WARNING, "Error getting action scripts, script_id is 0");
     free(actions);
@@ -175,6 +177,7 @@ char * get_script(sqlite3 * sqlite3_db, char * script_id, int with_tags) {
   int sql_result, sc_id, sc_enabled, row_result, str_len;
   char * sql_query = NULL, sc_name[WORDLENGTH+1], device[WORDLENGTH+1], * to_return = NULL, * tags = NULL, ** tags_array = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT sc.sc_id, sc.sc_name, sc.sc_enabled, de.de_name FROM an_script sc LEFT OUTER JOIN an_device de ON de.de_id = sc.de_id WHERE sc.sc_id = '%q'", script_id);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
@@ -227,6 +230,7 @@ int run_script(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_termina
   char * sql_query = NULL;
   action ac;
     
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, di.di_name, he.he_name, ac.ac_params, ac.ac_id\
             FROM an_action ac, an_action_script acs LEFT OUTER JOIN an_device de ON de.de_id = ac.de_id\
             LEFT OUTER JOIN an_switch sw ON sw.sw_id = ac.sw_id LEFT OUTER JOIN an_dimmer di ON di.di_id = ac.di_id\
@@ -300,6 +304,7 @@ char * add_script(sqlite3 * sqlite3_db, script cur_script) {
   
   char * action, * saveptr, * action_id, * enabled, * saveptr2;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error inserting script, wrong params"); return NULL;}
   
   sql_query = sqlite3_mprintf("INSERT INTO an_script (sc_name, de_id, sc_enabled)\
@@ -354,6 +359,7 @@ char * set_script(sqlite3 * sqlite3_db, script cur_script) {
   
   char * action_token, * action_id, * enabled, * saveptr, * saveptr2, * actions;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (0 == strcmp("", cur_script.name)) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   if (cur_script.id == 0) {log_message(LOG_LEVEL_WARNING, "Error updating script, wrong params"); return NULL;}
   
@@ -445,6 +451,7 @@ int delete_script(sqlite3 * sqlite3_db, char * script_id) {
   char * sql_query1 = NULL, * sql_query2 = NULL, * sql_query3 = NULL, * sql_query4 = NULL, * sql_query5 = NULL, * sql_query6 = NULL;
   int result = 0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query1 = sqlite3_mprintf("DELETE FROM an_tag_element WHERE sc_id='%q'", script_id);
   if ( sqlite3_exec(sqlite3_db, sql_query1, NULL, NULL, NULL) == SQLITE_OK ) {
     sql_query2 = sqlite3_mprintf("DELETE FROM an_tag WHERE ta_id NOT IN (SELECT DISTINCT (ta_id) FROM an_tag)");
@@ -495,6 +502,7 @@ int detect_infinite_loop_script(sqlite3 * sqlite3_db, char ** scripts_list, int 
   char * sql_query = NULL;
   char * scripts_list_append = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
 	if (sqlite3_db != NULL && scripts_list != NULL && (*scripts_list) != NULL && script_id != 0) {
 		sprintf(needle, "#%d#", script_id);
 		if (strstr((*scripts_list), needle) != NULL) {

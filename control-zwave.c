@@ -121,6 +121,7 @@ typedef struct _node {
  */
 node * get_device_node(device * terminal, uint8 node_id) {
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL || terminal->element == NULL || ((struct _zwave_device *) terminal->element)->nodes_list == NULL) {
     return NULL;
   } else {
@@ -141,6 +142,7 @@ node * get_device_node(device * terminal, uint8 node_id) {
  * return the ValueID of the node identified by the command_class value
  */
 ValueID * get_device_value_id(node * cur_node, uint8 command_class) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_node != NULL) {
     for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
       ValueID * v = &(*it);
@@ -155,13 +157,14 @@ ValueID * get_device_value_id(node * cur_node, uint8 command_class) {
 /**
  * on_notification_zwave
  * Callback that is triggered when a value, group or node changes
-*/
+ */
 void on_notification_zwave ( Notification const * _notification, void * _context ) {
   
   device * terminal = (device *)_context;
   zwave_device * zwave_terminal = (struct _zwave_device *) terminal->element;
   list<node*> * nodes_list = (list<node*> *) zwave_terminal->nodes_list;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   pthread_mutex_lock(&terminal->lock);
 
   node * cur_node;
@@ -198,12 +201,14 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 		case Notification::Type_ValueChanged: {
 			// One of the node values has changed
       // Nothing there
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_ValueChanged for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
 			break;
     }
 
 		case Notification::Type_Group: {
 			// One of the node's association groups has changed
       // Nothing there
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_Group for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
 			break;
     }
 
@@ -235,6 +240,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
 		case Notification::Type_NodeEvent: {
 			// Event received
       // Not used yet
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_NodeEvent for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
 			break;
     }
 
@@ -273,15 +279,34 @@ void on_notification_zwave ( Notification const * _notification, void * _context
     }
 
     case Notification::Type_DriverRemoved: {
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_DriverRemoved for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
       break;
     }
     
-		case Notification::Type_DriverReset:
-		case Notification::Type_Notification:
-		case Notification::Type_NodeNaming:
-		case Notification::Type_NodeProtocolInfo:
-		default:
+		case Notification::Type_DriverReset: {
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_DriverReset for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
       break;
+    }
+    
+		case Notification::Type_Notification: {
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_Notification for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
+      break;
+    }
+    
+		case Notification::Type_NodeNaming: {
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_NodeNaming for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
+      break;
+    }
+    
+		case Notification::Type_NodeProtocolInfo: {
+      log_message(LOG_LEVEL_DEBUG, "Notification::Type_NodeProtocolInfo for NodeID %d and ValueID %d", _notification->GetNodeId(), _notification->GetValueID());
+      break;
+    }
+    
+		default: {
+      log_message(LOG_LEVEL_DEBUG, "Uncatch notification: %d for NodeID %d and ValueID %d", _notification->GetType(), _notification->GetNodeId(), _notification->GetValueID());
+      break;
+    }
 	}
 
 	pthread_mutex_unlock( &terminal->lock );
@@ -291,6 +316,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
  * get the connection status
  */
 int is_connected_zwave(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return 1;
 }
 
@@ -302,6 +328,7 @@ int connect_device_zwave(device * terminal, device ** terminals, unsigned int nb
   int i;
   char filename[WORDLENGTH+1];
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   ((struct _zwave_device *) terminal->element)->nodes_list = new list<node*>();
   
   Options::Create( ((struct _zwave_device *) terminal->element)->config_path, ((struct _zwave_device *) terminal->element)->user_path, ((struct _zwave_device *) terminal->element)->command_line );
@@ -344,6 +371,7 @@ int connect_device_zwave(device * terminal, device ** terminals, unsigned int nb
  * Not implemented yet
  */
 int reconnect_device_zwave(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return 1;
 }
 
@@ -351,6 +379,7 @@ int reconnect_device_zwave(device * terminal, device ** terminals, unsigned int 
  * Diconnects the driver, then remove all nodes
  */
 int close_device_zwave(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   Manager::Get()->RemoveDriver(((struct _zwave_device *)terminal->element)->usb_file);
   return 1;
 }
@@ -359,6 +388,7 @@ int close_device_zwave(device * terminal) {
  * check if the zwave device is alive
  */
 int send_heartbeat_zwave(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return is_connected_zwave(terminal);
 }
 
@@ -378,6 +408,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
   int sql_result, row_result;
   
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT de_id FROM an_device WHERE de_name='%q'", terminal->name);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
   sqlite3_free(sql_query);
@@ -639,6 +670,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
  * Refresh the zwave devices values
  */
 char * get_refresh_zwave(sqlite3 * sqlite3_db, device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return get_overview_zwave(sqlite3_db, terminal);
 }
 
@@ -646,6 +678,7 @@ char * get_refresh_zwave(sqlite3 * sqlite3_db, device * terminal) {
  * get the home_id of the zwave
  */
 int get_name_zwave(device * terminal, char * output) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return ((zwave_device *) terminal->element)->home_id;
 }
 
@@ -659,6 +692,7 @@ int get_switch_state_zwave(device * terminal, char * switcher, int force) {
   int result = ERROR_SWITCH;
   char * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   node_id = strtol(switcher, &end_ptr, 10);
   if (switcher == end_ptr) {
     result = ERROR_SWITCH;
@@ -686,6 +720,7 @@ int set_switch_state_zwave(device * terminal, char * switcher, int status) {
   char * end_ptr;
   int result = ERROR_SWITCH;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -707,6 +742,7 @@ int set_switch_state_zwave(device * terminal, char * switcher, int status) {
  * toggle the status of a switch
  */
 int toggle_switch_state_zwave(device * terminal, char * switcher) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return set_switch_state_zwave(terminal, switcher, !get_switch_state_zwave(terminal, switcher, 1));
 }
 
@@ -720,6 +756,7 @@ int get_dimmer_value_zwave(device * terminal, char * dimmer_name) {
   uint8 node_id;
   char * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   node_id = strtol(dimmer_name, &end_ptr, 10);
   if (dimmer_name != end_ptr) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_MULTILEVEL);
@@ -746,6 +783,7 @@ int set_dimmer_value_zwave(device * terminal, char * dimmer_name, int value) {
   char * end_ptr;
   int result = ERROR_DIMMER;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -774,6 +812,7 @@ float get_sensor_value_zwave(device * terminal, char * sensor_name, int force) {
   uint8 node_id;
   char * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   node_id = strtol(sensor_name, &end_ptr, 10);
   if (sensor_name != end_ptr) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SENSOR_MULTILEVEL);
@@ -808,6 +847,7 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
   sqlite3_stmt *stmt;
   int sql_result, row_result;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("SELECT he_display, he_enabled, he_unit, he_value_type, he_monitored, he_monitored_every, he_monitored_next FROM an_heater\
                                 WHERE he_name='%q' and de_id IN (SELECT de_id FROM an_device WHERE de_name='%q')", heat_id, terminal->name);
   sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
@@ -887,6 +927,7 @@ heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
   char val[4];
   
   heater * cur_heater = (heater *)malloc(sizeof(heater));
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   strncpy(cur_heater->name, heat_id, WORDLENGTH);
   cur_heater->value_type = VALUE_TYPE_NONE;
   strncpy(cur_heater->display, heat_id, WORDLENGTH);

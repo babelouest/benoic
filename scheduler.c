@@ -49,6 +49,7 @@ void * thread_scheduler_run(void * args) {
   heater he;
   sqlite3_stmt *stmt;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Get configuration variables
   struct config_elements * config = (struct config_elements *) args;
   
@@ -155,6 +156,7 @@ int run_scheduler(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_term
   char * sql_query = NULL, buf[MSGLENGTH+1];
   schedule cur_schedule;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Send a heartbeat to all devices
   // If not responding, try to reconnect device
   for (i=0; i<nb_terminal; i++) {
@@ -212,6 +214,7 @@ int is_scheduled_now(time_t next_time) {
   time_t now;
   time(&now);
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (next_time != 0) {
     return ((now - next_time)>=0 && (now - next_time) <= 60);
   }
@@ -229,6 +232,7 @@ int update_schedule(sqlite3 * sqlite3_db, schedule * sc) {
   time_t now, next_time;
   time(&now);
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (sc->next_time < now) {
     if (sc->repeat_schedule != REPEAT_NONE) {
       // Schedule is in the past, calculate new date
@@ -265,6 +269,7 @@ time_t calculate_next_time(time_t from, int schedule_type, unsigned int schedule
   time_t to_return;
   int isdst_from, isdst_to;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   isdst_from = ts.tm_isdst;
   
   switch (schedule_type) {
@@ -334,6 +339,7 @@ int update_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
   char * sql_query = NULL;
   int sql_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("UPDATE an_scheduler SET sh_enabled='%d', sh_next_time='%ld' WHERE sh_id='%d'",
            sc.enabled,
            (long)sc.next_time,
@@ -351,6 +357,7 @@ int remove_schedule_db(sqlite3 * sqlite3_db, schedule sc) {
   char * sql_query = NULL;
   int sql_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("DELETE FROM an_scheduler WHERE sh_id='%d'", sc.id);
   sql_result = sqlite3_exec(sqlite3_db, sql_query, NULL, NULL, NULL);
   sqlite3_free(sql_query);
@@ -369,6 +376,7 @@ int monitor_switch(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   int switch_value = 0;
   int result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   time(&now);
   if (is_scheduled_now(sw.monitored_next) || sw.monitored_next < now) {
     // Monitor switch state
@@ -403,6 +411,7 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   float sensor_value=0;
   int result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   time(&now);
   
   if (is_scheduled_now(s.monitored_next) || s.monitored_next < now) {
@@ -440,6 +449,7 @@ int monitor_dimmer(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   int dimmer_value = 0;
   int result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   time(&now);
   if (is_scheduled_now(di.monitored_next) || di.monitored_next < now) {
     // Monitor switch state
@@ -474,6 +484,7 @@ int monitor_heater(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   heater * he_tf = NULL;
   int result = 1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   time(&now);
   if (is_scheduled_now(he.monitored_next) || he.monitored_next < now) {
     // Monitor switch state
@@ -508,6 +519,7 @@ int monitor_store(sqlite3 * sqlite3_db, const char * device_name, const char * s
   char * sql_query = NULL;
   int result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query = sqlite3_mprintf("INSERT INTO an_monitor (mo_date, de_id, sw_id, se_id, di_id, he_id, mo_result)\
                   VALUES (strftime('%%s','now'), (SELECT de_id FROM an_device WHERE de_name = '%q'),\
                   (SELECT sw_id FROM an_switch WHERE sw_name = '%q' AND de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')), \
@@ -528,6 +540,7 @@ char * add_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1], * to_return = NULL;
   int tr_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (0 == strcmp(cur_schedule.name, "") ||
       (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) ||
       (cur_schedule.repeat_schedule > -1 && cur_schedule.repeat_schedule_value == 0) ||
@@ -576,6 +589,7 @@ char * set_schedule(sqlite3 * sqlite3_db, schedule cur_schedule) {
   char * sql_query = NULL, ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1], * to_return = NULL;
   int tr_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_schedule.id == 0 || 
       0 == strcmp(cur_schedule.name, "") || 
       (cur_schedule.next_time == 0 && cur_schedule.repeat_schedule == -1) || 
@@ -624,6 +638,7 @@ int delete_schedule(sqlite3 * sqlite3_db, char * schedule_id) {
   char * sql_query1, * sql_query2, * sql_query3;
   int i_value = 0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (schedule_id == NULL || 0 == strcmp("", schedule_id)) {log_message(LOG_LEVEL_WARNING, "Error deleting schedule, wrong params"); return 0;}
   
   sql_query1 = sqlite3_mprintf("DELETE FROM an_tag_element WHERE sh_id='%q'", schedule_id);
@@ -658,6 +673,7 @@ char * get_schedules(sqlite3 * sqlite3_db, char * device) {
   long next_time;
   int enabled, repeat_schedule, repeat_schedule_value;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device == NULL) {
     sql_query = sqlite3_mprintf("SELECT sh.sh_id, sh.sh_name, sh.sh_enabled, sh.sh_next_time, sh.sh_repeat_schedule,\
                       sh.sh_repeat_schedule_value, sh.sc_id, de.de_name, sh.sh_remove_after_done FROM an_scheduler sh\
@@ -729,6 +745,7 @@ char * enable_schedule(sqlite3 * sqlite3_db, char * schedule_name, char * status
   int sql_result, row_result, str_len;
   schedule cur_schedule;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query1 = sqlite3_mprintf("UPDATE an_scheduler SET sh_enabled='%q' WHERE sh_id='%q'", status, schedule_name);
   
   if ( sqlite3_exec(sqlite3_db, sql_query1, NULL, NULL, NULL) == SQLITE_OK ) {

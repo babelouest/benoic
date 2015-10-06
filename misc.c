@@ -32,6 +32,7 @@
  * Counts the number of digits of a integer
  */
 int num_digits (int n) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (n == 0) return 1;
   return floor (log10 (abs (n))) + 1;
 }
@@ -40,6 +41,7 @@ int num_digits (int n) {
  * Counts the number of digits of a long
  */
 int num_digits_l (long n) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (n == 0) return 1;
   return floor (log10 (abs (n))) + 1;
 }
@@ -54,6 +56,7 @@ int str_replace(const char * source, char * target, size_t len, char * old, char
   size_t oldlen = strlen(old);
   size_t count, retlen, newlen = strlen(new);
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (source == NULL || target == NULL || old == NULL) {
     return 0;
   }
@@ -93,6 +96,7 @@ int sanitize_json_string(const char * source, char * target, size_t len) {
   char *old[] = {"\"", "\\", "/", "\b", "\f", "\n", "\r", "\t"};
   char *new[] = {"\\\"", "\\\\", "\\/", "\\b", "\\f", "\\n", "\\r", "\\t"};
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   snprintf(tmp1, len, "%s", source);
   for (i = 0; i < tab_size; i++) {
     if (str_replace(tmp1, tmp2, len, old[i], new[i])) {
@@ -114,6 +118,7 @@ int sanitize_json_string_url(const char * source, char * target, size_t len) {
   char *old[] = {"\"", "\\", "\b", "\f", "\n", "\r", "\t"};
   char *new[] = {"\\\"", "\\\\", "\\b", "\\f", "\\n", "\\r", "\\t"};
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   snprintf(tmp1, len, "%s", source);
   for (i = 0; i < tab_size; i++) {
     if (str_replace(tmp1, tmp2, len, old[i], new[i])) {
@@ -132,6 +137,7 @@ int sanitize_json_string_url(const char * source, char * target, size_t len) {
  * So if a Fahrenheit values is read, it's converted and returned as celsius
  */
 float fahrenheit_to_celsius(float fahrenheit) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return (roundf(2.0*((fahrenheit-32.0)/1.8))/2.0);
 }
 
@@ -141,5 +147,6 @@ float fahrenheit_to_celsius(float fahrenheit) {
  * So if a Fahrenheit values is to be set, it's converted from celsius
  */
 float celsius_to_fahrenheit(float celsius) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   return (roundf(2.0*((celsius*1.8)+32.0))/2.0);
 }
