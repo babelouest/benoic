@@ -40,6 +40,7 @@ static const char json_template_control_meta_empty[] = "{}";
  * Connect the specified device
  */
 int connect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch (terminal->type) {
     case TYPE_SERIAL:
       return connect_device_arduino(terminal, terminals, nb_terminal);
@@ -61,6 +62,7 @@ int connect_device(device * terminal, device ** terminals, unsigned int nb_termi
  * Reconnect the specified device
  */
 int reconnect_device(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch (terminal->type) {
     case TYPE_SERIAL:
       return reconnect_device_arduino(terminal, terminals, nb_terminal);
@@ -82,6 +84,7 @@ int reconnect_device(device * terminal, device ** terminals, unsigned int nb_ter
  * Close the specified device
  */
 int close_device(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -106,6 +109,7 @@ int close_device(device * terminal) {
  * Check if the specified device is connected
  */
 int is_connected(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -131,6 +135,7 @@ int is_connected(device * terminal) {
  */
 device * get_device_from_name(char * device_name, device ** terminal, unsigned int nb_terminal) {
   int i;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   for (i=0; i<nb_terminal; i++) {
     if (terminal[i] != NULL && 0 == strncmp(terminal[i]->name, device_name, WORDLENGTH)) {
       return terminal[i];
@@ -151,6 +156,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
 	char * output = malloc(sizeof(char)), * one_item = NULL, * tags = NULL, ** tags_array = NULL;
   int str_len;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   strcpy(output, "");
   for (i=0; i<nb_terminal; i++) {
     strcpy(cur_name, "");
@@ -212,6 +218,7 @@ char * get_devices(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
  * Check if the device is alive by sending a command that expects a specific answer
  */
 int send_heartbeat(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -236,6 +243,7 @@ int send_heartbeat(device * terminal) {
  * set the status of a switch
  */
 int set_switch_state(device * terminal, char * switcher, int status) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -260,6 +268,7 @@ int set_switch_state(device * terminal, char * switcher, int status) {
  * get the status of a switch
  */
 int get_switch_state(device * terminal, char * switcher, int force) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -284,6 +293,7 @@ int get_switch_state(device * terminal, char * switcher, int force) {
  * toggle the status of a switch
  */
 int toggle_switch_state(device * terminal, char * switcher) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -313,6 +323,7 @@ float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, i
   sqlite3_stmt *stmt;
   int sql_result, row_result;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     
     sql_query = sqlite3_mprintf("SELECT se_value_type FROM an_sensor\
@@ -351,6 +362,7 @@ float get_sensor_value(sqlite3 * sqlite3_db, device * terminal, char * sensor, i
  * Returns an overview of all zwave devices connected and their last status
  */
 char * get_overview(sqlite3 * sqlite3_db, device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -375,6 +387,7 @@ char * get_overview(sqlite3 * sqlite3_db, device * terminal) {
  * Refresh the zwave devices values
  */
 char * get_refresh(sqlite3 * sqlite3_db, device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -405,6 +418,7 @@ char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher 
 
   int i, output_len, str_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Arranging the results of an overview
   
   // Build switchers string
@@ -530,6 +544,7 @@ char * build_overview_output(sqlite3 * sqlite3_db, char * device_name, switcher 
  */
 heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -554,6 +569,7 @@ heater * get_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id) {
  * Change the heater command
  */
 heater * set_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int heat_enabled, float max_heat_value) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -578,6 +594,7 @@ heater * set_heater(sqlite3 * sqlite3_db, device * terminal, char * heat_id, int
  * Get the dimmer value (obviously)
  */
 int get_dimmer_value(device * terminal, char * dimmer) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:
@@ -602,6 +619,7 @@ int get_dimmer_value(device * terminal, char * dimmer) {
  * Change the dimmer value
  */
 int set_dimmer_value(device * terminal, char * dimmer, int value) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal != NULL && terminal->enabled) {
     switch (terminal->type) {
       case TYPE_SERIAL:

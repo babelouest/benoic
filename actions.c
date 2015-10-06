@@ -43,6 +43,7 @@ char * get_actions(sqlite3 * sqlite3_db, char * device) {
         cur_params[WORDLENGTH+1]={0}, * tags = NULL, cur_action[WORDLENGTH+1], ** tags_array = NULL,
         * actions = malloc(2*sizeof(char)), * sql_query = NULL, * one_item = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device == NULL) {
     sql_query = sqlite3_mprintf("SELECT ac.ac_id, ac.ac_name, ac.ac_type, de.de_name, sw.sw_name, di.di_name, he.he_name,\
                       ac.ac_params FROM an_action ac LEFT OUTER JOIN an_device de ON de.de_id = ac.de_id\
@@ -126,6 +127,7 @@ int run_action(action ac, device ** terminal, unsigned int nb_terminal, sqlite3 
   FILE * command_stream;
   heater * cur_heater = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch (ac.type) {
     case ACTION_SET_SWITCH:
       snprintf(message_log, MSGLENGTH*sizeof(char), "run_action: set_switch_state %s %s %s", ac.device, ac.switcher, ac.params);
@@ -249,6 +251,7 @@ char * add_action(sqlite3 * sqlite3_db, action cur_action) {
   char * sql_query, str_id[WORDLENGTH+1], device[WORDLENGTH+1], switcher[WORDLENGTH+1], dimmer[WORDLENGTH+1], sensor[WORDLENGTH+1], heater[WORDLENGTH+1], params[MSGLENGTH+1], * to_return = NULL, ** tags = NULL, * tags_json = NULL;
   int tr_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_LEVEL_WARNING, "Error inserting action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) ||
@@ -339,6 +342,7 @@ char * set_action(sqlite3 * sqlite3_db, action cur_action) {
         heater[WORDLENGTH+1], params[MSGLENGTH+1], ** tags = NULL, * tags_json = NULL, str_id[WORDLENGTH+1], * to_return = NULL;
   int tr_len;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Verify input data
   if (0 == strcmp(cur_action.name, "")) {log_message(LOG_LEVEL_WARNING, "Error updating action, wrong params"); return NULL;}
   if (cur_action.type == ACTION_SET_SWITCH && (0 == strcmp(cur_action.device, "") || (0 == strcmp(cur_action.switcher, "")) ||
@@ -433,6 +437,7 @@ int delete_action(sqlite3 * sqlite3_db, char * action_id) {
   char *sql_query1 = NULL, *sql_query2 = NULL, *sql_query3 = NULL, *sql_query4 = NULL;
   int result = 0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sql_query1 = sqlite3_mprintf("DELETE FROM an_tag_element WHERE ac_id='%q'", action_id);
   if ( sqlite3_exec(sqlite3_db, sql_query1, NULL, NULL, NULL) == SQLITE_OK ) {
     sql_query2 = sqlite3_mprintf("DELETE FROM an_tag WHERE ta_id NOT IN (SELECT DISTINCT (ta_id) FROM an_tag)");

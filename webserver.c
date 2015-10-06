@@ -222,6 +222,7 @@ int angharad_rest_webservice (void *cls, struct MHD_Connection *connection,
   struct _script * cur_script;
   struct _schedule * cur_schedule;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   sanitize_json_string_url(url, urlcpy, ((urllength*2)+1));
   prefix = strtok_r( urlcpy, delim, &saveptr );
   
@@ -950,6 +951,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
   script    * cur_script;
   schedule  * cur_schedule;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch (con_info->data_type) {
     case DATA_DEVICE:
       cur_device = (struct _device*)con_info->data;
@@ -1244,6 +1246,7 @@ int iterate_post_data (void *coninfo_cls, enum MHD_ValueKind kind, const char *k
 void request_completed (void *cls, struct MHD_Connection *connection,
                    void **con_cls, enum MHD_RequestTerminationCode toe) {
   struct connection_info_struct *con_info = *con_cls;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (NULL == con_info) {
     return;
   }

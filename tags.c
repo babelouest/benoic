@@ -36,6 +36,7 @@ char ** get_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_
   char * sql_query = NULL, * where_element = NULL, cur_tag[WORDLENGTH+1], ** to_return = NULL;
   sqlite3_stmt *stmt;
   int sql_result, row_result, nb_return=0;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch (element_type) {
     case DATA_DEVICE:
       where_element = sqlite3_mprintf("de_id = (SELECT de_id FROM an_device WHERE de_name = '%q')", element);
@@ -98,6 +99,7 @@ char * build_json_tags(char ** tags) {
   char * to_return = NULL, one_tag[(WORDLENGTH*2)+1] = {0};
   int nb_tags=0;
   to_return = malloc(2*sizeof(char));
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   strcpy(to_return, "[");
   for (nb_tags=0; tags[nb_tags] != NULL; nb_tags++) {
     sanitize_json_string(tags[nb_tags], one_tag, WORDLENGTH*sizeof(char));
@@ -123,6 +125,7 @@ char ** build_tags_from_list(char * tags) {
   char ** to_return = NULL, *saveptr, * cur_tag;
   int counter=0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   to_return = malloc(sizeof(char *));
   to_return[0] = NULL;
   if (tags != NULL) {
@@ -148,6 +151,7 @@ int set_tags(sqlite3 * sqlite3_db, char * device_name, unsigned int element_type
   char * sql_query = NULL, * sql_query2 = NULL, * where_element = NULL, element_row[WORDLENGTH+1] = {0};
   int counter = 0, cur_tag = -1, result = -1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (tags != NULL) {
     switch (element_type) {
       case DATA_DEVICE:
@@ -216,6 +220,7 @@ int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
   sqlite3_stmt *stmt;
   int sql_result, row_result, to_return = -1;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (tag != NULL) {
     sql_query = sqlite3_mprintf("SELECT ta_id FROM an_tag WHERE ta_name = '%q'", tag);
     sql_result = sqlite3_prepare_v2(sqlite3_db, sql_query, strlen(sql_query)+1, &stmt, NULL);
@@ -244,6 +249,7 @@ int get_or_create_tag_id(sqlite3 * sqlite3_db, char * tag) {
  */
 int free_tags(char ** tags) {
   int counter = 0;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (tags != NULL) {
     while (tags[counter] != NULL) {
       free(tags[counter]);

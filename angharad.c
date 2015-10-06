@@ -42,6 +42,7 @@ int main (int argc, char **argv) {
   pid_t result;
   int status, nb_restart, server_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Initialize configuration variables
   struct config_elements * config = malloc(sizeof(struct config_elements));
   config->config_file = NULL;
@@ -150,6 +151,7 @@ void exit_handler(int signal) {
 void exit_server(struct config_elements ** config, int exit_value) {
   int i;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config != NULL && *config != NULL) {
     // Cleaning data
     for (i=0; i<(*config)->nb_terminal; i++) {
@@ -196,6 +198,7 @@ int server(struct config_elements * config) {
   int duration = 0;
   struct sockaddr_in bind_address;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (!init_server(config) == -1) {
     log_message(LOG_LEVEL_ERROR, "Error initializing configuration");
     return 1;
@@ -261,6 +264,7 @@ int build_config_from_file(struct config_elements * config) {
               * cur_http_user = NULL, * cur_http_password = NULL;
   int count, i, serial_baud, do_not_check_certificate;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   config_init(&cfg);
   
   if (!config_read_file(&cfg, config->config_file)) {
@@ -475,6 +479,7 @@ int build_config_from_args(int argc, char ** argv, struct config_elements * conf
     {NULL, 0, NULL, 0}
   };
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config != NULL) {
     do {
       next_option = getopt_long(argc, argv, short_options, long_options, NULL);
@@ -639,6 +644,7 @@ int build_config_from_args(int argc, char ** argv, struct config_elements * conf
  */
 int check_config(struct config_elements * config) {
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config->tcp_port == -1) {
     fprintf(stderr, "Error, you must specify a port number\n");
     print_help(stderr);
@@ -681,6 +687,7 @@ int init_server(struct config_elements * config) {
   int to_return = 1;
   pthread_mutexattr_t mutexattr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Initialize Log with configuration variables
   write_log(config->log_mode, config->log_level, config->log_file, LOG_LEVEL_INFO, "Starting Angharad Server");
   log_message(LOG_LEVEL_INFO, "Initializing configuration, using confuration file %s", config->config_file);
@@ -724,6 +731,7 @@ int init_server(struct config_elements * config) {
  * Print help message to output file specified
  */
 void print_help(FILE * output) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   fprintf(output, "\nAngharad REST Webserver\n");
   fprintf(output, "\n");
   fprintf(output, "Commands house automation devices using a JSON/REST interface\n");

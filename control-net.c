@@ -50,6 +50,7 @@ char * parse_overview_net(sqlite3 * sqlite3_db, char * overview_result) {
   sqlite3_stmt *stmt;
   int sql_result, row_result;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   overview_result_cpy = malloc(strlen(overview_result));
   snprintf(overview_result_cpy, strlen(overview_result)-1, "%s", overview_result+1);
   overview_result_cpy[strlen(overview_result_cpy) - 1] = '\0';
@@ -280,6 +281,7 @@ char * parse_overview_net(sqlite3 * sqlite3_db, char * overview_result) {
  * Tell if the terminal is connected
  */
 int is_connected_net(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (!(terminal != NULL && terminal->enabled)) {
     if (terminal!=NULL) {
       terminal->enabled=0;
@@ -294,6 +296,7 @@ int is_connected_net(device * terminal) {
  * Connect the device
  */
 int connect_device_net(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   
   if (terminal == NULL) {
     return -1;
@@ -309,6 +312,7 @@ int connect_device_net(device * terminal, device ** terminals, unsigned int nb_t
  * Reconnect the device if it was disconnected for example
  */
 int reconnect_device_net(device * terminal, device ** terminals, unsigned int nb_terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL) {
     return -1;
   } else {
@@ -320,6 +324,7 @@ int reconnect_device_net(device * terminal, device ** terminals, unsigned int nb
  * Close the connection to the device
  */
 int close_device_net(device * terminal) {
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL) {
     return 0;
   } else {
@@ -339,6 +344,7 @@ int set_switch_state_net(device * terminal, char * switcher, int status) {
   int result = ERROR_SWITCH;
   char * read_cpy, * end_ptr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -367,6 +373,7 @@ int toggle_switch_state_net(device * terminal, char * switcher) {
   int result=ERROR_SWITCH;
   char * read_cpy, * end_ptr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -395,6 +402,7 @@ int get_switch_state_net(device * terminal, char * switcher, int force) {
   int result=ERROR_SWITCH;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -427,6 +435,7 @@ float get_sensor_value_net(device * terminal, char * sensor, int force) {
   float result = ERROR_SENSOR;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -458,6 +467,7 @@ int send_heartbeat_net(device * terminal) {
   int net_result;
   int result = 0;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (!terminal->enabled) {
     return 0;
   }
@@ -486,6 +496,7 @@ char * get_overview_net(sqlite3 * sqlite3_db, device * terminal) {
   int net_result;
   char net_read[MSGLENGTH+1] = {0};
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
@@ -507,6 +518,7 @@ char * get_refresh_net(sqlite3 * sqlite3_db, device * terminal) {
   int net_result;
   char net_read[MSGLENGTH+1];
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return NULL;
   }
@@ -528,6 +540,7 @@ int get_name_net(device * terminal, char * net_read) {
   int net_result;
   char buffer[WORDLENGTH+1];
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -552,6 +565,7 @@ heater * get_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id)
   int net_result;
   heater * cur_heater = malloc(sizeof(heater));
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -581,6 +595,7 @@ heater * set_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id,
   int net_result;
   heater * cur_heater = malloc(sizeof(heater));
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return 0;
   }
@@ -611,6 +626,7 @@ int get_dimmer_value_net(device * terminal, char * dimmer){
   int result=ERROR_DIMMER;
   char * read_cpy, * end_ptr;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -639,6 +655,7 @@ int set_dimmer_value_net(device * terminal, char * dimmer, int value) {
   int result = ERROR_DIMMER;
   char * read_cpy, * end_ptr;
 
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (pthread_mutex_lock(&terminal->lock)) {
     return result;
   }
@@ -667,6 +684,7 @@ int parse_heater_net(sqlite3 * sqlite3_db, char * device, char * heater_name, ch
   int sql_result, row_result;
   char * sql_query = NULL;
   
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   heat_set = strtok_r(source, "|", &saveptr);
   heat_on = strtok_r(NULL, "|", &saveptr);
   heat_max_value = strtok_r(NULL, "|", &saveptr);
@@ -721,7 +739,6 @@ int parse_heater_net(sqlite3 * sqlite3_db, char * device, char * heater_name, ch
   }
 }
 
-// http://curl.haxx.se/docs/copyright.html
 typedef struct _body {
   char * data;
   size_t size;
@@ -731,6 +748,7 @@ size_t write_body(void *contents, size_t size, size_t nmemb, body *body_data)
 {
   size_t realsize = size * nmemb;
  
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   body_data->data = realloc(body_data->data, body_data->size + realsize + 1);
   if(body_data->data == NULL) {
     return 0;
@@ -745,6 +763,7 @@ size_t write_body(void *contents, size_t size, size_t nmemb, body *body_data)
 
 int get_http_response(device * terminal, char * url_action, char * read_data, size_t len) {
   CURLcode res;
+  log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL || url_action == NULL || read_data == NULL) {
     return -1;
   } else {
