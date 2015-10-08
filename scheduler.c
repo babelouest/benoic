@@ -417,7 +417,6 @@ int monitor_sensor(sqlite3 * sqlite3_db, device ** terminal, unsigned int nb_ter
   if (is_scheduled_now(s.monitored_next) || s.monitored_next < now) {
     // Monitor sensor data
     cur_terminal = get_device_from_name(s.device, terminal, nb_terminal);
-
     was_ran = 1;
     sensor_value = get_sensor_value(sqlite3_db, cur_terminal, s.name, 1);
     if (sensor_value != ERROR_SENSOR) {

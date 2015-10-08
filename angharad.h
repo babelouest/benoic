@@ -163,7 +163,6 @@ typedef struct _net_device {
   char            * http_user;
   char            * http_password;
   int             do_not_check_certificate;
-  CURL            * curl_handle;
 } net_device;
 
 typedef struct _switcher {
