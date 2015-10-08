@@ -301,10 +301,8 @@ int connect_device_net(device * terminal, device ** terminals, unsigned int nb_t
   if (terminal == NULL) {
     return -1;
   } else {
-    curl_global_init(CURL_GLOBAL_ALL);
-    ((struct _net_device *)terminal->element)->curl_handle = curl_easy_init();
-    terminal->enabled=(((struct _net_device *)terminal->element)->curl_handle != NULL);
-    return (((struct _net_device *)terminal->element)->curl_handle != NULL);
+    terminal->enabled=1;
+    return 1;
   }
 }
 
@@ -329,8 +327,6 @@ int close_device_net(device * terminal) {
     return 0;
   } else {
     terminal->enabled=0;
-    curl_easy_cleanup(((struct _net_device *)terminal->element)->curl_handle);
-    curl_global_cleanup();
     return 1;
   }
 }
@@ -345,9 +341,6 @@ int set_switch_state_net(device * terminal, char * switcher, int status) {
   char * read_cpy, * end_ptr;
 
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "SETSWITCH/%s/%d\n", switcher, status);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
@@ -360,7 +353,6 @@ int set_switch_state_net(device * terminal, char * switcher, int status) {
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -374,9 +366,6 @@ int toggle_switch_state_net(device * terminal, char * switcher) {
   char * read_cpy, * end_ptr;
 
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "TOGGLESWITCH/%s\n", switcher);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
@@ -389,7 +378,6 @@ int toggle_switch_state_net(device * terminal, char * switcher) {
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -403,9 +391,6 @@ int get_switch_state_net(device * terminal, char * switcher, int force) {
   char * read_cpy, * end_ptr;
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   if (force) {
     snprintf(net_command, WORDLENGTH*sizeof(char), "GETSWITCH/%s/1", switcher);
   } else {
@@ -422,7 +407,6 @@ int get_switch_state_net(device * terminal, char * switcher, int force) {
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -436,9 +420,6 @@ float get_sensor_value_net(device * terminal, char * sensor, int force) {
   char * read_cpy, * end_ptr;
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   if (force) {
     snprintf(net_command, WORDLENGTH*sizeof(char), "SENSOR/%s/1", sensor);
   } else {
@@ -455,7 +436,6 @@ float get_sensor_value_net(device * terminal, char * sensor, int force) {
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -471,9 +451,6 @@ int send_heartbeat_net(device * terminal) {
   if (!terminal->enabled) {
     return 0;
   }
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   
   snprintf(net_command, WORDLENGTH*sizeof(char), "MARCO");
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
@@ -484,7 +461,6 @@ int send_heartbeat_net(device * terminal) {
       result = 0;
     }
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -497,12 +473,8 @@ char * get_overview_net(sqlite3 * sqlite3_db, device * terminal) {
   char net_read[MSGLENGTH+1] = {0};
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return NULL;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "OVERVIEW");
   net_result = get_http_response(terminal, net_command, net_read, MSGLENGTH);
-  pthread_mutex_unlock(&terminal->lock);
   if (net_result > 0) {
     return parse_overview_net(sqlite3_db, net_read);
   } else {
@@ -519,12 +491,8 @@ char * get_refresh_net(sqlite3 * sqlite3_db, device * terminal) {
   char net_read[MSGLENGTH+1];
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return NULL;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "REFRESH");
   net_result = get_http_response(terminal, net_command, net_read, MSGLENGTH);
-  pthread_mutex_unlock(&terminal->lock);
   if (net_result > 0) {
     return parse_overview_net(sqlite3_db, net_read);
   } else {
@@ -541,9 +509,6 @@ int get_name_net(device * terminal, char * net_read) {
   char buffer[WORDLENGTH+1];
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return 0;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "NAME");
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
@@ -553,7 +518,6 @@ int get_name_net(device * terminal, char * net_read) {
       net_read[strlen(net_read) - 1] = '\0';
     }
   }
-  pthread_mutex_unlock(&terminal->lock);
   return (net_result != -1);
 }
 
@@ -566,24 +530,18 @@ heater * get_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id)
   heater * cur_heater = malloc(sizeof(heater));
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return 0;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "GETHEATER/%s", heat_id);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
     net_read[strlen(net_read) - 1] = '\0';
     if (parse_heater_net(sqlite3_db, terminal->name, heat_id, net_read+1, cur_heater)) {
-      pthread_mutex_unlock(&terminal->lock);
       return cur_heater;
     } else {
       free(cur_heater);
-      pthread_mutex_unlock(&terminal->lock);
       return NULL;
     }
   }
   free(cur_heater);
-  pthread_mutex_unlock(&terminal->lock);
   return NULL;
 }
 
@@ -596,24 +554,18 @@ heater * set_heater_net(sqlite3 * sqlite3_db, device * terminal, char * heat_id,
   heater * cur_heater = malloc(sizeof(heater));
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return 0;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "SETHEATER/%s/%d/%.2f", heat_id, heat_enabled, max_heat_value);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
     net_read[strlen(net_read) - 1] = '\0';
     if (parse_heater_net(sqlite3_db, terminal->name, heat_id, net_read+1, cur_heater)) {
-      pthread_mutex_unlock(&terminal->lock);
       return cur_heater;
     } else {
       free(cur_heater);
-      pthread_mutex_unlock(&terminal->lock);
       return NULL;
     }
   }
   free(cur_heater);
-  pthread_mutex_unlock(&terminal->lock);
   return NULL;
 }
 
@@ -627,9 +579,6 @@ int get_dimmer_value_net(device * terminal, char * dimmer){
   char * read_cpy, * end_ptr;
   
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "GETDIMMER/%s", dimmer);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
@@ -642,7 +591,6 @@ int get_dimmer_value_net(device * terminal, char * dimmer){
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -656,9 +604,6 @@ int set_dimmer_value_net(device * terminal, char * dimmer, int value) {
   char * read_cpy, * end_ptr;
 
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (pthread_mutex_lock(&terminal->lock)) {
-    return result;
-  }
   snprintf(net_command, WORDLENGTH*sizeof(char), "SETDIMMER/%s/%d", dimmer, value);
   net_result = get_http_response(terminal, net_command, net_read, WORDLENGTH);
   if (net_result != -1) {
@@ -671,7 +616,6 @@ int set_dimmer_value_net(device * terminal, char * dimmer, int value) {
     }
     free(read_cpy);
   }
-  pthread_mutex_unlock(&terminal->lock);
   return result;
 }
 
@@ -763,6 +707,7 @@ size_t write_body(void *contents, size_t size, size_t nmemb, body *body_data)
 
 int get_http_response(device * terminal, char * url_action, char * read_data, size_t len) {
   CURLcode res;
+  CURL * curl_handle = curl_easy_init();
   log_message(LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (terminal == NULL || url_action == NULL || read_data == NULL) {
     return -1;
@@ -772,16 +717,19 @@ int get_http_response(device * terminal, char * url_action, char * read_data, si
     body_data.size = 0;
     body_data.data = NULL;
     snprintf(full_url, (strlen(terminal->uri)+strlen(url_action)+1), "%s%s", terminal->uri, url_action);
-    curl_easy_setopt(((struct _net_device *)terminal->element)->curl_handle, CURLOPT_URL, full_url);
-    curl_easy_setopt(((struct _net_device *)terminal->element)->curl_handle, CURLOPT_WRITEFUNCTION, write_body);
-    curl_easy_setopt(((struct _net_device *)terminal->element)->curl_handle, CURLOPT_WRITEDATA, &body_data);
-    curl_easy_setopt(((struct _net_device *)terminal->element)->curl_handle, CURLOPT_USERAGENT, "angharad-agent/1.0");
-    res = curl_easy_perform(((struct _net_device *)terminal->element)->curl_handle);
+    curl_easy_setopt(curl_handle, CURLOPT_URL, full_url);
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEFUNCTION, write_body);
+    curl_easy_setopt(curl_handle, CURLOPT_WRITEDATA, &body_data);
+    curl_easy_setopt(curl_handle, CURLOPT_USERAGENT, "angharad-agent/1.0");
+    curl_easy_setopt(curl_handle, CURLOPT_NOSIGNAL, 1);
+    res = curl_easy_perform(curl_handle);
+    curl_easy_cleanup(curl_handle);
     if(res != CURLE_OK) {
       log_message(LOG_LEVEL_ERROR, "http request failed: %s\n", curl_easy_strerror(res));
       return -1;
     } else {
       strncpy(read_data, body_data.data, len);
+      printf("value returned: %s\n", read_data);
       free(body_data.data);
       return body_data.size;
     }

@@ -89,6 +89,12 @@ int main (int argc, char **argv) {
     fprintf(stderr, "Error initializing configuration\n");
     exit_server(&config, ANGHARAD_ERROR);
   }
+  
+  // Start a global curl session
+  if (curl_global_init(CURL_GLOBAL_DEFAULT)) {
+    fprintf(stderr, "Error initializing libcurl\n");
+    exit_server(&config, ANGHARAD_ERROR);
+	}
 
   if (config->auto_restart) {
     result = fork();
@@ -182,6 +188,7 @@ void exit_server(struct config_elements ** config, int exit_value) {
     free(*config);
     (*config) = NULL;
   }
+  curl_global_cleanup();
   exit(exit_value);
 }
 
