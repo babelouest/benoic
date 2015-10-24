@@ -729,7 +729,6 @@ int get_http_response(device * terminal, char * url_action, char * read_data, si
       return -1;
     } else {
       strncpy(read_data, body_data.data, len);
-      printf("value returned: %s\n", read_data);
       free(body_data.data);
       return body_data.size;
     }
