@@ -11,8 +11,8 @@
 # Description:
 ### END INIT INFO
 
-user=nico
-group=odroid
+user=pi
+group=pi
 prefix=/usr/bin
 exec_prefix=${prefix}
 angharad=${prefix}/angharad
@@ -21,17 +21,13 @@ pidfile=/var/run/angharad.pid
 
 case "$1" in
   stop)
-    echo "Stopping angharad "
-    start-stop-daemon --stop --quiet --pidfile $pidfile \
-      --exec $angharad
+    echo -n "Stopping angharad "
+    killall -9 angharad
     echo "OK"
     ;;
 
   start)
     echo -n "Starting Angharad "
-    if [ -f /media/donjon/Documents/camelot/dagonet/memory.txt ]; then
-      mv /media/donjon/Documents/camelot/dagonet/memory.txt /media/donjon/Documents/camelot/dagonet/memory-`date +%Y-%m-%d-%H.%M`.txt
-    fi
     touch $pidfile
     chown $user:$group $pidfile
     start-stop-daemon --start --quiet --make-pidfile --pidfile $pidfile \
