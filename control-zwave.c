@@ -626,6 +626,7 @@ char * get_overview_zwave(sqlite3 * sqlite3_db, device * terminal) {
         }
         
         // Processing CommandClass
+        Manager::Get()->RefreshValue(v);
         if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_OPERATING_STATE ) {
           string * s_status = new string();
           Manager::Get()->GetValueAsString(v, s_status);
@@ -698,6 +699,9 @@ int get_switch_state_zwave(device * terminal, char * switcher, int force) {
   } else {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_BINARY);
     if (v != NULL) {
+      if (force) {
+        Manager::Get()->RefreshValue(*v);
+      }
       if (Manager::Get()->GetValueAsBool((*get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_BINARY)), &b_status)) {
         result = (b_status?1:0);
       }
@@ -757,6 +761,7 @@ int get_dimmer_value_zwave(device * terminal, char * dimmer_name) {
   if (dimmer_name != end_ptr) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SWITCH_MULTILEVEL);
     if (v != NULL) {
+      Manager::Get()->RefreshValue(*v);
       s_status = new string();
       if (Manager::Get()->GetValueAsString((*v), s_status)) {
         result = strtol(s_status->c_str(), NULL, 10);
@@ -812,6 +817,9 @@ float get_sensor_value_zwave(device * terminal, char * sensor_name, int force) {
   if (sensor_name != end_ptr) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_SENSOR_MULTILEVEL);
     if (v != NULL) {
+      if (force) {
+        Manager::Get()->RefreshValue(*v);
+      }
       s_status = new string();
       if (Manager::Get()->GetValueAsString((*v), s_status)) {
         result = strtof(s_status->c_str(), NULL);
@@ -868,6 +876,7 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
   if (heat_id != end_ptr) {
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_MODE);
     if (v != NULL) {
+      Manager::Get()->RefreshValue(*v);
       s_status = new string();
       Manager::Get()->GetValueAsString(*v, s_status);
       if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_MODE_HEAT) == 0) {
@@ -879,6 +888,7 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
     }
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE);
     if (v != NULL) {
+      Manager::Get()->RefreshValue(*v);
       s_status = new string();
       Manager::Get()->GetValueAsString(*v, s_status);
       if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
@@ -890,6 +900,7 @@ heater * get_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
     }
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_SETPOINT);
     if (v != NULL) {
+      Manager::Get()->RefreshValue(*v);
       s_status = new string();
       Manager::Get()->GetValueAsString(*v, s_status);
       cur_heater->heat_max_value = strtof(s_status->c_str(), NULL);
@@ -976,6 +987,7 @@ heater * set_heater_zwave(sqlite3 * sqlite3_db, device * terminal, char * heat_i
     }
     v = get_device_value_id(get_device_node(terminal, node_id), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE);
     if (v != NULL) {
+      Manager::Get()->RefreshValue(*v);
       s_status = new string();
       Manager::Get()->GetValueAsString(*v, s_status);
       if (strcmp(s_status->c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
