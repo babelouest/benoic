@@ -375,16 +375,18 @@ char * get_monitor(sqlite3 * sqlite3_db, const char * device_name, const char * 
  * Write the message given in parameters to the current outputs if the current level matches
  */
 void log_message(unsigned long level, const char * message, ...) {
-  va_list argp;
+  va_list argp, args_cpy;
   size_t out_len = 0;
   char * out = NULL;
   va_start(argp, message);
+  va_copy(args_cpy, argp);
   out_len = vsnprintf(NULL, 0, message, argp);
   out = malloc(out_len+sizeof(char));
-  vsnprintf(out, (out_len+sizeof(char)), message, argp);
+  vsnprintf(out, (out_len+sizeof(char)), message, args_cpy);
   write_log(LOG_MODE_CURRENT, LOG_LEVEL_CURRENT, NULL, level, out);
   free(out);
   va_end(argp);
+  va_end(args_cpy);
 }
 
 /**
@@ -530,7 +532,8 @@ void write_log_file(time_t date, FILE * log_file, unsigned long level, const cha
  * It's not magic ! You MUST manually update the api_rest.json file if you add/remove/modify output commands
  */
 char * get_json_list_commands() {
-  extern uint8_t binary_api_rest_json_size[] asm("_binary_api_rest_json_size");
+  return NULL;
+  /*extern uint8_t binary_api_rest_json_size[] asm("_binary_api_rest_json_size");
   extern char _binary_api_rest_json_start;
   extern char _binary_api_rest_json_end;
   
@@ -543,5 +546,5 @@ char * get_json_list_commands() {
     json_list_data[json_list_i++] = *json_list_p++;
   }
   json_list_data[json_list_i] = '\0';
-  return json_list_data;
+  return json_list_data;*/
 }

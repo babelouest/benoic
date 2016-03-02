@@ -40,10 +40,10 @@ CPP=g++
 all: release
 
 static: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
-	$(CPP) $(LDFLAGSSTATIC) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
+	$(CPP) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o $(LDFLAGSSTATIC)
 
-angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
-	$(CPP) $(LIBS) $(LDFLAGS) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o api_rest.o
+angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
+	$(CPP) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o $(LIBS) $(LDFLAGS)
 
 angharad.o: angharad.c angharad.h
 	$(CC) $(CFLAGS) $(FLAGS) angharad.c
@@ -88,8 +88,8 @@ arduino-serial-lib.o: arduino-serial-lib.c arduino-serial-lib.h
 	$(CC) $(CFLAGS) $(FLAGS) arduino-serial-lib.c
 
 api_rest.o: api_rest.json
-#	objcopy --input binary --output elf64-little --binary-architecture i386 api_rest.json api_rest.o
-	objcopy --input binary --output elf32-littlearm --binary-architecture arm api_rest.json api_rest.o
+	objcopy --input binary --output elf64-little --binary-architecture i386:x86-64 api_rest.json api_rest.o
+#	objcopy --input binary --output elf32-littlearm --binary-architecture arm api_rest.json api_rest.o
 
 clean:
 	rm -f *.o angharad
