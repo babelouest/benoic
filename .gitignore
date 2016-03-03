@@ -1,0 +1,4 @@
+*.o
+benoic-standalone
+unit-tests
+benoic.conf
