@@ -1,14 +1,11 @@
 #
-# Angharad server
+# Benoic House Automation service
 #
-# Environment used to control home devices (switches, sensors, heaters, etc)
-# Using different protocols and controllers:
-# - Arduino UNO
-# - ZWave
+# Command house automation devices via an HTTP REST interface
 #
 # Makefile used to build the software
 #
-# Copyright 2014-2015 Nicolas Mora <mail@babelouest.org>
+# Copyright 2016 Nicolas Mora <mail@babelouest.org>
 #
 # This program is free software; you can redistribute it and/or
 # modify it under the terms of the GNU GENERAL PUBLIC LICENSE
@@ -25,93 +22,50 @@
 #
 
 # Environment variables
-# Modify them to fit your system
+PREFIX=/usr/local
 CC=gcc
-CFLAGS=-c -Wall -D_REENTRANT $(ADDITIONALFLAGS)
-LIBS=-lc -lmicrohttpd -lconfig -lsqlite3 -lm -lpthread -lopenzwave -ludev -lcurl
-KILLALLFLAG=-q
+CFLAGS=-c -Wall -D_REENTRANT -I$(PREFIX)/include $(ADDITIONALFLAGS)
+LIBS=-L$(PREFIX)/lib -lc -ldl -lpthread -ljansson -lulfius -lhoel -lyder -lorcania
+MODULES_LOCATION=device-modules
 
-oz_include=/usr/local/include/openzwave/
+benoic-standalone: benoic.o device.o device-element.o benoic-standalone.o
+	$(CC) -o benoic-standalone benoic-standalone.o benoic.o device.o device-element.o $(LIBS) -lconfig
 
-OZINCLUDES:= -I $(oz_include) -I $(oz_include)command_classes -I $(oz_include)platform -I $(oz_include)value_classes
-LDFLAGS += -L/usr/local/lib -Wl,-R/usr/local/lib '-Wl,-R$$ORIGIN'
-CPP=g++
+benoic-standalone.o: benoic-standalone.c benoic.h
+	$(CC) $(CFLAGS) benoic-standalone.c
+
+benoic.o: benoic.c benoic.h
+	$(CC) $(CFLAGS) benoic.c
+
+device.o: device.c benoic.h
+	$(CC) $(CFLAGS) device.c
+
+device-element.o: device-element.c benoic.h
+	$(CC) $(CFLAGS) device-element.c
+
+modules:
+	cd $(MODULES_LOCATION) && $(MAKE) debug
 
 all: release
 
-static: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o
-	$(CPP) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o api_rest.o $(LDFLAGSSTATIC)
-
-angharad: angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o tags.o tools.o misc.o
-	$(CPP) -o angharad angharad.o arduino-serial-lib.o scheduler.o control-meta.o control-arduino.o control-zwave.o control-net.o webserver.o set-data.o actions.o scripts.o misc.o tags.o tools.o $(LIBS) $(LDFLAGS)
-
-angharad.o: angharad.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) angharad.c
-
-webserver.o: angharad.h webserver.c
-	$(CC) $(CFLAGS) $(FLAGS) webserver.c
-
-set-data.o: angharad.h set-data.c
-	$(CC) $(CFLAGS) $(FLAGS) set-data.c
-
-actions.o: angharad.h actions.c
-	$(CC) $(CFLAGS) $(FLAGS) actions.c
-
-scripts.o: angharad.h scripts.c
-	$(CC) $(CFLAGS) $(FLAGS) scripts.c
-
-tags.o: angharad.h tags.c
-	$(CC) $(CFLAGS) $(FLAGS) tags.c
-
-tools.o: angharad.h tools.c
-	$(CC) $(CFLAGS) $(FLAGS) tools.c
-
-misc.o: angharad.h misc.c
-	$(CC) $(CFLAGS) $(FLAGS) misc.c
-
-control-meta.o: control-meta.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) control-meta.c
-
-control-arduino.o: control-arduino.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) control-arduino.c
-
-control-zwave.o: control-zwave.c angharad.h
-	$(CPP) $(CFLAGS) $(FLAGS) $(OZINCLUDES) control-zwave.c
-
-control-net.o: control-net.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) control-net.c
-
-scheduler.o: scheduler.c angharad.h
-	$(CC) $(CFLAGS) $(FLAGS) scheduler.c
-
-arduino-serial-lib.o: arduino-serial-lib.c arduino-serial-lib.h
-	$(CC) $(CFLAGS) $(FLAGS) arduino-serial-lib.c
-
-api_rest.o: api_rest.json
-	objcopy --input binary --output elf64-little --binary-architecture i386:x86-64 api_rest.json api_rest.o
-#	objcopy --input binary --output elf32-littlearm --binary-architecture arm api_rest.json api_rest.o
-
-clean:
-	rm -f *.o angharad
-
-stop:
-	-sudo service angharad stop
-
-start:
-	sudo service angharad start
-
-install: angharad
-	sudo cp -f angharad /usr/bin
-	
-run: angharad stop install start
-
-test: debug
-	./angharad --config-file=/etc/angharad.conf --log-mode=console --log-level=DEBUG
-
 debug: ADDITIONALFLAGS=-DDEBUG -g -O0
 
-debug: angharad
+debug: benoic-standalone unit-tests modules
+
+release-standalone: ADDITIONALFLAGS=-O3
+
+release-standalone: benoic-standalone
 
 release: ADDITIONALFLAGS=-O3
 
-release: angharad
+release: benoic.o device.o
+
+test: debug
+	./benoic-standalone
+
+clean:
+	rm -f *.o benoic-standalone unit-tests valgrind.txt
+	cd $(MODULES_LOCATION) && $(MAKE) clean
+
+unit-tests: unit-tests.c
+	$(CC) -o unit-tests unit-tests.c -lc -lulfius -lorcania -ljansson -L$(PREFIX)/lib
