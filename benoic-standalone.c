@@ -239,7 +239,6 @@ void exit_server(struct config_elements ** config, int exit_value) {
   if (config != NULL && *config != NULL) {
     // Cleaning data
 
-    stop_benoic((*config)->b_config);
     h_close_db((*config)->b_config->conn);
     h_clean_connection((*config)->b_config->conn);
     ulfius_stop_framework((*config)->instance);
@@ -525,14 +524,16 @@ int main(int argc, char ** argv) {
   
   // Start the webservice
   y_log_message(Y_LOG_LEVEL_INFO, "Start benoic on port %d, prefix: %s", config->instance->port, config->url_prefix);
-  if (ulfius_start_framework(config->instance) == U_OK && start_benoic(config->b_config) == B_OK) {
+  if (ulfius_start_framework(config->instance) == U_OK) {
     while (global_handler_variable == BENOIC_RUNNING) {
       sleep(1);
     }
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "Error starting benoic webserver");
+    close_benoic(config->instance, config->url_prefix, config->b_config);
     exit_server(&config, BENOIC_ERROR);
   }
+  close_benoic(config->instance, config->url_prefix, config->b_config);
   exit_server(&config, BENOIC_STOP);
   return 0;
 }

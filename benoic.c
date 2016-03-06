@@ -28,11 +28,13 @@
 /**
  * init_benoic
  * 
- * Load devices modules in the specified path
  * Initialize Benoic webservice with prefix and database connection parameters
  * 
  */
 int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config) {
+  pthread_t thread_monitor;
+  int thread_ret_monitor = 0, thread_detach_monitor = 0;
+
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     
     // Devices management
@@ -57,43 +59,30 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag", NULL, NULL, NULL, &callback_benoic_device_element_remove_tag, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/", NULL, NULL, NULL, &callback_benoic_device_element_monitor, (void*)config);
     
+    if (config != NULL) {
+      
+      // Get differents types available for devices by loading library files in module_path
+      if (init_device_type_list(config) != B_OK) {
+        y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error loading device types list");
+        return B_ERROR_IO;
+      }
+      
+      // Start monitor thread
+      config->benoic_status = BENOIC_STATUS_RUN;
+      thread_ret_monitor = pthread_create(&thread_monitor, NULL, thread_monitor_run, (void *)config);
+      thread_detach_monitor = pthread_detach(thread_monitor);
+      if (thread_ret_monitor || thread_detach_monitor) {
+        y_log_message(Y_LOG_LEVEL_ERROR, "Error creating or detaching monitor thread, return code: %d, detach code: %d",
+                    thread_ret_monitor, thread_detach_monitor);
+      }
+      
+      return B_OK;
+    } else {
+      return B_ERROR_PARAM;
+    }
     return B_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error input parameters");
-    return B_ERROR_PARAM;
-  }
-}
-
-/**
- * start_benoic
- * 
- * Initialize device types list
- * start thread_monitor and detach it
- * 
- */
-int start_benoic(struct _benoic_config * config) {
-  pthread_t thread_monitor;
-  int thread_ret_monitor = 0, thread_detach_monitor = 0;
-
-  if (config != NULL) {
-    
-    // Get differents types available for devices by loading library files in module_path
-    if (init_device_type_list(config) != B_OK) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error loading device types list");
-      return B_ERROR_IO;
-    }
-    
-    // Start monitor thread
-    config->benoic_status = BENOIC_STATUS_RUN;
-    thread_ret_monitor = pthread_create(&thread_monitor, NULL, thread_monitor_run, (void *)config);
-    thread_detach_monitor = pthread_detach(thread_monitor);
-    if (thread_ret_monitor || thread_detach_monitor) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error creating or detaching monitor thread, return code: %d, detach code: %d",
-                  thread_ret_monitor, thread_detach_monitor);
-    }
-    
-    return B_OK;
-  } else {
     return B_ERROR_PARAM;
   }
 }
@@ -103,8 +92,25 @@ int start_benoic(struct _benoic_config * config) {
  * 
  * Send a stop signal to thread_monitor and disconnect all devices
  */
-int stop_benoic(struct _benoic_config * config) {
+int close_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config) {
   int res;
+  
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name");
+  ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/");
+  ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name");
+  ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/connect");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/disconnect");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/ping");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/overview");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command");
+  ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name");
+  ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/@device_name/@element_type/@element_name/add_tag/@tag");
+  ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag");
+  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/");
   
   config->benoic_status = BENOIC_STATUS_STOPPING;
   while (config->benoic_status != BENOIC_STATUS_STOP) {
