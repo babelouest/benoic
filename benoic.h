@@ -161,8 +161,7 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
 
 // benoic initialization function
 int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config);
-int start_benoic(struct _benoic_config * config);
-int stop_benoic(struct _benoic_config * config);
+int close_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config);
 void clean_benoic(struct _benoic_config * config);
 int init_device_type_list(struct _benoic_config * config);
 int close_device_type_list(struct _device_type * device_type_list);

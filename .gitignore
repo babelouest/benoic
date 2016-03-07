@@ -1,4 +1,5 @@
 *.o
+*/*.so
 benoic-standalone
 unit-tests
 benoic.conf
