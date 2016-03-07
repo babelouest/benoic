@@ -28,7 +28,6 @@
 /**
  * init_benoic
  * 
- * Load devices modules in the specified path
  * Initialize Benoic webservice with prefix and database connection parameters
  * 
  */
