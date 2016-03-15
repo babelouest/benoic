@@ -358,7 +358,7 @@ int build_config_from_file(struct config_elements * config) {
     }
   }
 
-  if (!y_init_logs(BENOIC_LOG_NAME, config->log_mode, config->log_level, config->log_file, "Starting Benoic alert and messenger service")) {
+  if (!y_init_logs(BENOIC_LOG_NAME, config->log_mode, config->log_level, config->log_file, "Starting Benoic house automation service")) {
     fprintf(stderr, "Error initializing logs\n");
     exit_server(&config, BENOIC_ERROR);
   }

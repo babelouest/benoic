@@ -262,6 +262,7 @@ int init_device_type_list(struct _benoic_config * config) {
     }
     return B_OK;
   } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error input parameters");
     return B_ERROR_PARAM;
   }
 }

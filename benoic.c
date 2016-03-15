@@ -59,27 +59,23 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag", NULL, NULL, NULL, &callback_benoic_device_element_remove_tag, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/", NULL, NULL, NULL, &callback_benoic_device_element_monitor, (void*)config);
     
-    if (config != NULL) {
-      
-      // Get differents types available for devices by loading library files in module_path
-      if (init_device_type_list(config) != B_OK) {
-        y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error loading device types list");
-        return B_ERROR_IO;
-      }
-      
-      // Start monitor thread
-      config->benoic_status = BENOIC_STATUS_RUN;
-      thread_ret_monitor = pthread_create(&thread_monitor, NULL, thread_monitor_run, (void *)config);
-      thread_detach_monitor = pthread_detach(thread_monitor);
-      if (thread_ret_monitor || thread_detach_monitor) {
-        y_log_message(Y_LOG_LEVEL_ERROR, "Error creating or detaching monitor thread, return code: %d, detach code: %d",
-                    thread_ret_monitor, thread_detach_monitor);
-      }
-      
-      return B_OK;
-    } else {
-      return B_ERROR_PARAM;
+    // Get differents types available for devices by loading library files in module_path
+    if (init_device_type_list(config) != B_OK) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error loading device types list");
+      return B_ERROR_IO;
     }
+    
+    // Start monitor thread
+    config->benoic_status = BENOIC_STATUS_RUN;
+    thread_ret_monitor = pthread_create(&thread_monitor, NULL, thread_monitor_run, (void *)config);
+    thread_detach_monitor = pthread_detach(thread_monitor);
+    if (thread_ret_monitor || thread_detach_monitor) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error creating or detaching monitor thread, return code: %d, detach code: %d",
+                  thread_ret_monitor, thread_detach_monitor);
+      return B_ERROR_IO;
+    }
+    
+    y_log_message(Y_LOG_LEVEL_INFO, "benoic is available on prefix %s", url_prefix);
     return B_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error input parameters");
