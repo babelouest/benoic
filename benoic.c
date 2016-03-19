@@ -91,37 +91,44 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
 int close_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config) {
   int res;
   
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name");
-  ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/");
-  ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name");
-  ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/connect");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/disconnect");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/ping");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/overview");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command");
-  ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name");
-  ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/@device_name/@element_type/@element_name/add_tag/@tag");
-  ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag");
-  ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/");
-  
-  config->benoic_status = BENOIC_STATUS_STOPPING;
-  while (config->benoic_status != BENOIC_STATUS_STOP) {
-    sleep(1);
+  if (instance != NULL && url_prefix != NULL && config != NULL) {
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name");
+    ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/");
+    ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name");
+    ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/connect");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/disconnect");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/ping");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/overview");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command");
+    ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name");
+    ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/@device_name/@element_type/@element_name/add_tag/@tag");
+    ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/");
+    
+    config->benoic_status = BENOIC_STATUS_STOPPING;
+    while (config->benoic_status != BENOIC_STATUS_STOP) {
+      sleep(1);
+    }
+    
+    res = disconnect_all_devices(config);
+    if (res != B_OK) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error disconnecting all devices");
+      return res;
+    }
+    res = close_device_type_list(config->device_type_list);
+    if (res != B_OK) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error closing device type list");
+      return res;
+    }
+    return B_OK;
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error input parameters");
+    return B_ERROR_PARAM;
   }
-  
-  res = disconnect_all_devices(config);
-  if (res != B_OK) {
-    return res;
-  }
-  res = close_device_type_list(config->device_type_list);
-  if (res != B_OK) {
-    return res;
-  }
-  return B_OK;
 }
 
 /**
@@ -246,6 +253,7 @@ void * get_device_ptr(struct _benoic_config * config, const char * device_name) 
   int i;
   
   if (config == NULL || device_name == NULL) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "get_device_ptr - Error input parameters");
     return NULL;
   }
   
@@ -333,6 +341,7 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
     }
     return B_OK;
   } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "remove_device_data - Error input parameters");
     return B_ERROR_PARAM;
   }
 }
@@ -344,8 +353,8 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
 int disconnect_all_devices(struct _benoic_config * config) {
   int i;
   json_t * device;
-  if (config->device_data_list != NULL) {
-    for (i=0; config->device_data_list[i].device_name != NULL; i++) {
+  if (config != NULL) {
+    for (i=0; config->device_data_list != NULL && config->device_data_list[i].device_name != NULL; i++) {
       device = get_device(config, config->device_data_list[i].device_name);
       if (device != NULL) {
         disconnect_device(config, device, 0);
@@ -356,6 +365,7 @@ int disconnect_all_devices(struct _benoic_config * config) {
     free(config->device_data_list);
     return B_OK;
   } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "disconnect_all_devices - Error input parameters");
     return B_ERROR_PARAM;
   }
 }
