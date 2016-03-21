@@ -66,7 +66,6 @@ int init_device_type_list(struct _benoic_config * config) {
   char * file_path;
   void * file_handle;
   int res;
-  struct _device_type * tmp;
   size_t nb_device_types = 0, index;
   
   config->device_type_list = malloc(sizeof(struct _device_type));
@@ -148,13 +147,14 @@ int init_device_type_list(struct _benoic_config * config) {
           
           if (cur_device.uid != NULL && cur_device.name != NULL && cur_device.description != NULL) {
             nb_device_types++;
-            tmp = realloc(config->device_type_list, (nb_device_types+1)*sizeof(struct _device_type));
-            if (tmp == NULL) {
+            config->device_type_list = realloc(config->device_type_list, (nb_device_types+1)*sizeof(struct _device_type));
+            if (config->device_type_list == NULL) {
               y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error allocating resources for device_type_list");
               close_device_type_list(config->device_type_list);
+              free(config->device_type_list);
+              config->device_type_list = NULL;
               return B_ERROR_MEMORY;
             }
-            config->device_type_list = tmp;
             config->device_type_list[nb_device_types - 1].uid = cur_device.uid;
             config->device_type_list[nb_device_types - 1].name = cur_device.name;
             config->device_type_list[nb_device_types - 1].description = cur_device.description;

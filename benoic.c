@@ -55,8 +55,8 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name", NULL, NULL, NULL, &callback_benoic_device_element_get, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command", NULL, NULL, NULL, &callback_benoic_device_element_set, (void*)config);
     ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name", NULL, NULL, NULL, &callback_benoic_device_element_put, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "POST", url_prefix, "/device/@device_name/@element_type/@element_name/add_tag/@tag", NULL, NULL, NULL, &callback_benoic_device_element_add_tag, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag", NULL, NULL, NULL, &callback_benoic_device_element_remove_tag, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", NULL, NULL, NULL, &callback_benoic_device_element_add_tag, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", NULL, NULL, NULL, &callback_benoic_device_element_remove_tag, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/", NULL, NULL, NULL, &callback_benoic_device_element_monitor, (void*)config);
     
     // Get differents types available for devices by loading library files in module_path
@@ -105,8 +105,8 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command");
     ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name");
-    ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/@device_name/@element_type/@element_name/add_tag/@tag");
-    ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/remove_tag/@tag");
+    ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name/@tag");
+    ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/@tag");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/");
     
     config->benoic_status = BENOIC_STATUS_STOPPING;
@@ -120,11 +120,15 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
       return res;
     }
     res = close_device_type_list(config->device_type_list);
+    free(config->device_type_list);
+    config->device_type_list = NULL;
     if (res != B_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error closing device type list");
       return res;
+    } else {
+      y_log_message(Y_LOG_LEVEL_INFO, "closing benoic");
+      return B_OK;
     }
-    return B_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error input parameters");
     return B_ERROR_PARAM;
@@ -137,7 +141,6 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
  * clean configuration structure
  */
 void clean_benoic(struct _benoic_config * config) {
-  free(config->device_type_list);
   free(config->modules_path);
   free(config);
 }
@@ -236,12 +239,10 @@ void * thread_monitor_run(void * args) {
           y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error allocating resources for j_query");
         }
       }
-      
       sleep(1);
     }
     config->benoic_status = BENOIC_STATUS_STOP;
   }
-  
   return NULL;
 }
 
@@ -297,7 +298,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
     for (device_data_list_size = 0; config->device_data_list[device_data_list_size].device_ptr != NULL; device_data_list_size++);
     tmp = realloc(config->device_data_list, (device_data_list_size + 2)*sizeof(struct _benoic_device_data));
     if (tmp == NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list");
+      y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error reallocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
     }
     config->device_data_list = tmp;
@@ -363,6 +364,7 @@ int disconnect_all_devices(struct _benoic_config * config) {
       free(config->device_data_list[i].device_name);
     }
     free(config->device_data_list);
+    config->device_data_list = NULL;
     return B_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "disconnect_all_devices - Error input parameters");

@@ -54,7 +54,7 @@ debug: benoic-standalone unit-tests modules
 
 release-standalone: ADDITIONALFLAGS=-O3
 
-release-standalone: benoic-standalone
+release-standalone: benoic-standalone modules
 
 release: ADDITIONALFLAGS=-O3
 
