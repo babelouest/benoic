@@ -109,9 +109,11 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
     ulfius_remove_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/@tag");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/");
     
-    config->benoic_status = BENOIC_STATUS_STOPPING;
-    while (config->benoic_status != BENOIC_STATUS_STOP) {
-      sleep(1);
+    if (config->benoic_status == BENOIC_STATUS_RUN) {
+      config->benoic_status = BENOIC_STATUS_STOPPING;
+      while (config->benoic_status != BENOIC_STATUS_STOP) {
+        sleep(1);
+      }
     }
     
     res = disconnect_all_devices(config);

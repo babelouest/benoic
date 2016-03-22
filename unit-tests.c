@@ -28,7 +28,8 @@
 #include <ulfius.h>
 #include <orcania.h>
 
-#define SERVER_URL_PREFIX "http://localhost:2642/benoic"
+//#define SERVER_URL_PREFIX "http://localhost:2642/benoic"
+#define SERVER_URL_PREFIX "http://localhost:2473/benoic"
 
 /**
  * decode a u_map into a string

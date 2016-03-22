@@ -101,6 +101,7 @@ struct _device_type {
   json_t * (* b_device_set_dimmer) (json_t * device, const char * dimmer_name, const int command, void * device_ptr);
   json_t * (* b_device_get_heater) (json_t * device, const char * heater_name, void * device_ptr);
   json_t * (* b_device_set_heater) (json_t * device, const char * heater_name, const int mode, const float command, void * device_ptr);
+  int      (* b_device_has_element) (json_t * device, int element_type, const char * element_name, void * device_ptr);
 };
 
 struct _benoic_device_data {

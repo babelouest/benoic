@@ -132,11 +132,12 @@ int init_device_type_list(struct _benoic_config * config) {
         *(void **) (&cur_device.b_device_set_dimmer) = dlsym(cur_device.dl_handle, "b_device_set_dimmer");
         *(void **) (&cur_device.b_device_get_heater) = dlsym(cur_device.dl_handle, "b_device_get_heater");
         *(void **) (&cur_device.b_device_set_heater) = dlsym(cur_device.dl_handle, "b_device_set_heater");
+        *(void **) (&cur_device.b_device_has_element) = dlsym(cur_device.dl_handle, "b_device_has_element");
         
         if ((cur_device.b_device_type_init != NULL) && (cur_device.b_device_connect != NULL) && (cur_device.b_device_disconnect != NULL) && (cur_device.b_device_ping != NULL) && (cur_device.b_device_overview != NULL) &&
             (cur_device.b_device_get_sensor != NULL) && (cur_device.b_device_get_switch != NULL) && (cur_device.b_device_set_switch != NULL) &&
             (cur_device.b_device_get_dimmer != NULL) && (cur_device.b_device_set_dimmer != NULL) && (cur_device.b_device_get_heater != NULL) && 
-            (cur_device.b_device_set_heater != NULL)) {
+            (cur_device.b_device_set_heater != NULL) && (cur_device.b_device_has_element != NULL)) {
           device_handshake = (*cur_device.b_device_type_init)();
           cur_device.uid = nstrdup(json_string_value(json_object_get(device_handshake, "uid")));
           cur_device.name = nstrdup(json_string_value(json_object_get(device_handshake, "name")));
@@ -173,6 +174,7 @@ int init_device_type_list(struct _benoic_config * config) {
             config->device_type_list[nb_device_types - 1].b_device_set_dimmer = cur_device.b_device_set_dimmer;
             config->device_type_list[nb_device_types - 1].b_device_get_heater = cur_device.b_device_get_heater;
             config->device_type_list[nb_device_types - 1].b_device_set_heater = cur_device.b_device_set_heater;
+            config->device_type_list[nb_device_types - 1].b_device_has_element = cur_device.b_device_has_element;
 
             config->device_type_list[nb_device_types].uid = NULL;
             config->device_type_list[nb_device_types].name = NULL;
@@ -232,15 +234,19 @@ int init_device_type_list(struct _benoic_config * config) {
             y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error handshake for module %s", file_path);
           }
         } else {
-          y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting all function handles for module %s: b_device_type_init %p, b_device_connect %p, b_device_disconnect %p, b_device_ping %p, b_device_overview %p, b_device_get_sensor_value %p, b_device_get_switch_value %p, b_device_set_switch_value %p, b_device_get_dimmer_value %p, b_device_set_dimmer_value %p, b_device_get_heater_value %p, b_device_set_heater_value %p", file_path,
+          y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting all function handles for module %s: b_device_type_init %p, b_device_connect %p, b_device_disconnect %p, b_device_ping %p, b_device_overview %p, b_device_get_sensor_value %p, b_device_get_switch_value %p, b_device_set_switch_value %p, b_device_get_dimmer_value %p, b_device_set_dimmer_value %p, b_device_get_heater_value %p, b_device_set_heater_value %p, b_device_has_element %p", file_path,
           cur_device.b_device_type_init, cur_device.b_device_connect, cur_device.b_device_disconnect, cur_device.b_device_ping, cur_device.b_device_overview, cur_device.b_device_get_sensor,
           cur_device.b_device_get_switch, cur_device.b_device_set_switch, cur_device.b_device_get_dimmer, cur_device.b_device_set_dimmer,
-          cur_device.b_device_get_heater, cur_device.b_device_set_heater);
+          cur_device.b_device_get_heater, cur_device.b_device_set_heater, cur_device.b_device_has_element);
         }
       }
       free(file_path);
     }
     closedir(modules_directory);
+    
+    if (nb_device_types == 0) {
+      y_log_message(Y_LOG_LEVEL_WARNING, "No device type found for benoic subsystem. If not needed, you can disable it");
+    }
     
     // Connect all devices that are marked connected in the database
     device_list = get_device(config, NULL);

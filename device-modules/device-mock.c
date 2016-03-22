@@ -18,11 +18,18 @@
 #include <jansson.h>
 #include <math.h>
 #include <time.h>
+#include <yder.h>
 
 #define RESULT_ERROR     0
 #define RESULT_OK        1
 #define RESULT_NOT_FOUND 2
 #define RESULT_TIMEOUT   3
+
+#define ELEMENT_TYPE_NONE   0
+#define ELEMENT_TYPE_SENSOR 1
+#define ELEMENT_TYPE_SWITCH 2
+#define ELEMENT_TYPE_DIMMER 3
+#define ELEMENT_TYPE_HEATER 4
 
 #define NB_SECONDS_PER_DAY 86400
 
@@ -108,6 +115,7 @@ json_t * b_device_ping (json_t * device, void * device_ptr) {
  * Returns a mocked overview with 2 sensors, 2 switches, 2 dimmers and 2 heaters
  */
 json_t * b_device_overview (json_t * device, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command overview for device %s", json_string_value(json_object_get(device, "name")));
   return json_pack("{sis{sfsf}s{sisi}s{sisi}s{s{sssf}s{sssf}}}",
                    "result", RESULT_OK,
                    "sensors", "se1", get_sensor_value("se1"), "se2", get_sensor_value("se2"),
@@ -122,6 +130,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
  * Get the sensor value
  */
 json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command sensor for sensor %s on device %s", sensor_name, json_string_value(json_object_get(device, "name")));
   if (0 == strcmp(sensor_name, "se1") || 0 == strcmp(sensor_name, "se2")) {
     return json_pack("{sisf}", "result", RESULT_OK, "value", get_sensor_value(sensor_name));
   } else {
@@ -133,6 +142,7 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
  * Get the switch value
  */
 json_t * b_device_get_switch (json_t * device, const char * switch_name, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_switch for switch %s on device %s", switch_name, json_string_value(json_object_get(device, "name")));
   if (0 == strcmp(switch_name, "sw1")) {
     return json_pack("{sisi}", "result", RESULT_OK, "value", 0);
   } else if (0 == strcmp(switch_name, "sw2")) {
@@ -146,6 +156,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
  * Set the switch command
  */
 json_t * b_device_set_switch (json_t * device, const char * switch_name, const int command, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_switch for switch %s on device %s with the value %d", switch_name, json_string_value(json_object_get(device, "name")), command);
   if (0 == strcmp(switch_name, "sw1") || 0 == strcmp(switch_name, "sw2")) {
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -157,6 +168,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
  * Get the dimmer value
  */
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_dimmer for dimmer %s on device %s", dimmer_name, json_string_value(json_object_get(device, "name")));
   if (0 == strcmp(dimmer_name, "di1")) {
     return json_pack("{sisi}", "result", RESULT_OK, "value", 42);
   } else if (0 == strcmp(dimmer_name, "di2")) {
@@ -170,6 +182,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
  * Set the dimmer command
  */
 json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const int command, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_dimmer for dimmer %s on device %s with the value %d", dimmer_name, json_string_value(json_object_get(device, "name")), command);
   if (0 == strcmp(dimmer_name, "di1") || 0 == strcmp(dimmer_name, "di2")) {
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -181,6 +194,7 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
  * Get the heater value
  */
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_heater for heater %s on device %s", heater_name, json_string_value(json_object_get(device, "name")));
   if (0 == strcmp(heater_name, "he1")) {
     return json_pack("{sisssf}", "result", RESULT_OK, "mode", "auto", "value", 18.0);
   } else if (0 == strcmp(heater_name, "he2")) {
@@ -194,6 +208,7 @@ json_t * b_device_get_heater (json_t * device, const char * heater_name, void * 
  * Set the heater command
  */
 json_t * b_device_set_heater (json_t * device, const char * heater_name, const int mode, const float command, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_heater for heater %s on device %s with the value %f and the mode %d", heater_name, json_string_value(json_object_get(device, "name")), command, mode);
   if (0 == strcmp(heater_name, "he1") || 0 == strcmp(heater_name, "he2")) {
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -201,4 +216,26 @@ json_t * b_device_set_heater (json_t * device, const char * heater_name, const i
   }
 }
 
-
+/**
+ * Return true if an element with the specified name and the specified type exist in this device
+ */
+int b_device_has_element (json_t * device, int element_type, const char * element_name, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Checking if element '%s' of type %d exists in device %s", element_name, element_type, json_string_value(json_object_get(device, "name")));
+  switch (element_type) {
+    case ELEMENT_TYPE_SENSOR:
+      return (0 == strcmp(element_name, "se1") || 0 == strcmp(element_name, "se2"));
+      break;
+    case ELEMENT_TYPE_SWITCH:
+      return (0 == strcmp(element_name, "sw1") || 0 == strcmp(element_name, "sw2"));
+      break;
+    case ELEMENT_TYPE_DIMMER:
+      return (0 == strcmp(element_name, "di1") || 0 == strcmp(element_name, "di2"));
+      break;
+    case ELEMENT_TYPE_HEATER:
+      return (0 == strcmp(element_name, "he1") || 0 == strcmp(element_name, "he2"));
+      break;
+    default:
+      return 0;
+      break;
+  }
+}

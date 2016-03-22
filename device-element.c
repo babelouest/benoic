@@ -30,31 +30,13 @@
  * return true or false
  */
 int has_element(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name) {
-  json_t * result = NULL;
+  struct _device_type * device_type = get_device_type(config, device);
   
-  switch (element_type) {
-    case BENOIC_ELEMENT_TYPE_SENSOR:
-      result = get_sensor(config, device, element_name);
-      break;
-    case BENOIC_ELEMENT_TYPE_SWITCH:
-      result = get_switch(config, device, element_name);
-      break;
-    case BENOIC_ELEMENT_TYPE_DIMMER:
-      result = get_dimmer(config, device, element_name);
-      break;
-    case BENOIC_ELEMENT_TYPE_HEATER:
-      result = get_heater(config, device, element_name);
-      break;
-    default:
-      return 0;
-      break;
-  }
-  if (result == NULL) {
-    json_decref(result);
+  if (device_type == NULL) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "has_element - Error getting device_type");
     return 0;
   } else {
-    json_decref(result);
-    return 1;
+    return device_type->b_device_has_element(device, element_type, element_name, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
   }
 }
 
