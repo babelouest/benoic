@@ -333,6 +333,8 @@ json_t * get_device(struct _benoic_config * config, const char * name) {
   if (name != NULL) {
     json_object_set_new(j_query, "where", json_pack("{ss}", "bd_name", name));
   }
+  json_object_set_new(j_query, "columns", json_pack("{sssssss}", "bd_name", "bd_description", "bd_enabled", "bd_connected", "bdt_uid", "UNIX_TIMESTAMP(bd_last_seen) AS bd_last_seen", "bd_options"));
+  
   res = h_select(config->conn, j_query, &j_result, NULL);
   json_decref(j_query);
   if (res == H_OK) {
