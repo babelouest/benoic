@@ -261,7 +261,7 @@ void * get_device_ptr(struct _benoic_config * config, const char * device_name) 
   }
   
   for (i=0; config->device_data_list != NULL && config->device_data_list[i].device_name != NULL; i++) {
-    if (0 == strcmp(config->device_data_list[i].device_name, device_name)) {
+    if (0 == nstrcmp(config->device_data_list[i].device_name, device_name)) {
       return config->device_data_list[i].device_ptr;
     }
   }
@@ -329,7 +329,7 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
   
   if (config->device_data_list != NULL) {
     for (i=0; config->device_data_list[i].device_name != NULL; i++) {
-      if (0 == strcmp(config->device_data_list[i].device_name, device_name)) {
+      if (0 == nstrcmp(config->device_data_list[i].device_name, device_name)) {
         // device_data found, remove it and move next device_data to previous index
         free(config->device_data_list[i].device_name);
         while (config->device_data_list[i+1].device_name != NULL) {
@@ -635,13 +635,13 @@ int callback_benoic_device_element_get (const struct _u_request * request, struc
       response->status = 400;
       response->json_body = json_pack("{ss}", "error", "device disconnected");
     } else {
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         result = get_sensor((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         result = get_switch((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         result = get_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         result = get_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else {
         response->status = 400;
@@ -677,16 +677,16 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
     if (device == NULL) {
       response->status = 404;
     } else {
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
         element = get_sensor((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
         element = get_switch((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
         element = get_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
         element = get_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else {
@@ -741,13 +741,13 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
       response->status = 400;
       response->json_body = json_pack("{ss}", "error", "device disconnected");
     } else {
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE) {
@@ -780,11 +780,11 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
               f_command = strtof(u_map_get(request->map_url, "command"), &endptr);
               if (u_map_get(request->map_url, "mode") == NULL) {
                 heater_mode = BENOIC_ELEMENT_HEATER_MODE_CURRENT;
-              } else if (0 == strcmp("off", u_map_get(request->map_url, "mode"))) {
+              } else if (0 == nstrcmp("off", u_map_get(request->map_url, "mode"))) {
                 heater_mode = BENOIC_ELEMENT_HEATER_MODE_OFF;
-              } else if (0 == strcmp("manual", u_map_get(request->map_url, "mode"))) {
+              } else if (0 == nstrcmp("manual", u_map_get(request->map_url, "mode"))) {
                 heater_mode = BENOIC_ELEMENT_HEATER_MODE_MANUAL;
-              } else if (0 == strcmp("auto", u_map_get(request->map_url, "mode"))) {
+              } else if (0 == nstrcmp("auto", u_map_get(request->map_url, "mode"))) {
                 heater_mode = BENOIC_ELEMENT_HEATER_MODE_AUTO;
               }
               if (*endptr == '\0' && heater_mode != BENOIC_ELEMENT_HEATER_MODE_ERROR) {
@@ -835,13 +835,13 @@ int callback_benoic_device_element_add_tag (const struct _u_request * request, s
       response->status = 400;
       response->json_body = json_pack("{ss}", "error", "device disconnected");
     } else {
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE && has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
@@ -887,13 +887,13 @@ int callback_benoic_device_element_remove_tag (const struct _u_request * request
       response->status = 400;
       response->json_body = json_pack("{ss}", "error", "device disconnected");
     } else {
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE && has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
@@ -961,13 +961,13 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
         }
         json_object_set(params, "to", json_integer(dt_param));
       }
-      if (0 == strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       } else {
         response->status = 400;

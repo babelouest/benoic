@@ -98,10 +98,10 @@ int init_device_type_list(struct _benoic_config * config) {
     }
     
     while ((in_file = readdir(modules_directory))) {
-      if (!strcmp (in_file->d_name, ".")) {
+      if (!nstrcmp (in_file->d_name, ".")) {
         continue;
       }
-      if (!strcmp (in_file->d_name, "..")) {
+      if (!nstrcmp (in_file->d_name, "..")) {
         continue;
       }
       
@@ -492,7 +492,7 @@ json_t * is_device_option_list_valid(struct _benoic_config * config, json_t * de
   }
   
   for (i=0; config->device_type_list[i].uid != NULL; i++) {
-    if (0 == strcmp(config->device_type_list[i].uid, json_string_value(json_object_get(device, "type_uid")))) {
+    if (0 == nstrcmp(config->device_type_list[i].uid, json_string_value(json_object_get(device, "type_uid")))) {
       found = 1;
       
       // Loop in all options and check each of them
@@ -665,7 +665,7 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
   }
   
   for (i=0; config->device_type_list[i].uid != NULL; i++) {
-    if (0 == strcmp(config->device_type_list[i].uid, type_uid)) {
+    if (0 == nstrcmp(config->device_type_list[i].uid, type_uid)) {
       return (config->device_type_list + i);
     }
   }
