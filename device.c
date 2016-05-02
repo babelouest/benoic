@@ -70,7 +70,12 @@ int init_device_type_list(struct _benoic_config * config) {
   
   config->device_type_list = malloc(sizeof(struct _device_type));
   
-  if (config->conn != NULL && config->modules_path != NULL && config->device_type_list != NULL) {
+  if (config->device_type_list == NULL) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting device_type_list");
+    return B_ERROR_DB;
+  }
+  
+  if (config->conn != NULL && config->modules_path != NULL) {
     config->device_type_list->uid = NULL;
     config->device_type_list->dl_handle = NULL;
     config->device_type_list->name = NULL;
