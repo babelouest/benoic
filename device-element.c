@@ -519,16 +519,15 @@ json_t * is_element_valid(json_t * element, const int element_type) {
 json_t * is_option_valid(json_t * options, int element_type) {
   json_t * result;
   
-  if (options == NULL) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "is_option_valid - Error input parameters");
-    return NULL;
-  }
-  
   result = json_array();
   
   if (result == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "is_option_valid - Error allocating resources for result");
     return NULL;
+  }
+  
+  if (options == NULL) {
+    return result;
   }
   
   if (!json_is_object(options)) {
