@@ -20,6 +20,7 @@
 #
 
 PREFIX=/usr/local
+MODULES_TARGET=$(PREFIX)/lib/angharad/benoic
 CC=gcc
 CFLAGS=-c -fPIC -Wall -D_REENTRANT -shared -nostartfiles -I$(PREFIX)/include $(ADDITIONALFLAGS)
 LIBS=-L$(PREFIX)/lib -lc -ljansson -lyder -lorcania -lhoel
@@ -43,3 +44,7 @@ debug: libdevmock.so
 release: ADDITIONALFLAGS=-O3
 
 release: libdevmock.so
+
+install: libdevmock.so
+	mkdir -p $(MODULES_TARGET)
+	cp -f libdevmock.so $(MODULES_TARGET)

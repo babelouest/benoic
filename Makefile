@@ -69,3 +69,6 @@ clean:
 
 unit-tests: unit-tests.c
 	$(CC) -o unit-tests unit-tests.c -lc -lulfius -lorcania -ljansson -L$(PREFIX)/lib
+
+install_modules: modules
+	cd $(MODULES_LOCATION) && $(MAKE) install
