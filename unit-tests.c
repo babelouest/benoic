@@ -161,23 +161,23 @@ void run_device_tests() {
   }", JSON_DECODE_ANY, NULL);
   
   struct _u_request req_list[] = {
-    {"GET", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid1, NULL, 0, NULL, 0}, // 200
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid1, NULL, 0, NULL, 0}, // 400
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid2, NULL, 0, NULL, 0}, // 400
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid3, NULL, 0, NULL, 0}, // 400
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid2, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev2", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid2, NULL, 0, NULL, 0}, // 404
-    {"PUT", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid1, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/ping", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/disconnect", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"DELETE", SERVER_URL_PREFIX "/device/dev2", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
-    {"DELETE", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid1, NULL, 0, NULL, 0}, // 200
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid1, NULL, 0, NULL, 0}, // 400
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid2, NULL, 0, NULL, 0}, // 400
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid3, NULL, 0, NULL, 0}, // 400
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid2, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev2", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid2, NULL, 0, NULL, 0}, // 404
+    {"PUT", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_invalid1, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/ping", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/disconnect", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"DELETE", SERVER_URL_PREFIX "/device/dev2", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"DELETE", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
   };
 
   test_request_status(&req_list[0], 200, NULL);
@@ -293,45 +293,45 @@ void run_device_element_tests() {
 }", JSON_DECODE_ANY, NULL);
 
   struct _u_request req_list[] = {
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/overview", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/overview", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
     
-    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200/400
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_valid, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_invalid1, NULL, 0, NULL, 0}, // 400
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_invalid2, NULL, 0, NULL, 0}, // 400
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se3", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200/400
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_valid, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_invalid1, NULL, 0, NULL, 0}, // 400
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_invalid2, NULL, 0, NULL, 0}, // 400
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/sensor/se3", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
     
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/switch/sw1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, switch_valid, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1/1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1/error", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw3/1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
-    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw3", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/switch/sw1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, switch_valid, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1/1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw1/error", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw3/1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/switch/sw3", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
     
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, dimmer_valid, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1/12", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1/error", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di3/1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
-    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di3", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, dimmer_valid, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1/12", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di1/error", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di3/1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/dimmer/di3", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
     
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/heater/he1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, heater_valid, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/20?mode=manual", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/21", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/error", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/20?mode=error", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he3", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
-    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he3/20?mode=manual", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/heater/he1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, heater_valid, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/20?mode=manual", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/21", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/error", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he1/20?mode=error", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 400
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he3", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
+    {"GET", SERVER_URL_PREFIX "/device/dev1/heater/he3/20?mode=manual", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 404
     
-    {"DELETE", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"DELETE", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
   };
 
   test_request_status(&req_list[0], 200, NULL);
@@ -442,20 +442,20 @@ void run_monitor_tests() {
 }", JSON_DECODE_ANY, NULL);
 
   struct _u_request req_list[] = {
-    {"POST", SERVER_URL_PREFIX "/device/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"POST", SERVER_URL_PREFIX "/device/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, device_valid, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/device/dev1/connect", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
     
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_valid, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/switch/sw1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, switch_valid, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, dimmer_valid, NULL, 0, NULL, 0}, // 200
-    {"PUT", SERVER_URL_PREFIX "/device/dev1/heater/he1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, heater_valid, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/sensor/se1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, sensor_valid, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/switch/sw1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, switch_valid, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/dimmer/di1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, dimmer_valid, NULL, 0, NULL, 0}, // 200
+    {"PUT", SERVER_URL_PREFIX "/device/dev1/heater/he1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, heater_valid, NULL, 0, NULL, 0}, // 200
     
-    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/se1/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/sw1/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/di1/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
-    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/he1/", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/se1/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/sw1/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/di1/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"GET", SERVER_URL_PREFIX "/monitor/dev1/sensor/he1/", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
     
-    {"DELETE", SERVER_URL_PREFIX "/device/dev1", NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
+    {"DELETE", SERVER_URL_PREFIX "/device/dev1", 0, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, 0, NULL, 0}, // 200
   };
 
   test_request_status(&req_list[0], 200, NULL);
