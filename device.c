@@ -689,13 +689,19 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
  */
 int connect_device(struct _benoic_config * config, json_t * device) {
   json_t * result, * result_options, * value, * j_db_device;
-  struct _device_type * device_type = get_device_type(config, device);
+  struct _device_type * device_type = NULL;
   char * key, * device_name;
   int res;
   void * device_ptr;
   
+  if (json_object_get(device, "enabled") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+    return B_ERROR_PARAM;
+  }
+  device_type = get_device_type(config, device);
+  
   // Look for the device type
-  if (device_type != NULL && json_object_get(device, "enabled") == json_true()) {
+  if (device_type != NULL) {
     // Disconnect device before reconnecting it
     res = disconnect_device(config, device, 1);
     if (res != B_OK) {
@@ -743,11 +749,8 @@ int connect_device(struct _benoic_config * config, json_t * device) {
     } else {
       return B_ERROR_IO;
     }
-  } else if (json_object_get(device, "enabled") == json_true()) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "device disabled");
-    return B_ERROR_PARAM;
   } else {
-    y_log_message(Y_LOG_LEVEL_ERROR, "No type found this device");
+    y_log_message(Y_LOG_LEVEL_ERROR, "Error, No type found for this device");
     return B_ERROR_PARAM;
   }
 }
@@ -758,12 +761,18 @@ int connect_device(struct _benoic_config * config, json_t * device) {
  */
 int disconnect_device(struct _benoic_config * config, json_t * device, int update_db_status) {
   json_t * result, * result_options, * value, * j_db_device;
-  struct _device_type * device_type = get_device_type(config, device);
+  struct _device_type * device_type;
   char * key, * device_name;
   int res;
   
+  if (json_object_get(device, "enabled") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+    return B_ERROR_PARAM;
+  }
+  device_type = get_device_type(config, device);
+  
   // Look for the device type
-  if (device_type != NULL && json_object_get(device, "enabled") == json_true()) {
+  if (device_type != NULL) {
     result = device_type->b_device_disconnect(device, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
     if (get_device_ptr(config, json_string_value(json_object_get(device, "name"))) != NULL && remove_device_data(config, json_string_value(json_object_get(device, "name"))) != B_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "Error removing device_data for device %s", json_string_value(json_object_get(device, "name")));
@@ -806,11 +815,8 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
     } else {
       return B_ERROR_IO;
     }
-  } else if (json_object_get(device, "enabled") == json_true()) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "device disabled");
-    return B_ERROR_PARAM;
   } else {
-    y_log_message(Y_LOG_LEVEL_ERROR, "No type found this device");
+    y_log_message(Y_LOG_LEVEL_ERROR, "No type found for this device");
     return B_ERROR_PARAM;
   }
 }
@@ -820,9 +826,15 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
  * return B_OK on success
  */
 int ping_device(struct _benoic_config * config, json_t * device) {
-  struct _device_type * device_type = get_device_type(config, device);
+  struct _device_type * device_type = NULL;
   json_t * result;
   int i_result;
+  
+  if (json_object_get(device, "enabled") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+    return B_ERROR_PARAM;
+  }
+  device_type = get_device_type(config, device);
   
   // Look for the device type
   if (device_type != NULL) {
@@ -846,7 +858,7 @@ int ping_device(struct _benoic_config * config, json_t * device) {
       return B_ERROR_IO;
     }
   } else {
-    y_log_message(Y_LOG_LEVEL_ERROR, "No type found this device");
+    y_log_message(Y_LOG_LEVEL_ERROR, "No type found for this device");
     return B_ERROR_PARAM;
   }
 }
@@ -857,9 +869,15 @@ int ping_device(struct _benoic_config * config, json_t * device) {
  * returned value must be free'd after use
  */
 json_t * overview_device(struct _benoic_config * config, json_t * device) {
-  struct _device_type * device_type = get_device_type(config, device);
+  struct _device_type * device_type = NULL;
   json_t * overview, * element, * element_array, * to_return, * value;
   char * key;
+  
+  if (json_object_get(device, "enabled") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+    return NULL;
+  }
+  device_type = get_device_type(config, device);
   
   // Look for the device type
   if (device_type != NULL) {
@@ -951,7 +969,7 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
       return NULL;
     }
   } else {
-    y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - No type found this device");
+    y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - No type found for this device");
     return NULL;
   }
 }
@@ -963,6 +981,11 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
 int update_last_seen_device(struct _benoic_config * config, json_t * device) {
   json_t * j_query;
   int res;
+  
+  if (json_object_get(device, "enabled") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+    return B_ERROR_PARAM;
+  }
   
   if (config == NULL || device == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "update_last_seen_device - Error input parameters");
