@@ -565,6 +565,7 @@ json_t * is_device_option_valid(json_t * option_format_list, json_t * options) {
 int add_device(struct _benoic_config * config, const json_t * device) {
   json_t * j_query = json_object();
   int res;
+  char * query;
   
   if (config == NULL || device == NULL || j_query == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "add_device - Error allocating resources or input parameters");
@@ -573,7 +574,7 @@ int add_device(struct _benoic_config * config, const json_t * device) {
   } else {
     json_object_set_new(j_query, "table", json_string(BENOIC_TABLE_DEVICE));
     json_object_set_new(j_query, "values", json_copy((json_t *)device));
-    res = h_insert(config->conn, j_query, NULL);
+    res = h_insert(config->conn, j_query, &query);
     json_decref(j_query);
     if (res == H_OK) {
       return B_OK;
@@ -590,6 +591,7 @@ int add_device(struct _benoic_config * config, const json_t * device) {
 int modify_device(struct _benoic_config * config, const json_t * device, const char * name) {
   json_t * j_query = json_object();
   int res;
+  char * query;
   
   if (config == NULL || device == NULL || j_query == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "modify_device - Error allocating resources or input parameters");
@@ -599,7 +601,7 @@ int modify_device(struct _benoic_config * config, const json_t * device, const c
     json_object_set_new(j_query, "table", json_string(BENOIC_TABLE_DEVICE));
     json_object_set_new(j_query, "set", json_copy((json_t *)device));
     json_object_set_new(j_query, "where", json_pack("{ss}", "bd_name", name));
-    res = h_update(config->conn, j_query, NULL);
+    res = h_update(config->conn, j_query, &query);
     json_decref(j_query);
     if (res == H_OK) {
       return B_OK;
@@ -710,7 +712,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
     }
     result = device_type->b_device_connect(device, &device_ptr);
     if (result != NULL && json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_OK) {
-      y_log_message(Y_LOG_LEVEL_INFO, "Connection to device %s: success", json_string_value(json_object_get(device, "name")));
+      y_log_message(Y_LOG_LEVEL_INFO, "Connect device %s: success", json_string_value(json_object_get(device, "name")));
       // Update device_data array
       if (device_ptr != NULL) {
         if (set_device_data(config, json_string_value(json_object_get(device, "name")), device_ptr) != B_OK) {
@@ -736,7 +738,11 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       update_last_seen_device(config, device);
       return res;
     } else if (result != NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %d", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#ifdef JSON_INTEGER_IS_LONG_LONG
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %lld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#else
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %ld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#endif
       json_decref(result);
       device_name = nstrdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
@@ -800,7 +806,11 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
       update_last_seen_device(config, device);
       return res;
     } else if (result != NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %d", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#ifdef JSON_INTEGER_IS_LONG_LONG
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %lld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#else
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %ld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
+#endif
       json_decref(result);
       device_name = nstrdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);

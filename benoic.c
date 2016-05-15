@@ -200,7 +200,11 @@ void * thread_monitor_run(void * args) {
                 if (value != NULL) {
                   s_value = NULL;
                   if (json_is_integer(json_object_get(value, "value"))) {
-                    s_value = msprintf("%d", json_integer_value(json_object_get(value, "value")));
+#ifdef JSON_INTEGER_IS_LONG_LONG
+                    s_value = msprintf("%lld", json_integer_value(json_object_get(value, "value")));
+#else
+                    s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
+#endif
                   } else if (json_is_real(json_object_get(value, "value"))) {
                     s_value = msprintf("%.2f", json_real_value(json_object_get(value, "value")));
                   } else if (json_is_string(json_object_get(value, "value"))) {
@@ -220,9 +224,17 @@ void * thread_monitor_run(void * args) {
                 
                 // Updating next monitor time
                 if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
-                  s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %d SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#ifdef JSON_INTEGER_IS_LONG_LONG
+                  s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %lld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#else
+                  s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %ld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#endif
                 } else {
-                  s_next_time = msprintf("strftime('%%s','now')+%d", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#ifdef JSON_INTEGER_IS_LONG_LONG
+                  s_next_time = msprintf("strftime('%%s','now')+%lld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#else
+                  s_next_time = msprintf("strftime('%%s','now')+%ld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+#endif
                 }
                 j_query = json_pack("{sss{s{ss}}s{si}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
                 res = h_update(config->conn, j_query, NULL);
@@ -459,18 +471,18 @@ int callback_benoic_device_modify (const struct _u_request * request, struct _u_
   json_t * result, * device;
   if (request->json_body == NULL || request->json_has_error) {
     if (request->json_has_error) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error json input parameters callback_benoic_device_add: %s", request->json_error->text);
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error json input parameters callback_benoic_device_modify: %s", request->json_error->text);
     }
     json_object_set_new(response->json_body, "error", json_string("invalid input json format"));
     response->status = 400;
     return U_OK;
   } else if (user_data == NULL) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error, callback_benoic_device_add user_data is NULL");
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error, callback_benoic_device_modify user_data is NULL");
     return U_ERROR_PARAMS;
   } else {
     result = is_device_valid((struct _benoic_config *)user_data, request->json_body, 1);
     if (result == NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error is_device_valid");
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error is_device_valid");
       response->status = 400;
     } else if (json_array_size(result) > 0) {
       response->status = 400;
@@ -500,7 +512,7 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
   int res;
   
   if (user_data == NULL) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error, callback_benoic_device_add user_data is NULL");
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_delete - Error, callback_benoic_device_delete user_data is NULL");
     return U_ERROR_PARAMS;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
@@ -509,10 +521,12 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
         ulfius_set_json_response(response, 404, j_body);
         json_decref(j_body);
     } else {
-      res = disconnect_device((struct _benoic_config *)user_data, device, 1);
-      json_decref(device);
-      if (res != B_OK) {
-        y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error disconnecting device");
+      if (json_object_get(device, "enabled") == json_false()) {
+        res = disconnect_device((struct _benoic_config *)user_data, device, 1);
+        json_decref(device);
+        if (res != B_OK) {
+          y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_delete - Error disconnecting device");
+        }
       }
       if (delete_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name")) != B_OK) {
         response->status = 500;
