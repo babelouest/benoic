@@ -177,7 +177,7 @@ void * thread_monitor_run(void * args) {
           if (res == H_OK) {
             json_array_foreach(j_result, index, j_element) {
               device = get_device(config, json_string_value(json_object_get(j_element, "bd_name")));
-              if (device != NULL) {
+              if (device != NULL && json_object_get(device, "enabled") == json_true() && json_object_get(device, "connected") == json_true()) {
                 
                 // Getting value
                 value = NULL;
@@ -246,6 +246,7 @@ void * thread_monitor_run(void * args) {
               } else {
                 y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - device %s not found", json_string_value(json_object_get(j_element, "bd_name")));
               }
+              json_decref(device);
             }
             json_decref(j_result);
           }
@@ -517,13 +518,11 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
-        json_t * j_body = json_pack("{ss}", "message", "Device not found");
-        ulfius_set_json_response(response, 404, j_body);
-        json_decref(j_body);
+        response->json_body = json_pack("{ss}", "message", "Device not found");
+        response->status = 404;
     } else {
-      if (json_object_get(device, "enabled") == json_false()) {
+      if (json_object_get(device, "connected") == json_true()) {
         res = disconnect_device((struct _benoic_config *)user_data, device, 1);
-        json_decref(device);
         if (res != B_OK) {
           y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_delete - Error disconnecting device");
         }
@@ -532,6 +531,7 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
         response->status = 500;
       }
     }
+    json_decref(device);
     return U_OK;
   }
 }

@@ -303,6 +303,7 @@ json_t * get_device_types_list(struct _benoic_config * config) {
         y_log_message(Y_LOG_LEVEL_ERROR, "get_device_types_list - Error allocating resources for cur_type");
         json_decref(j_query);
         json_decref(j_device_types_list);
+        json_decref(j_result);
         return NULL;
       }
       json_object_set_new(cur_type, "uid", json_copy(json_object_get(value, "bdt_uid")));
@@ -312,10 +313,12 @@ json_t * get_device_types_list(struct _benoic_config * config) {
       json_object_set_new(cur_type, "options", json_loads(json_string_value(json_object_get(value, "bdt_options")), JSON_DECODE_ANY, NULL));
       json_array_append_new(j_device_types_list, cur_type);
     }
+    json_decref(j_result);
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "get_device_types_list - Error getting list in database");
     json_decref(j_query);
     json_decref(j_device_types_list);
+    json_decref(j_result);
     return NULL;
   }
   return j_device_types_list;
@@ -541,14 +544,16 @@ json_t * is_device_option_valid(json_t * option_format_list, json_t * options) {
     
     if (cur_option == NULL && json_object_get(option_format, "optional") != json_true()) {
       json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option is mandatory"));
-    } else if (json_equal(json_object_get(option_format, "type"), j_string) && !json_is_string(cur_option)) {
-      json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a string"));
-    } else if (json_equal(json_object_get(option_format, "type"), j_integer) && !json_is_integer(cur_option)) {
-      json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be an integer"));
-    } else if (json_equal(json_object_get(option_format, "type"), j_double) && !json_is_real(cur_option)) {
-      json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a double"));
-    } else if (json_equal(json_object_get(option_format, "type"), j_boolean) && !json_is_boolean(cur_option)) {
-      json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a boolean"));
+    } else if (cur_option != NULL) {
+      if (json_equal(json_object_get(option_format, "type"), j_string) && !json_is_string(cur_option)) {
+        json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a string"));
+      } else if (json_equal(json_object_get(option_format, "type"), j_integer) && !json_is_integer(cur_option)) {
+        json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be an integer"));
+      } else if (json_equal(json_object_get(option_format, "type"), j_double) && !json_is_real(cur_option)) {
+        json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a double"));
+      } else if (json_equal(json_object_get(option_format, "type"), j_boolean) && !json_is_boolean(cur_option)) {
+        json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a boolean"));
+      }
     }
   }
   json_decref(j_string);
@@ -565,7 +570,6 @@ json_t * is_device_option_valid(json_t * option_format_list, json_t * options) {
 int add_device(struct _benoic_config * config, const json_t * device) {
   json_t * j_query = json_object();
   int res;
-  char * query;
   
   if (config == NULL || device == NULL || j_query == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "add_device - Error allocating resources or input parameters");
@@ -574,7 +578,7 @@ int add_device(struct _benoic_config * config, const json_t * device) {
   } else {
     json_object_set_new(j_query, "table", json_string(BENOIC_TABLE_DEVICE));
     json_object_set_new(j_query, "values", json_copy((json_t *)device));
-    res = h_insert(config->conn, j_query, &query);
+    res = h_insert(config->conn, j_query, NULL);
     json_decref(j_query);
     if (res == H_OK) {
       return B_OK;
@@ -591,7 +595,6 @@ int add_device(struct _benoic_config * config, const json_t * device) {
 int modify_device(struct _benoic_config * config, const json_t * device, const char * name) {
   json_t * j_query = json_object();
   int res;
-  char * query;
   
   if (config == NULL || device == NULL || j_query == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "modify_device - Error allocating resources or input parameters");
@@ -601,7 +604,7 @@ int modify_device(struct _benoic_config * config, const json_t * device, const c
     json_object_set_new(j_query, "table", json_string(BENOIC_TABLE_DEVICE));
     json_object_set_new(j_query, "set", json_copy((json_t *)device));
     json_object_set_new(j_query, "where", json_pack("{ss}", "bd_name", name));
-    res = h_update(config->conn, j_query, &query);
+    res = h_update(config->conn, j_query, NULL);
     json_decref(j_query);
     if (res == H_OK) {
       return B_OK;

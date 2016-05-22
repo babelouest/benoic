@@ -71,20 +71,15 @@ json_t * b_device_type_init () {
 json_t * b_device_connect (json_t * device, void ** device_ptr) {
   char * param;
   json_t * j_param;
-  size_t len;
   
   if (device_ptr != NULL) {
     // Allocating *device_ptr for further use
-    len = snprintf(NULL, 0, "I already said to %s that I'm Batman!", json_string_value(json_object_get(device, "name")));
-    *device_ptr = malloc((len+1)*sizeof(char));
-    snprintf(*device_ptr, (len+1), "I already said to %s that I'm Batman!", json_string_value(json_object_get(device, "name")));
+    printf("device_ptr for %s is allocated\n", json_string_value(json_object_get(device, "name")));
+    *device_ptr = msprintf("I already said to %s that I'm Batman!", json_string_value(json_object_get(device, "name")));
   }
   
   if (strstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
-    len = snprintf(NULL, 0, "%s says I'm batman", json_string_value(json_object_get(device, "name")));
-    param = malloc((len+1)*sizeof(char));
-    snprintf(param, (len+1), "%s says I'm batman", json_string_value(json_object_get(device, "name")));
-    
+    param = msprintf("%s says I'm batman", json_string_value(json_object_get(device, "name")));
     j_param = json_pack("{sis{ss}}", "result", RESULT_OK, "options", "device_specified", param);
     free(param);
   } else {
@@ -99,6 +94,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
 json_t * b_device_disconnect (json_t * device, void * device_ptr) {
   if (device_ptr != NULL) {
     // Free device_ptr
+    printf("device_ptr for %s is free\n", json_string_value(json_object_get(device, "name")));
     free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
