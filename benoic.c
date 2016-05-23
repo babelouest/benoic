@@ -211,7 +211,14 @@ void * thread_monitor_run(void * args) {
                     s_value = nstrdup(json_string_value(json_object_get(value, "value")));
                   }
                   if (s_value != NULL) {
-                    j_query = json_pack("{sss{siss}}", "table", BENOIC_TABLE_MONITOR, "values", "be_id", json_integer_value(json_object_get(j_element, "be_id")), "bm_value", s_value);
+                    j_query = json_pack("{sss{sIss}}", 
+                                        "table", 
+                                        BENOIC_TABLE_MONITOR, 
+                                        "values", 
+                                          "be_id", 
+                                          json_integer_value(json_object_get(j_element, "be_id")), 
+                                          "bm_value", 
+                                          s_value);
                     res = h_insert(config->conn, j_query, NULL);
                     json_decref(j_query);
                     if (res != H_OK) {

@@ -74,11 +74,10 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   
   if (device_ptr != NULL) {
     // Allocating *device_ptr for further use
-    printf("device_ptr for %s is allocated\n", json_string_value(json_object_get(device, "name")));
     *device_ptr = msprintf("I already said to %s that I'm Batman!", json_string_value(json_object_get(device, "name")));
   }
   
-  if (strstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
+  if (nstrstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
     param = msprintf("%s says I'm batman", json_string_value(json_object_get(device, "name")));
     j_param = json_pack("{sis{ss}}", "result", RESULT_OK, "options", "device_specified", param);
     free(param);
@@ -94,7 +93,6 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
 json_t * b_device_disconnect (json_t * device, void * device_ptr) {
   if (device_ptr != NULL) {
     // Free device_ptr
-    printf("device_ptr for %s is free\n", json_string_value(json_object_get(device, "name")));
     free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
