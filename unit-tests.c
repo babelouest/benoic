@@ -259,7 +259,7 @@ void run_device_element_tests() {
   \"enabled\": true,\
   \"monitored_every\": 0,\
   \"description\": \"First heater\",\
-  \"value\": 18.0,\
+  \"command\": 18.0,\
   \"monitored\": false,\
   \"options\":\
   {\
