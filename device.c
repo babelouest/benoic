@@ -549,7 +549,7 @@ json_t * is_device_option_valid(json_t * option_format_list, json_t * options) {
         json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a string"));
       } else if (json_equal(json_object_get(option_format, "type"), j_integer) && !json_is_integer(cur_option)) {
         json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be an integer"));
-      } else if (json_equal(json_object_get(option_format, "type"), j_double) && !json_is_real(cur_option)) {
+      } else if (json_equal(json_object_get(option_format, "type"), j_double) && !json_is_number(cur_option)) {
         json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a double"));
       } else if (json_equal(json_object_get(option_format, "type"), j_boolean) && !json_is_boolean(cur_option)) {
         json_array_append_new(j_result, json_pack("{ss}", json_string_value(json_object_get(option_format, "name")), "option must be a boolean"));
