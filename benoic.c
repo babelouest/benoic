@@ -206,7 +206,7 @@ void * thread_monitor_run(void * args) {
                     s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
 #endif
                   } else if (json_is_number(json_object_get(value, "value"))) {
-                    s_value = msprintf("%.2f", json_real_value(json_object_get(value, "value")));
+                    s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
                   } else if (json_is_string(json_object_get(value, "value"))) {
                     s_value = nstrdup(json_string_value(json_object_get(value, "value")));
                   }
