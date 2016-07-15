@@ -352,13 +352,15 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
       if (0 == nstrcmp(config->device_data_list[i].device_name, device_name)) {
         // device_data found, remove it and move next device_data to previous index
         free(config->device_data_list[i].device_name);
+        config->device_data_list[i].device_name = NULL;
+        config->device_data_list[i].device_ptr = NULL;
         while (config->device_data_list[i+1].device_name != NULL) {
           config->device_data_list[i].device_name = config->device_data_list[i+1].device_name;
           config->device_data_list[i].device_ptr = config->device_data_list[i+1].device_ptr;
           i++;
         }
-        config->device_data_list[i].device_name = NULL;
-        config->device_data_list[i].device_ptr = NULL;
+        config->device_data_list[i+1].device_name = NULL;
+        config->device_data_list[i+1].device_ptr = NULL;
         break;
       }
     }
@@ -374,17 +376,17 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
  * return B_OK on success
  */
 int disconnect_all_devices(struct _benoic_config * config) {
-  int i;
-  json_t * device;
+  size_t index;
+  json_t * device, * device_list;
+  
   if (config != NULL) {
-    for (i=0; config->device_data_list != NULL && config->device_data_list[i].device_name != NULL; i++) {
-      device = get_device(config, config->device_data_list[i].device_name);
+    device_list = get_device(config, NULL);
+    json_array_foreach(device_list, index, device) {
       if (device != NULL) {
         disconnect_device(config, device, 0);
-        json_decref(device);
       }
-      free(config->device_data_list[i].device_name);
     }
+    json_decref(device_list);
     free(config->device_data_list);
     config->device_data_list = NULL;
     return B_OK;

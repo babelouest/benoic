@@ -708,10 +708,12 @@ int connect_device(struct _benoic_config * config, json_t * device) {
   // Look for the device type
   if (device_type != NULL) {
     // Disconnect device before reconnecting it
-    res = disconnect_device(config, device, 1);
-    if (res != B_OK) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnecting device %s", json_string_value(json_object_get(device, "name")));
-      return res;
+    if (json_object_get(device, "connected") == json_true()) {
+      res = disconnect_device(config, device, 1);
+      if (res != B_OK) {
+        y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnecting device %s", json_string_value(json_object_get(device, "name")));
+        return res;
+      }
     }
     result = device_type->b_device_connect(device, &device_ptr);
     if (result != NULL && json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_OK) {
@@ -774,8 +776,8 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
   char * key, * device_name;
   int res;
   
-  if (json_object_get(device, "enabled") != json_true()) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
+  if (json_object_get(device, "enabled") != json_true() || json_object_get(device, "connected") != json_true()) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled or disconnected");
     return B_ERROR_PARAM;
   }
   device_type = get_device_type(config, device);

@@ -129,7 +129,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   json_t * sw1 = b_device_get_switch(device, "sw1", device_ptr),
          * sw2 = b_device_get_switch(device, "sw2", device_ptr),
          * di1 = b_device_get_dimmer(device, "di1", device_ptr),
-         * di2 = b_device_get_dimmer(device, "di1", device_ptr),
+         * di2 = b_device_get_dimmer(device, "di2", device_ptr),
          * he1 = b_device_get_heater(device, "he1", device_ptr),
          * he2 = b_device_get_heater(device, "he2", device_ptr);
   json_object_del(he1, "result");
@@ -189,7 +189,6 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
 json_t * b_device_set_switch (json_t * device, const char * switch_name, const int command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_switch for switch %s on device %s with the value %d", switch_name, json_string_value(json_object_get(device, "name")), command);
   if (0 == nstrcmp(switch_name, "sw1") || 0 == nstrcmp(switch_name, "sw2")) {
-    json_object_del(json_object_get((json_t *)device_ptr, "switches"), switch_name);
     json_object_set_new(json_object_get((json_t *)device_ptr, "switches"), switch_name, json_integer(command));
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -202,9 +201,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
  */
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_dimmer for dimmer %s on device %s", dimmer_name, json_string_value(json_object_get(device, "name")));
-  if (0 == nstrcmp(dimmer_name, "di1")) {
-    return json_pack("{sisi}", "result", RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
-  } else if (0 == nstrcmp(dimmer_name, "di2")) {
+  if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
     return json_pack("{sisi}", "result", RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
   } else {
     return json_pack("{si}", "result", RESULT_NOT_FOUND);
@@ -217,7 +214,6 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
 json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const int command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_dimmer for dimmer %s on device %s with the value %d", dimmer_name, json_string_value(json_object_get(device, "name")), command);
   if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
-    json_object_del(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name);
     json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name, json_integer(command));
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -250,7 +246,6 @@ json_t * b_device_set_heater (json_t * device, const char * heater_name, const i
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_heater for heater %s on device %s with the value %f and the mode %d", heater_name, json_string_value(json_object_get(device, "name")), command, mode);
   if (0 == nstrcmp(heater_name, "he1") || 0 == nstrcmp(heater_name, "he2")) {
     json_t * heater = json_object_get(json_object_get((json_t *)device_ptr, "heaters"), heater_name);
-    json_object_del(heater, "mode");
     switch (mode) {
       case BENOIC_ELEMENT_HEATER_MODE_MANUAL:
         json_object_set_new(heater, "mode", json_string("manual"));
@@ -262,7 +257,6 @@ json_t * b_device_set_heater (json_t * device, const char * heater_name, const i
         json_object_set_new(heater, "mode", json_string("off"));
         break;
     }
-    json_object_del(heater, "command");
     json_object_set_new(heater, "command", json_real(command));
     return json_pack("{si}", "result", RESULT_OK);
   } else {
