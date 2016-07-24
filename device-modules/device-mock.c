@@ -25,6 +25,7 @@
 #define RESULT_OK        1
 #define RESULT_NOT_FOUND 2
 #define RESULT_TIMEOUT   3
+#define RESULT_PARAM     4
 
 #define ELEMENT_TYPE_NONE   0
 #define ELEMENT_TYPE_SENSOR 1
@@ -32,11 +33,9 @@
 #define ELEMENT_TYPE_DIMMER 3
 #define ELEMENT_TYPE_HEATER 4
 
-#define BENOIC_ELEMENT_HEATER_MODE_CURRENT -1
-#define BENOIC_ELEMENT_HEATER_MODE_OFF     0
-#define BENOIC_ELEMENT_HEATER_MODE_MANUAL  1
-#define BENOIC_ELEMENT_HEATER_MODE_AUTO    2
-#define BENOIC_ELEMENT_HEATER_MODE_ERROR   3
+#define BENOIC_ELEMENT_HEATER_MODE_OFF     "off"
+#define BENOIC_ELEMENT_HEATER_MODE_MANUAL  "manual"
+#define BENOIC_ELEMENT_HEATER_MODE_AUTO    "auto"
 
 #define NB_SECONDS_PER_DAY 86400
 
@@ -84,12 +83,14 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   
   if (device_ptr != NULL) {
     // Allocating *device_ptr for further use
-    *device_ptr = (json_t *)json_pack("{s{sisi}s{sisi}s{s{sssfso}s{sssfso}}}",
+    *device_ptr = (json_t *)json_pack("{s{sisi}s{sisi}s{s{sssfsos[sss]}s{sssfsos[sss]}}}",
                              "switches", "sw1", 0, "sw2", 1,
                              "dimmers", "di1", 42, "di2", 5,
                              "heaters", 
-                               "he1", "mode", "auto", "command", 18.0, "on", json_true(),
-                               "he2", "mode", "manual", "command", 20.0, "on", json_false());
+                               "he1", "mode", "auto", "command", 18.0, "on", json_true(), "availableModes",
+                                  "auto", "manual", "off",
+                               "he2", "mode", "manual", "command", 20.0, "on", json_false(), "availableModes",
+                                  "auto", "manual", "off");
   }
   
   if (nstrstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
@@ -242,20 +243,18 @@ json_t * b_device_get_heater (json_t * device, const char * heater_name, void * 
 /**
  * Set the heater command
  */
-json_t * b_device_set_heater (json_t * device, const char * heater_name, const int mode, const float command, void * device_ptr) {
-  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_heater for heater %s on device %s with the value %f and the mode %d", heater_name, json_string_value(json_object_get(device, "name")), command, mode);
+json_t * b_device_set_heater (json_t * device, const char * heater_name, const char * mode, const float command, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_heater for heater %s on device %s with the value %f and the mode %s", heater_name, json_string_value(json_object_get(device, "name")), command, mode);
   if (0 == nstrcmp(heater_name, "he1") || 0 == nstrcmp(heater_name, "he2")) {
     json_t * heater = json_object_get(json_object_get((json_t *)device_ptr, "heaters"), heater_name);
-    switch (mode) {
-      case BENOIC_ELEMENT_HEATER_MODE_MANUAL:
-        json_object_set_new(heater, "mode", json_string("manual"));
-        break;
-      case BENOIC_ELEMENT_HEATER_MODE_AUTO:
-        json_object_set_new(heater, "mode", json_string("auto"));
-        break;
-      default:
-        json_object_set_new(heater, "mode", json_string("off"));
-        break;
+    if (mode != NULL && 0 == nstrcmp(mode, BENOIC_ELEMENT_HEATER_MODE_MANUAL)) {
+      json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_MANUAL));
+    } else if (mode != NULL && 0 == nstrcmp(mode,  BENOIC_ELEMENT_HEATER_MODE_AUTO)) {
+      json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_AUTO));
+    } else if (mode != NULL && 0 == nstrcmp(mode, BENOIC_ELEMENT_HEATER_MODE_OFF)) {
+      json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_OFF));
+    } else if (mode != NULL) {
+      return json_pack("{si}", "result", RESULT_PARAM);
     }
     json_object_set_new(heater, "command", json_real(command));
     return json_pack("{si}", "result", RESULT_OK);
