@@ -177,78 +177,79 @@ void * thread_monitor_run(void * args) {
           if (res == H_OK) {
             json_array_foreach(j_result, index, j_element) {
               device = get_device(config, json_string_value(json_object_get(j_element, "bd_name")));
-              if (device != NULL && json_object_get(device, "enabled") == json_true() && json_object_get(device, "connected") == json_true()) {
-                
-                // Getting value
-                value = NULL;
-                switch (json_integer_value(json_object_get(j_element, "be_type"))) {
-                  case BENOIC_ELEMENT_TYPE_SENSOR:
-                    value = get_sensor(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                    break;
-                  case BENOIC_ELEMENT_TYPE_SWITCH:
-                    value = get_switch(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                    break;
-                  case BENOIC_ELEMENT_TYPE_DIMMER:
-                    value = get_dimmer(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                    break;
-                  case BENOIC_ELEMENT_TYPE_HEATER:
-                    value = get_heater(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                    break;
-                }
-                
-                // Inserting value in monitor table
-                if (value != NULL) {
-                  s_value = NULL;
-                  if (json_is_integer(json_object_get(value, "value"))) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-                    s_value = msprintf("%lld", json_integer_value(json_object_get(value, "value")));
-#else
-                    s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
-#endif
-                  } else if (json_is_number(json_object_get(value, "value"))) {
-                    s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
-                  } else if (json_is_string(json_object_get(value, "value"))) {
-                    s_value = nstrdup(json_string_value(json_object_get(value, "value")));
+              if (device != NULL) {
+                if (json_object_get(device, "enabled") == json_true() && json_object_get(device, "connected") == json_true()) {
+                  // Getting value
+                  value = NULL;
+                  switch (json_integer_value(json_object_get(j_element, "be_type"))) {
+                    case BENOIC_ELEMENT_TYPE_SENSOR:
+                      value = get_sensor(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                      break;
+                    case BENOIC_ELEMENT_TYPE_SWITCH:
+                      value = get_switch(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                      break;
+                    case BENOIC_ELEMENT_TYPE_DIMMER:
+                      value = get_dimmer(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                      break;
+                    case BENOIC_ELEMENT_TYPE_HEATER:
+                      value = get_heater(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                      break;
                   }
-                  if (s_value != NULL) {
-                    j_query = json_pack("{sss{sIss}}", 
-                                        "table", 
-                                        BENOIC_TABLE_MONITOR, 
-                                        "values", 
-                                          "be_id", 
-                                          json_integer_value(json_object_get(j_element, "be_id")), 
-                                          "bm_value", 
-                                          s_value);
-                    res = h_insert(config->conn, j_query, NULL);
-                    json_decref(j_query);
-                    if (res != H_OK) {
-                      y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error inserting data for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
+                  
+                  // Inserting value in monitor table
+                  if (value != NULL) {
+                    s_value = NULL;
+                    if (json_is_integer(json_object_get(value, "value"))) {
+  #ifdef JSON_INTEGER_IS_LONG_LONG
+                      s_value = msprintf("%lld", json_integer_value(json_object_get(value, "value")));
+  #else
+                      s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
+  #endif
+                    } else if (json_is_number(json_object_get(value, "value"))) {
+                      s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
+                    } else if (json_is_string(json_object_get(value, "value"))) {
+                      s_value = nstrdup(json_string_value(json_object_get(value, "value")));
                     }
-                    free(s_value);
+                    if (s_value != NULL) {
+                      j_query = json_pack("{sss{sIss}}", 
+                                          "table", 
+                                          BENOIC_TABLE_MONITOR, 
+                                          "values", 
+                                            "be_id", 
+                                            json_integer_value(json_object_get(j_element, "be_id")), 
+                                            "bm_value", 
+                                            s_value);
+                      res = h_insert(config->conn, j_query, NULL);
+                      json_decref(j_query);
+                      if (res != H_OK) {
+                        y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error inserting data for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
+                      }
+                      free(s_value);
+                    }
+                    json_decref(value);
                   }
-                  json_decref(value);
-                }
-                
-                // Updating next monitor time
-                if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-                  s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %lld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-#else
-                  s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %ld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-#endif
-                } else {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-                  s_next_time = msprintf("strftime('%%s','now')+%lld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-#else
-                  s_next_time = msprintf("strftime('%%s','now')+%ld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-#endif
-                }
-                j_query = json_pack("{sss{s{ss}}s{si}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
-                res = h_update(config->conn, j_query, NULL);
-                json_decref(j_query);
-                free(s_next_time);
-                if (res != H_OK) {
-                  y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error updating next_time for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
+                  
+                  // Updating next monitor time
+                  if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
+  #ifdef JSON_INTEGER_IS_LONG_LONG
+                    s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %lld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+  #else
+                    s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %ld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+  #endif
+                  } else {
+  #ifdef JSON_INTEGER_IS_LONG_LONG
+                    s_next_time = msprintf("strftime('%%s','now')+%lld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+  #else
+                    s_next_time = msprintf("strftime('%%s','now')+%ld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
+  #endif
+                  }
+                  j_query = json_pack("{sss{s{ss}}s{si}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
+                  res = h_update(config->conn, j_query, NULL);
+                  json_decref(j_query);
+                  free(s_next_time);
+                  if (res != H_OK) {
+                    y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error updating next_time for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
+                  }
                 }
               } else {
                 y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - device %s not found", json_string_value(json_object_get(j_element, "bd_name")));
@@ -745,7 +746,7 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
 
 int callback_benoic_device_element_set (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device, * element = NULL;
-  int element_type = BENOIC_ELEMENT_TYPE_NONE, i_command, heater_mode = BENOIC_ELEMENT_HEATER_MODE_ERROR;
+  int element_type = BENOIC_ELEMENT_TYPE_NONE, i_command, res = 0;
   float f_command;
   char * endptr;
   
@@ -801,17 +802,11 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
               break;
             case BENOIC_ELEMENT_TYPE_HEATER:
               f_command = strtof(u_map_get(request->map_url, "command"), &endptr);
-              if (u_map_get(request->map_url, "mode") == NULL) {
-                heater_mode = BENOIC_ELEMENT_HEATER_MODE_CURRENT;
-              } else if (0 == nstrcmp("off", u_map_get(request->map_url, "mode"))) {
-                heater_mode = BENOIC_ELEMENT_HEATER_MODE_OFF;
-              } else if (0 == nstrcmp("manual", u_map_get(request->map_url, "mode"))) {
-                heater_mode = BENOIC_ELEMENT_HEATER_MODE_MANUAL;
-              } else if (0 == nstrcmp("auto", u_map_get(request->map_url, "mode"))) {
-                heater_mode = BENOIC_ELEMENT_HEATER_MODE_AUTO;
-              }
-              if (*endptr == '\0' && heater_mode != BENOIC_ELEMENT_HEATER_MODE_ERROR) {
-                if (set_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), heater_mode, f_command) != B_OK) {
+              if (*endptr == '\0') {
+                res = set_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), u_map_get(request->map_url, "mode"), f_command);
+                if (res == B_ERROR_PARAM) {
+                  response->status = 400;
+                } else if (res != B_OK) {
                   response->status = 500;
                 }
               } else {

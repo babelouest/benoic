@@ -247,7 +247,7 @@ json_t * get_heater(struct _benoic_config * config, json_t * device, const char 
  * set the heater command
  * return B_OK on success
  */
-int set_heater(struct _benoic_config * config, json_t * device, const char * heater_name, const int mode, const float command) {
+int set_heater(struct _benoic_config * config, json_t * device, const char * heater_name, const char * mode, const float command) {
   struct _device_type * device_type = get_device_type(config, device);
   json_t * result;
   int i_return;
@@ -259,6 +259,8 @@ int set_heater(struct _benoic_config * config, json_t * device, const char * hea
         i_return = B_OK;
       } else if (json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_NOT_FOUND) {
         i_return = B_ERROR_NOT_FOUND;
+      } else if (json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_PARAM) {
+        i_return = B_ERROR_PARAM;
       } else {
         i_return = B_ERROR_IO;
       }

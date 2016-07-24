@@ -55,6 +55,7 @@
 #define DEVICE_RESULT_OK        1
 #define DEVICE_RESULT_NOT_FOUND 2
 #define DEVICE_RESULT_TIMEOUT   3
+#define DEVICE_RESULT_PARAM     4
 
 #define BENOIC_TABLE_DEVICE_TYPE "b_device_type"
 #define BENOIC_TABLE_DEVICE      "b_device"
@@ -66,12 +67,6 @@
 #define BENOIC_ELEMENT_TYPE_SWITCH 2
 #define BENOIC_ELEMENT_TYPE_DIMMER 3
 #define BENOIC_ELEMENT_TYPE_HEATER 4
-
-#define BENOIC_ELEMENT_HEATER_MODE_CURRENT -1
-#define BENOIC_ELEMENT_HEATER_MODE_OFF     0
-#define BENOIC_ELEMENT_HEATER_MODE_MANUAL  1
-#define BENOIC_ELEMENT_HEATER_MODE_AUTO    2
-#define BENOIC_ELEMENT_HEATER_MODE_ERROR   3
 
 #define BENOIC_STATUS_RUN      0
 #define BENOIC_STATUS_STOPPING 1
@@ -100,7 +95,7 @@ struct _device_type {
   json_t * (* b_device_get_dimmer) (json_t * device, const char * dimmer_name, void * device_ptr);
   json_t * (* b_device_set_dimmer) (json_t * device, const char * dimmer_name, const int command, void * device_ptr);
   json_t * (* b_device_get_heater) (json_t * device, const char * heater_name, void * device_ptr);
-  json_t * (* b_device_set_heater) (json_t * device, const char * heater_name, const int mode, const float command, void * device_ptr);
+  json_t * (* b_device_set_heater) (json_t * device, const char * heater_name, const char * mode, const float command, void * device_ptr);
   int      (* b_device_has_element) (json_t * device, int element_type, const char * element_name, void * device_ptr);
 };
 
@@ -146,7 +141,7 @@ int set_switch(struct _benoic_config * config, json_t * device, const char * swi
 json_t * get_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name);
 int set_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name, const int command);
 json_t * get_heater(struct _benoic_config * config, json_t * device, const char * heater_name);
-int set_heater(struct _benoic_config * config, json_t * device, const char * heater_name, const int mode, const float command);
+int set_heater(struct _benoic_config * config, json_t * device, const char * heater_name, const char * mode, const float command);
 
 // Elements data management functions
 json_t * get_element_data(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name, int create);

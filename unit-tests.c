@@ -338,7 +338,7 @@ void run_device_element_tests() {
   test_request_status(&req_list[3], 400, NULL);
   test_request_status(&req_list[1], 200, NULL);
   test_request_status(&req_list[2], 200, NULL);
-  
+
   test_request_status(&req_list[3], 200, NULL);
   test_request_status(&req_list[4], 200, NULL);
   test_request_status(&req_list[5], 400, NULL);

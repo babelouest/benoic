@@ -697,7 +697,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
   struct _device_type * device_type = NULL;
   char * key, * device_name;
   int res;
-  void * device_ptr;
+  void * device_ptr = NULL;
   
   if (json_object_get(device, "enabled") != json_true()) {
     y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
@@ -913,7 +913,17 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
           json_object_foreach(element_array, key, value) {
             element = get_element_data(config, device, BENOIC_ELEMENT_TYPE_SENSOR, key, 1);
             if (element != NULL) {
-              json_object_set_new(element, "value", json_copy(value));
+              if (json_is_object(value)) {
+                if (json_object_get(value, "unit") != NULL) {
+                  const char * elt_unit = json_string_value(json_object_get(json_object_get(element, "options"), "unit"));
+                  if (elt_unit == NULL || strlen(elt_unit) == 0) {
+                    json_object_set_new(json_object_get(element, "options"), "unit", json_copy(json_object_get(value, "unit")));
+                  }
+                }
+                json_object_set_new(element, "value", json_copy(json_object_get(value, "value")));
+              } else {
+                json_object_set_new(element, "value", json_copy(value));
+              }
               json_object_set_new(json_object_get(to_return, "sensors"), key, element);
             } else {
               y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - Error getting sensor %s from device %s", key, json_string_value(json_object_get(device, "name")));
@@ -931,7 +941,17 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
           json_object_foreach(element_array, key, value) {
             element = get_element_data(config, device, BENOIC_ELEMENT_TYPE_SWITCH, key, 1);
             if (element != NULL) {
-              json_object_set_new(element, "value", json_copy(value));
+              if (json_is_object(value)) {
+                if (json_object_get(value, "unit") != NULL) {
+                  const char * elt_unit = json_string_value(json_object_get(json_object_get(element, "options"), "unit"));
+                  if (elt_unit == NULL || strlen(elt_unit) == 0) {
+                    json_object_set_new(json_object_get(element, "options"), "unit", json_copy(json_object_get(value, "unit")));
+                  }
+                }
+                json_object_set_new(element, "value", json_copy(json_object_get(value, "value")));
+              } else {
+                json_object_set_new(element, "value", json_copy(value));
+              }
               json_object_set_new(json_object_get(to_return, "switches"), key, element);
             } else {
               y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - Error getting switch %s from device %s", key, json_string_value(json_object_get(device, "name")));
@@ -949,7 +969,17 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
           json_object_foreach(element_array, key, value) {
             element = get_element_data(config, device, BENOIC_ELEMENT_TYPE_DIMMER, key, 1);
             if (element != NULL) {
-              json_object_set_new(element, "value", json_copy(value));
+              if (json_is_object(value)) {
+                if (json_object_get(value, "unit") != NULL) {
+                  const char * elt_unit = json_string_value(json_object_get(json_object_get(element, "options"), "unit"));
+                  if (elt_unit == NULL || strlen(elt_unit) == 0) {
+                    json_object_set_new(json_object_get(element, "options"), "unit", json_copy(json_object_get(value, "unit")));
+                  }
+                }
+                json_object_set_new(element, "value", json_copy(json_object_get(value, "value")));
+              } else {
+                json_object_set_new(element, "value", json_copy(value));
+              }
               json_object_set_new(json_object_get(to_return, "dimmers"), key, element);
             } else {
               y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - Error getting dimmer %s from device %s", key, json_string_value(json_object_get(device, "name")));
