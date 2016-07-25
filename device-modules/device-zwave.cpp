@@ -156,6 +156,7 @@ struct zwave_context {
   char            log_path[256];
   char          * alert_url;
   char          * device_name;
+  struct _u_map * alarms;
 };
 
 /**
@@ -322,35 +323,27 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
   }
 }
 
-int send_angharad_alert(zwave_context * zcontext, uint8 node_id, ValueID v) {
+int send_angharad_alert(zwave_context * zcontext, char * source) {
   struct _u_request request;
   char * element_name = NULL;
   int res;
   
-  if (zcontext == NULL) {
-    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - Error input parameters");
+  if (zcontext == NULL || source == NULL) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "send_angharad_alert - Error input parameters");
     return RESULT_ERROR;
   } else if (zcontext->alert_url != NULL) {
-    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - trying to send alert");
-    // Build element_name based on node/value
-    element_name = msprintf("al$%x", v.GetId());
-    if (element_name != NULL) {
-      ulfius_init_request(&request);
-      request.http_verb = strdup("GET");
-      request.http_url = msprintf(zcontext->alert_url, "benoic", zcontext->device_name, element_name, "NOTIFICATION");
-      res = ulfius_send_http_request(&request, NULL);
-      if (res != U_OK) {
-        y_log_message(Y_LOG_LEVEL_ERROR, "ZWave device, Error sending http request for alert");
-      }
-      ulfius_clean_request(&request);
-      free(element_name);
-      return RESULT_OK;
-    } else {
-      y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - element not found");
-      return RESULT_ERROR;
+    ulfius_init_request(&request);
+    request.http_verb = strdup("GET");
+    request.http_url = msprintf(zcontext->alert_url, "benoic", zcontext->device_name, source, "NOTIFICATION");
+    res = ulfius_send_http_request(&request, NULL);
+    if (res != U_OK) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "ZWave device, Error sending http request for alert");
     }
+    ulfius_clean_request(&request);
+    free(element_name);
+    return RESULT_OK;
   } else {
-    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - no alert url specified");
+    y_log_message(Y_LOG_LEVEL_ERROR, "send_angharad_alert - no alert url");
     return RESULT_OK;
   }
 }
@@ -432,12 +425,16 @@ void on_notification_zwave ( Notification const * _notification, void * _context
     }
 
     case Notification::Type_NodeEvent: {
+      char * alarm_name;
       // Event received
-      // Not used yet
-      y_log_message(Y_LOG_LEVEL_DEBUG, "Notification::Type_NodeEvent for NodeID %d, ValueID %d, send alert: %d", 
+      y_log_message(Y_LOG_LEVEL_DEBUG, "Notification::Type_NodeEvent for NodeID %d, ValueID %x, type %x, send alert", 
                     _notification->GetNodeId(), 
-                    _notification->GetValueID(),
-                    send_angharad_alert(zcontext, _notification->GetNodeId(), _notification->GetValueID()));
+                    _notification->GetValueID().GetId(),
+                    _notification->GetValueID().GetCommandClassId());
+      alarm_name = msprintf("al$%02d", _notification->GetNodeId());
+      // Add alarm name in the alarm list
+      u_map_put(zcontext->alarms, alarm_name, alarm_name);
+      send_angharad_alert(zcontext, alarm_name);
       break;
     }
 
@@ -561,6 +558,8 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   ((struct zwave_context *) * device_ptr)->device_name = nstrdup(json_string_value(json_object_get(device, "name")));
   
   ((struct zwave_context *) *device_ptr)->nodes_list = new list<node*>();
+  ((struct zwave_context *) *device_ptr)->alarms = new struct _u_map;
+  u_map_init(((struct zwave_context *) *device_ptr)->alarms);
   
   Options::Create( ((struct zwave_context *) *device_ptr)->config_path, ((struct zwave_context *) *device_ptr)->user_path, ((struct zwave_context *) *device_ptr)->command_line );
   Options::Get()->AddOptionString( "LogFileName", ((struct zwave_context *) *device_ptr)->log_path, false );
@@ -606,6 +605,7 @@ extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
     delete ((struct zwave_context *) device_ptr)->nodes_list;
     free(((struct zwave_context *) device_ptr)->alert_url);
     free(((struct zwave_context *) device_ptr)->device_name);
+    u_map_clean_full(((struct zwave_context *) device_ptr)->alarms);
     free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
@@ -641,7 +641,9 @@ extern "C" json_t * b_device_get_sensor (json_t * device, const char * sensor_na
   str_node_id = strtok_r(NULL, "$", &save_ptr);
   str_label = strtok_r(NULL, "$", &save_ptr);
   
-  if (str_type == NULL || str_node_id == NULL || str_label == NULL) {
+  if (u_map_has_key(((zwave_context *)device_ptr)->alarms, sensor_name)) {
+    result = json_pack("{sisi}", "result", RESULT_OK, "value", 0);
+  } else if (str_type == NULL || str_node_id == NULL || str_label == NULL) {
     result = json_pack("{si}", "result", RESULT_ERROR);
   } else {
     value = get_device_value_id_by_label(get_device_node((zwave_context *)device_ptr, strtol(str_node_id, NULL, 10)), COMMAND_CLASS_SENSOR_BINARY, str_label);
@@ -869,7 +871,9 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
   char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = nstrdup(element_name);
   ValueID * value;
   
-  if (element_type == ELEMENT_TYPE_SENSOR) {
+  if (u_map_has_key(((zwave_context *)device_ptr)->alarms, element_name) && element_type == ELEMENT_TYPE_SENSOR) {
+    return 1;
+  } else if (element_type == ELEMENT_TYPE_SENSOR) {
     // first token is the type, supposed to be "se" in this case
     str_type = strtok_r(dup_name, "$", &save_ptr);
     
@@ -926,6 +930,8 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
   string s_status;
   bool b_status;
   double d_value;
+  int i;
+  const char ** keys = NULL;
   
   list<node*> * nodes_list = (list<node*> *) ((zwave_context *)device_ptr)->nodes_list;
   for( list<node*>::iterator it = nodes_list->begin(); it != nodes_list->end(); ++it ) {
@@ -1028,6 +1034,15 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
         free(name);
       }
     }
+  }
+  // Append notified alarms
+  keys = u_map_enum_keys(((zwave_context *)device_ptr)->alarms);
+  for (i=0; keys != NULL && keys[i] != NULL; i++) {
+    cur_node = "sensors";
+    if (json_object_get(overview, cur_node) == NULL) {
+      json_object_set_new(overview, cur_node, json_object());
+    }
+    json_object_set_new(json_object_get(overview, cur_node), keys[i], json_pack("{sosi}", "trigger", json_true(), "value", 0));
   }
   json_object_set_new(overview, "result", json_integer(RESULT_OK));
   return overview;

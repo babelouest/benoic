@@ -136,12 +136,16 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   json_object_del(he1, "result");
   json_object_del(he2, "result");
     
-  json_t * result = json_pack("{sis{sfsf}s{sIsI}s{sIsI}s{soso}}",
+  json_t * result = json_pack("{sis{s{sssf}s{sosf}}s{sIsI}s{sIsI}s{soso}}",
                              "result", 
                              RESULT_OK,
                              "sensors", 
-                                "se1", get_sensor_value("se1"), 
-                                "se2", get_sensor_value("se2"),
+                                "se1", 
+                                  "unit", "C",
+                                  "value", get_sensor_value("se1"), 
+                                "se2", 
+                                  "trigger", json_true(),
+                                  "value", get_sensor_value("se2"),
                              "switches", 
                                 "sw1", json_integer_value(json_object_get(sw1, "value")), 
                                 "sw2", json_integer_value(json_object_get(sw2, "value")),

@@ -917,6 +917,9 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
                     json_object_set_new(json_object_get(element, "options"), "unit", json_copy(json_object_get(value, "unit")));
                   }
                 }
+                if (json_object_get(value, "trigger") != NULL) {
+                  json_object_set_new(json_object_get(element, "options"), "trigger", json_copy(json_object_get(value, "trigger")));
+                }
                 json_object_set_new(element, "value", json_copy(json_object_get(value, "value")));
               } else {
                 json_object_set_new(element, "value", json_copy(value));

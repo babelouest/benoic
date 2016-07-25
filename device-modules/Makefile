@@ -25,9 +25,9 @@ MODULES_TARGET=$(PREFIX)/lib/angharad/benoic
 LIBZWPATH=/usr/local/lib
 CC=gcc
 CPP=g++
-CFLAGS=-c -fPIC -Wall -D_REENTRANT -shared -nostartfiles -I$(PREFIX)/include -Wno-pragmas $(ADDITIONALFLAGS)
+CFLAGS=-c -fPIC -Wall -Wno-unknown-pragmas -D_REENTRANT -shared -nostartfiles -I$(PREFIX)/include -Wno-pragmas $(ADDITIONALFLAGS)
 LIBS=-L$(PREFIX)/lib -lc -ljansson -lyder -lorcania -lulfius -ldl
-LDFLAGS += -L$(LIBZWPATH) -Wl,-R$(LIBZWPATH) '-Wl,-R$$ORIGIN' -lopenzwave
+LDFLAGS += -Wl,-R '-Wl,-R$$ORIGIN' -lopenzwave
 
 oz_include=/usr/local/include/openzwave/
 
