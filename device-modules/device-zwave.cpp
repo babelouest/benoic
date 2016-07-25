@@ -73,6 +73,7 @@ extern "C" {
 #include <time.h>
 #include <yder.h>
 #include <orcania.h>
+#include <ulfius.h>
 
 #ifdef __cplusplus
 }
@@ -117,6 +118,7 @@ extern "C" {
 #define COMMAND_CLASS_THERMOSTAT_MODE             0x40
 #define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE  0x42
 #define COMMAND_CLASS_THERMOSTAT_SETPOINT         0x43
+#define COMMAND_CLASS_ALARM                       0x71
 
 #define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_IDLE     "Idle"
 #define COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING  "Heating"
@@ -145,13 +147,15 @@ typedef struct _node {
 struct zwave_context {
   uint32          home_id;
   int             init_failed;
-  list<node*> *   nodes_list;
+  list<node*>   * nodes_list;
   char            uri[256];
   char            usb_file[256];     // filename pattern of the usb dongle
   char            config_path[256];
   char            user_path[256];
   char            command_line[256];
   char            log_path[256];
+  char          * alert_url;
+  char          * device_name;
 };
 
 /**
@@ -318,6 +322,39 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
   }
 }
 
+int send_angharad_alert(zwave_context * zcontext, uint8 node_id, ValueID v) {
+  struct _u_request request;
+  char * element_name = NULL;
+  int res;
+  
+  if (zcontext == NULL) {
+    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - Error input parameters");
+    return RESULT_ERROR;
+  } else if (zcontext->alert_url != NULL) {
+    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - trying to send alert");
+    // Build element_name based on node/value
+    element_name = msprintf("al$%x", v.GetId());
+    if (element_name != NULL) {
+      ulfius_init_request(&request);
+      request.http_verb = strdup("GET");
+      request.http_url = msprintf(zcontext->alert_url, "benoic", zcontext->device_name, element_name, "NOTIFICATION");
+      res = ulfius_send_http_request(&request, NULL);
+      if (res != U_OK) {
+        y_log_message(Y_LOG_LEVEL_ERROR, "ZWave device, Error sending http request for alert");
+      }
+      ulfius_clean_request(&request);
+      free(element_name);
+      return RESULT_OK;
+    } else {
+      y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - element not found");
+      return RESULT_ERROR;
+    }
+  } else {
+    y_log_message(Y_LOG_LEVEL_DEBUG, "send_angharad_alert - no alert url specified");
+    return RESULT_OK;
+  }
+}
+
 /**
  * on_notification_zwave
  * Callback that is triggered when a value, group or node changes
@@ -335,7 +372,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
       cur_node = get_device_node( zcontext, _notification->GetNodeId() );
       if( cur_node != NULL ) {
         cur_node->values.push_back( _notification->GetValueID() );
-        y_log_message(Y_LOG_LEVEL_DEBUG, "Adding ValueID type %x to node %d", _notification->GetValueID().GetCommandClassId(), cur_node->node_id);
+        y_log_message(Y_LOG_LEVEL_DEBUG, "Adding ValueID type %x to node %d with id %x", _notification->GetValueID().GetCommandClassId(), cur_node->node_id, _notification->GetValueID().GetId());
       }
       break;
     }
@@ -397,7 +434,10 @@ void on_notification_zwave ( Notification const * _notification, void * _context
     case Notification::Type_NodeEvent: {
       // Event received
       // Not used yet
-      y_log_message(Y_LOG_LEVEL_DEBUG, "Notification::Type_NodeEvent for NodeID %d, label %s and ValueID %d", _notification->GetNodeId(), "tbd", _notification->GetValueID());
+      y_log_message(Y_LOG_LEVEL_DEBUG, "Notification::Type_NodeEvent for NodeID %d, ValueID %d, send alert: %d", 
+                    _notification->GetNodeId(), 
+                    _notification->GetValueID(),
+                    send_angharad_alert(zcontext, _notification->GetNodeId(), _notification->GetValueID()));
       break;
     }
 
@@ -513,6 +553,12 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   } else {
     nstrncpy(((struct zwave_context *) * device_ptr)->log_path, DEFAULT_LOG_PATH, 256);
   }
+  if (json_object_get(json_object_get(device, "options"), "alert_url") != NULL) {
+    ((struct zwave_context *) * device_ptr)->alert_url = nstrdup(json_string_value(json_object_get(json_object_get(device, "options"), "alert_url")));
+  } else {
+    ((struct zwave_context *) * device_ptr)->alert_url = NULL;
+  }
+  ((struct zwave_context *) * device_ptr)->device_name = nstrdup(json_string_value(json_object_get(device, "name")));
   
   ((struct zwave_context *) *device_ptr)->nodes_list = new list<node*>();
   
@@ -555,13 +601,11 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
  */
 extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
   if (device_ptr != NULL && strlen(((struct zwave_context *) device_ptr)->usb_file) > 0) {
-    y_log_message(Y_LOG_LEVEL_DEBUG, "closing driver %s: RemoveDriver %d, RemoveWatcher %d", 
-            ((struct zwave_context *) device_ptr)->usb_file, 
-            Manager::Get()->RemoveDriver(((struct zwave_context *) device_ptr)->usb_file)?1:0,
-            Manager::Get()->RemoveWatcher( on_notification_zwave, NULL )?1:0);
     Options::Destroy();
     Manager::Destroy();
     delete ((struct zwave_context *) device_ptr)->nodes_list;
+    free(((struct zwave_context *) device_ptr)->alert_url);
+    free(((struct zwave_context *) device_ptr)->device_name);
     free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
@@ -607,6 +651,7 @@ extern "C" json_t * b_device_get_sensor (json_t * device, const char * sensor_na
       is_binary = 1;
     }
     if (value != NULL) {
+      Manager::Get()->RefreshValue(*value);
       if (!is_binary) {
         if (Manager::Get()->GetValueAsString((*value), &s_status)) {
           d_value = strtof(s_status.c_str(), &end_ptr_d);
@@ -643,6 +688,7 @@ extern "C" json_t * b_device_get_switch (json_t * device, const char * switch_na
   
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, switch_name);
   if (value != NULL) {
+    Manager::Get()->RefreshValue(*value);
     if (Manager::Get()->GetValueAsBool(*value, &b_status)) {
       result = json_pack("{sisi}", "result", RESULT_OK, "value", (b_status?1:0));
     } else {
@@ -666,11 +712,9 @@ extern "C" json_t * b_device_set_switch (json_t * device, const char * switch_na
     if (Manager::Get()->SetValue((*value), (command?true:false))) {
       result = json_pack("{si}", "result", RESULT_OK);
     } else {
-      y_log_message(Y_LOG_LEVEL_DEBUG, "Error setting value");
       result = json_pack("{si}", "result", RESULT_ERROR);
     }
   } else {
-    y_log_message(Y_LOG_LEVEL_DEBUG, "Switch %s not found", switch_name);
     result = json_pack("{si}", "result", RESULT_NOT_FOUND);
   }
   return result;
@@ -686,6 +730,7 @@ extern "C" json_t * b_device_get_dimmer (json_t * device, const char * dimmer_na
   
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, dimmer_name);
   if (value != NULL) {
+    Manager::Get()->RefreshValue(*value);
     if (Manager::Get()->GetValueAsString((*value), &s_status)) {
       result = json_pack("{sisi}", "result", RESULT_OK, "value", strtol(s_status.c_str(), NULL, 10));
     } else {
@@ -743,6 +788,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
   if (*end_ptr == '\0') {
     value = get_device_value_id(get_device_node((zwave_context *)device_ptr, node_id), COMMAND_CLASS_THERMOSTAT_MODE);
     if (value != NULL) {
+      Manager::Get()->RefreshValue(*value);
       vector< string > o_value;
       string s;
       Manager::Get()->GetValueAsString(*value, &s_status);
@@ -759,6 +805,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
     
     value = get_device_value_id(get_device_node((zwave_context *)device_ptr, node_id), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE);
     if (value != NULL) {
+      Manager::Get()->RefreshValue(*value);
       Manager::Get()->GetValueAsString(*value, &s_status);
       if (strcmp(s_status.c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
         json_object_set_new(heater, "on", json_true());
@@ -769,6 +816,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
     
     value = get_device_value_id(get_device_node((zwave_context *)device_ptr, node_id), COMMAND_CLASS_THERMOSTAT_SETPOINT);
     if (value != NULL) {
+      Manager::Get()->RefreshValue(*value);
       Manager::Get()->GetValueAsString(*value, &s_status);
       json_object_set_new(heater, "command", json_real(strtod(s_status.c_str(), NULL)));
     }
@@ -837,7 +885,6 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
       if (value == NULL) {
         value = get_device_value_id_by_label(get_device_node((zwave_context *)device_ptr, strtol(str_node_id, NULL, 10)), COMMAND_CLASS_SENSOR_MULTILEVEL, str_label);
       }
-      y_log_message(Y_LOG_LEVEL_DEBUG, "sensor %s found ? %d", element_name, (value != NULL));
       free(dup_name_save);
       return (value != NULL);
     }
@@ -862,7 +909,6 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
           value = NULL;
           break;
       }
-      y_log_message(Y_LOG_LEVEL_DEBUG, "element %s found ? %d", element_name, (value != NULL));
       free(dup_name_save);
       return (value != NULL);
     }
@@ -889,6 +935,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
       
       // getting switchers (COMMAND_CLASS_SWITCH_BINARY)
       if ( v.GetCommandClassId() == COMMAND_CLASS_SWITCH_BINARY ) { //COMMAND_CLASS_SWITCH_BINARY
+        Manager::Get()->RefreshValue(v);
         name = msprintf("sw$%02d", node->node_id);
         cur_node = "switches";
         unit = (char *)Manager::Get()->GetValueUnits(v).c_str();
@@ -904,6 +951,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
         }
         free(name);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SWITCH_MULTILEVEL ) { // COMMAND_CLASS_SWITCH_MULTILEVEL - Dimmer
+        Manager::Get()->RefreshValue(v);
         if (0 == strcasecmp(Manager::Get()->GetValueLabel(v).c_str(), "level")) {
           name = msprintf("di$%02d", node->node_id);
           cur_node = "dimmers";
@@ -921,6 +969,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
           free(name);
         }
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SENSOR_BINARY ) { // COMMAND_CLASS_SENSOR_BINARY - binary sensor
+        Manager::Get()->RefreshValue(v);
         char * named_label = naming_label(Manager::Get()->GetValueLabel(v).c_str());
         name = msprintf("se$%02d$%s", node->node_id, named_label);
         cur_node = "sensors";
@@ -938,6 +987,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
         free(name);
         free(named_label);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SENSOR_MULTILEVEL ) { // COMMAND_CLASS_SENSOR_MULTILEVEL - sensor
+        Manager::Get()->RefreshValue(v);
         char * named_label = naming_label(Manager::Get()->GetValueLabel(v).c_str());
         name = msprintf("se$%02d$%s", node->node_id, named_label);
         cur_node = "sensors";
@@ -962,6 +1012,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
         free(name);
         free(named_label);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_SETPOINT ) { // COMMAND_CLASS_THERMOSTAT_SETPOINT - heater
+        Manager::Get()->RefreshValue(v);
         name = msprintf("he$%02d", node->node_id);
         cur_node = "heaters";
         if (json_object_get(json_object_get(overview, cur_node), name) == NULL) {

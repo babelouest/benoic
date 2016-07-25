@@ -110,6 +110,7 @@ struct _benoic_config {
   struct _device_type        * device_type_list;
   struct _benoic_device_data * device_data_list;
   int                          benoic_status;
+  char                       * alert_url;
 };
 
 struct _device_type * get_device_type(struct _benoic_config * config, json_t * device);

@@ -244,6 +244,8 @@ int init_device_type_list(struct _benoic_config * config) {
           cur_device.b_device_get_switch, cur_device.b_device_set_switch, cur_device.b_device_get_dimmer, cur_device.b_device_set_dimmer,
           cur_device.b_device_get_heater, cur_device.b_device_set_heater, cur_device.b_device_has_element);
         }
+      } else {
+        y_log_message(Y_LOG_LEVEL_DEBUG, "Error opening dl file %s, reason: %s", file_path, dlerror());
       }
       free(file_path);
     }
@@ -707,13 +709,8 @@ int connect_device(struct _benoic_config * config, json_t * device) {
   
   // Look for the device type
   if (device_type != NULL) {
-    // Disconnect device before reconnecting it
-    if (json_object_get(device, "connected") == json_true()) {
-      res = disconnect_device(config, device, 1);
-      if (res != B_OK) {
-        y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnecting device %s", json_string_value(json_object_get(device, "name")));
-        return res;
-      }
+    if (config->alert_url != NULL) {
+      json_object_set_new(json_object_get(device, "options"), "alert_url", json_string(config->alert_url));
     }
     result = device_type->b_device_connect(device, &device_ptr);
     if (result != NULL && json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_OK) {

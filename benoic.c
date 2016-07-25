@@ -200,11 +200,11 @@ void * thread_monitor_run(void * args) {
                   if (value != NULL) {
                     s_value = NULL;
                     if (json_is_integer(json_object_get(value, "value"))) {
-  #ifdef JSON_INTEGER_IS_LONG_LONG
+#ifdef JSON_INTEGER_IS_LONG_LONG
                       s_value = msprintf("%lld", json_integer_value(json_object_get(value, "value")));
-  #else
+#else
                       s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
-  #endif
+#endif
                     } else if (json_is_number(json_object_get(value, "value"))) {
                       s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
                     } else if (json_is_string(json_object_get(value, "value"))) {
