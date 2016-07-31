@@ -56,8 +56,8 @@ debug: libdevmock.so libdevzwave.so
 
 release: ADDITIONALFLAGS=-O3
 
-release: libdevmock.so libdevzwave.so
+release: libdevzwave.so
 
-install: libdevmock.so libdevzwave.so
+install: libdevzwave.so
 	mkdir -p $(MODULES_TARGET)
 	cp -f libdevmock.so libdevzwave.so $(MODULES_TARGET)
