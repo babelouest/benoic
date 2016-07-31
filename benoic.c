@@ -181,19 +181,21 @@ void * thread_monitor_run(void * args) {
                 if (json_object_get(device, "enabled") == json_true() && json_object_get(device, "connected") == json_true()) {
                   // Getting value
                   value = NULL;
-                  switch (json_integer_value(json_object_get(j_element, "be_type"))) {
-                    case BENOIC_ELEMENT_TYPE_SENSOR:
-                      value = get_sensor(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                      break;
-                    case BENOIC_ELEMENT_TYPE_SWITCH:
-                      value = get_switch(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                      break;
-                    case BENOIC_ELEMENT_TYPE_DIMMER:
-                      value = get_dimmer(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                      break;
-                    case BENOIC_ELEMENT_TYPE_HEATER:
-                      value = get_heater(config, device, json_string_value(json_object_get(j_element, "be_name")));
-                      break;
+                  if (has_element(config, device, json_integer_value(json_object_get(j_element, "be_type")), json_string_value(json_object_get(j_element, "be_name")))) {
+                    switch (json_integer_value(json_object_get(j_element, "be_type"))) {
+                      case BENOIC_ELEMENT_TYPE_SENSOR:
+                        value = get_sensor(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                        break;
+                      case BENOIC_ELEMENT_TYPE_SWITCH:
+                        value = get_switch(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                        break;
+                      case BENOIC_ELEMENT_TYPE_DIMMER:
+                        value = get_dimmer(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                        break;
+                      case BENOIC_ELEMENT_TYPE_HEATER:
+                        value = get_heater(config, device, json_string_value(json_object_get(j_element, "be_name")));
+                        break;
+                    }
                   }
                   
                   // Inserting value in monitor table
