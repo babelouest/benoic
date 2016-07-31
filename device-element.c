@@ -30,13 +30,18 @@
  * return true or false
  */
 int has_element(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name) {
-  struct _device_type * device_type = get_device_type(config, device);
+  struct _device_type * device_type;
   
-  if (device_type == NULL) {
-    y_log_message(Y_LOG_LEVEL_ERROR, "has_element - Error getting device_type");
-    return 0;
+  if (device != NULL && json_object_get(device, "connected") == json_true()) {
+    device_type = get_device_type(config, device);
+    if (device_type == NULL) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "has_element - Error getting device_type");
+      return 0;
+    } else {
+      return device_type->b_device_has_element(device, element_type, element_name, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
+    }
   } else {
-    return device_type->b_device_has_element(device, element_type, element_name, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
+    return 0;
   }
 }
 
