@@ -245,7 +245,7 @@ int init_device_type_list(struct _benoic_config * config) {
           cur_device.b_device_get_heater, cur_device.b_device_set_heater, cur_device.b_device_has_element);
         }
       } else {
-        y_log_message(Y_LOG_LEVEL_DEBUG, "Error opening dl file %s, reason: %s", file_path, dlerror());
+        y_log_message(Y_LOG_LEVEL_ERROR, "Error opening benoic module file %s, reason: %s", file_path, dlerror());
       }
       free(file_path);
     }
