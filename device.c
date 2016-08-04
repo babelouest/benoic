@@ -758,6 +758,10 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       return B_ERROR_IO;
     }
   } else {
+    j_db_device = parse_device_to_db(device, 1);
+    json_object_set_new(j_db_device, "bd_connected", json_integer(0));
+    modify_device(config, j_db_device, json_string_value(json_object_get(device, "name")));
+    json_decref(j_db_device);
     y_log_message(Y_LOG_LEVEL_ERROR, "Error, No type found for this device");
     return B_ERROR_PARAM;
   }
