@@ -60,4 +60,4 @@ release: libdevzwave.so
 
 install: libdevzwave.so
 	mkdir -p $(MODULES_TARGET)
-	cp -f libdevmock.so libdevzwave.so $(MODULES_TARGET)
+	cp -f *.so $(MODULES_TARGET)
