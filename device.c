@@ -740,11 +740,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       update_last_seen_device(config, device);
       return res;
     } else if (result != NULL) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %lld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-#else
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %ld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-#endif
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %" JSON_INTEGER_FORMAT, json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
       json_decref(result);
       device_name = nstrdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
@@ -812,11 +808,7 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
       update_last_seen_device(config, device);
       return res;
     } else if (result != NULL) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %lld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-#else
-      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %ld", json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-#endif
+      y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %" JSON_INTEGER_FORMAT, json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
       json_decref(result);
       device_name = nstrdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);

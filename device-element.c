@@ -655,17 +655,9 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
   
   if (json_object_get(params, "from") != NULL) {
     if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      tmp = msprintf("> FROM_UNIXTIME(%lld)", json_integer_value(json_object_get(params, "from")));
-#else
-      tmp = msprintf("> FROM_UNIXTIME(%ld)", json_integer_value(json_object_get(params, "from")));
-#endif
+      tmp = msprintf("> FROM_UNIXTIME(%" JSON_INTEGER_FORMAT ")", json_integer_value(json_object_get(params, "from")));
     } else {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      tmp = msprintf("> '%lld'", json_integer_value(json_object_get(params, "from")));
-#else
-      tmp = msprintf("> '%ld'", json_integer_value(json_object_get(params, "from")));
-#endif
+      tmp = msprintf("> '%" JSON_INTEGER_FORMAT "'", json_integer_value(json_object_get(params, "from")));
     }
     json_object_set_new(j_where, "bm_date", json_pack("{ssss}", "operator", "raw", "value", tmp));
     free(tmp);
@@ -679,17 +671,9 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
   
   if (json_object_get(params, "to") != NULL) {
     if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      tmp = msprintf("< FROM_UNIXTIME(%lld)", json_integer_value(json_object_get(params, "to")));
-#else
-      tmp = msprintf("< FROM_UNIXTIME(%ld)", json_integer_value(json_object_get(params, "to")));
-#endif
+      tmp = msprintf("< FROM_UNIXTIME(%" JSON_INTEGER_FORMAT ")", json_integer_value(json_object_get(params, "to")));
     } else {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-      tmp = msprintf("< '%lld'", json_integer_value(json_object_get(params, "from")));
-#else
-      tmp = msprintf("< '%ld'", json_integer_value(json_object_get(params, "from")));
-#endif
+      tmp = msprintf("< '%" JSON_INTEGER_FORMAT "'", json_integer_value(json_object_get(params, "from")));
     }
     json_object_set_new(j_where, "bm_date", json_pack("{ssss}", "operator", "raw", "value", tmp));
     free(tmp);

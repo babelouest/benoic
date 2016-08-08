@@ -202,11 +202,7 @@ void * thread_monitor_run(void * args) {
                   if (value != NULL) {
                     s_value = NULL;
                     if (json_is_integer(json_object_get(value, "value"))) {
-#ifdef JSON_INTEGER_IS_LONG_LONG
-                      s_value = msprintf("%lld", json_integer_value(json_object_get(value, "value")));
-#else
-                      s_value = msprintf("%ld", json_integer_value(json_object_get(value, "value")));
-#endif
+                      s_value = msprintf("%" JSON_INTEGER_FORMAT, json_integer_value(json_object_get(value, "value")));
                     } else if (json_is_number(json_object_get(value, "value"))) {
                       s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
                     } else if (json_is_string(json_object_get(value, "value"))) {
@@ -233,19 +229,11 @@ void * thread_monitor_run(void * args) {
                   
                   // Updating next monitor time
                   if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
-  #ifdef JSON_INTEGER_IS_LONG_LONG
-                    s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %lld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-  #else
-                    s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %ld SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-  #endif
+                    s_next_time = msprintf("CURRENT_TIMESTAMP + INTERVAL %" JSON_INTEGER_FORMAT " SECOND", json_integer_value(json_object_get(j_element, "be_monitored_every")));
                   } else {
-  #ifdef JSON_INTEGER_IS_LONG_LONG
-                    s_next_time = msprintf("strftime('%%s','now')+%lld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-  #else
-                    s_next_time = msprintf("strftime('%%s','now')+%ld", json_integer_value(json_object_get(j_element, "be_monitored_every")));
-  #endif
+                    s_next_time = msprintf("strftime('%%s','now')+%" JSON_INTEGER_FORMAT, json_integer_value(json_object_get(j_element, "be_monitored_every")));
                   }
-                  j_query = json_pack("{sss{s{ss}}s{si}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
+                  j_query = json_pack("{sss{s{ss}}s{sI}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
                   res = h_update(config->conn, j_query, NULL);
                   json_decref(j_query);
                   free(s_next_time);
