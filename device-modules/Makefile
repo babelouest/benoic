@@ -58,6 +58,6 @@ release: ADDITIONALFLAGS=-O3
 
 release: libdevzwave.so
 
-install: libdevzwave.so
+install:
 	mkdir -p $(MODULES_TARGET)
 	cp -f *.so $(MODULES_TARGET)
