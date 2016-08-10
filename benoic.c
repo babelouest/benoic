@@ -957,7 +957,7 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
           json_decref(params);
           return U_OK;
         }
-        json_object_set(params, "from", json_integer(dt_param));
+        json_object_set_new(params, "from", json_integer(dt_param));
       }
       if (u_map_get(request->map_url, "to") != NULL) {
         dt_param = strtol(u_map_get(request->map_url, "to"), &endptr, 10);
@@ -967,7 +967,7 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
           json_decref(params);
           return U_OK;
         }
-        json_object_set(params, "to", json_integer(dt_param));
+        json_object_set_new(params, "to", json_integer(dt_param));
       }
       if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
