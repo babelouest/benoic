@@ -138,9 +138,12 @@ int set_switch(struct _benoic_config * config, json_t * device, const char * swi
         i_return =  B_ERROR_NOT_FOUND;
       } else if (json_integer_value(json_object_get(result, "result")) != DEVICE_RESULT_OK) {
         i_return =  B_ERROR_IO;
+      } else {
+        i_return =  B_ERROR;
       }
       json_decref(result);
     } else {
+      // Should not happen but I don't like gcc warnings
       i_return =  B_ERROR_IO;
     }
   } else {
