@@ -23,7 +23,7 @@ log_level="DEBUG"
 log_file="/tmp/benoic.log"
 
 # path to modules folder
-modules_path="./device-modules"
+modules_path="device-modules"
 
 # MariaDB/Mysql database connection
 database =
