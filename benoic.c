@@ -632,7 +632,7 @@ int callback_benoic_device_overview (const struct _u_request * request, struct _
 }
 
 int callback_benoic_device_element_get (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  json_t * device, * result;
+  json_t * device, * result = NULL;
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_ERROR_PARAMS;

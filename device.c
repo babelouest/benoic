@@ -697,7 +697,8 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
 int connect_device(struct _benoic_config * config, json_t * device) {
   json_t * result, * result_options, * value, * j_db_device;
   struct _device_type * device_type = NULL;
-  char * key, * device_name;
+  const char * key;
+  char * device_name;
   int res;
   void * device_ptr = NULL;
   
@@ -770,7 +771,8 @@ int connect_device(struct _benoic_config * config, json_t * device) {
 int disconnect_device(struct _benoic_config * config, json_t * device, int update_db_status) {
   json_t * result, * result_options, * value, * j_db_device;
   struct _device_type * device_type;
-  char * key, * device_name;
+  const char * key;
+  char * device_name;
   int res;
   
   if (json_object_get(device, "enabled") != json_true() || json_object_get(device, "connected") != json_true()) {
@@ -879,7 +881,7 @@ int ping_device(struct _benoic_config * config, json_t * device) {
 json_t * overview_device(struct _benoic_config * config, json_t * device) {
   struct _device_type * device_type = NULL;
   json_t * overview, * element, * element_array, * to_return, * value;
-  char * key;
+  const char * key;
   
   if (json_object_get(device, "enabled") != json_true()) {
     y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");

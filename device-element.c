@@ -53,7 +53,7 @@ int has_element(struct _benoic_config * config, json_t * device, const int eleme
 json_t * get_sensor(struct _benoic_config * config, json_t * device, const char * sensor_name) {
   struct _device_type * device_type = get_device_type(config, device);
   json_t * sensor_value, * sensor_data, * to_return, * value;
-  char * key;
+  const char * key;
   
   if (device_type == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "get_sensor - Error getting device_type");
@@ -94,7 +94,7 @@ json_t * get_sensor(struct _benoic_config * config, json_t * device, const char 
 json_t * get_switch(struct _benoic_config * config, json_t * device, const char * switch_name) {
   struct _device_type * device_type = get_device_type(config, device);
   json_t * switch_value = device_type->b_device_get_switch(device, switch_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * switch_data, * to_return, * value;
-  char * key;
+  const char * key;
   
   // Look for the device type
   if (switch_value != NULL && json_integer_value(json_object_get(switch_value, "result")) == DEVICE_RESULT_OK) {
@@ -161,7 +161,7 @@ int set_switch(struct _benoic_config * config, json_t * device, const char * swi
 json_t * get_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name) {
   struct _device_type * device_type = get_device_type(config, device);
   json_t * dimmer_value = device_type->b_device_get_dimmer(device, dimmer_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * dimmer_data, * to_return, * value;
-  char * key;
+  const char * key;
   
   // Look for the device type
   if (dimmer_value != NULL && json_integer_value(json_object_get(dimmer_value, "result")) == DEVICE_RESULT_OK) {
@@ -225,7 +225,7 @@ int set_dimmer(struct _benoic_config * config, json_t * device, const char * dim
 json_t * get_heater(struct _benoic_config * config, json_t * device, const char * heater_name) {
   struct _device_type * device_type = get_device_type(config, device);
   json_t * heater_value = device_type->b_device_get_heater(device, heater_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * heater_data, * to_return, * value;
-  char * key;
+  const char * key;
   
   // Look for the device type
   if (heater_value != NULL && json_integer_value(json_object_get(heater_value, "result")) == DEVICE_RESULT_OK) {
