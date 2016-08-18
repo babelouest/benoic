@@ -35,11 +35,11 @@ OZINCLUDES:= -I $(oz_include) -I $(oz_include)command_classes -I $(oz_include)pl
 
 all: release
 
-libdevmock.so: device-mock.o
-	$(CC) -shared -Wl,-soname,libdevmock.so -o libdevmock.so device-mock.o $(LIBS)
-
 device-mock.o: ../benoic.h device-mock.c
 	$(CC) $(CFLAGS) $(FLAGS_YDER) device-mock.c
+
+libdevmock.so: device-mock.o
+	$(CC) -shared -Wl,-soname,libdevmock.so -o libdevmock.so device-mock.o $(LIBS)
 
 device-zwave.o: device-zwave.cpp
 	$(CPP) $(CFLAGS) -Wno-write-strings $(FLAGS_YDER) $(OZINCLUDES) device-zwave.cpp
@@ -47,16 +47,22 @@ device-zwave.o: device-zwave.cpp
 libdevzwave.so: device-zwave.o
 	$(CC) -shared -Wl,-soname,libdevzwave.so -o libdevzwave.so device-zwave.o $(LIBS) $(LDFLAGS)
 
+device-taulas.o: device-taulas.c
+	$(CC) $(CFLAGS) $(FLAGS_YDER) device-taulas.c
+
+libdevtaulas.so: device-taulas.o
+	$(CC) -shared -Wl,-soname,libdevtaulas.so -o libdevtaulas.so device-taulas.o $(LIBS)
+
 clean:
 	rm -f *.o *.so
 
 debug: ADDITIONALFLAGS=-DDEBUG -g -O0
 
-debug: libdevmock.so libdevzwave.so
+debug: libdevmock.so libdevzwave.so libdevtaulas.so
 
 release: ADDITIONALFLAGS=-O3
 
-release: libdevzwave.so
+release: libdevzwave.so libdevtaulas.so
 
 install:
 	mkdir -p $(MODULES_TARGET)
