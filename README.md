@@ -136,3 +136,9 @@ Check the log messages in the log file, syslog or the console, depending on your
 ```log
 yyyy-mm-dd hh:mm:ss - Benoic INFO: Start benoic on port 2642
 ```
+
+# API Documentation
+
+The full API Documentation can be found in the file `API.md`:
+
+- [Benoic API](API.md)
