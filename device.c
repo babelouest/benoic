@@ -423,10 +423,10 @@ json_t * parse_device_to_db(json_t * device, const int update) {
   
   if (!update) {
     json_object_set_new(result, "bd_name", json_copy(json_object_get(device, "name")));
+    json_object_set_new(result, "bdt_uid", json_copy(json_object_get(device, "type_uid")));
   }
   json_object_set_new(result, "bd_description", json_copy(json_object_get(device, "description")));
   json_object_set_new(result, "bd_enabled", json_object_get(device, "enabled")==json_true()?json_integer(1):json_integer(2));
-  json_object_set_new(result, "bdt_uid", json_copy(json_object_get(device, "type_uid")));
   tmp = json_dumps(json_object_get(device, "options"), JSON_COMPACT);
   json_object_set_new(result, "bd_options", json_string(tmp));
   free(tmp);
@@ -463,9 +463,11 @@ json_t * is_device_valid(struct _benoic_config * config, json_t * device, const 
     json_array_append_new(result, json_pack("{ss}", "enabled", "enabled is optional but must be a boolean"));
   }
   
-  j_element = json_object_get(device, "type_uid");
-  if (j_element == NULL || !json_is_string(j_element)) {
-    json_array_append_new(result, json_pack("{ss}", "type_uid", "type_uid is mandatory and must be a valid device type"));
+  if (!update) {
+    j_element = json_object_get(device, "type_uid");
+    if (j_element == NULL || !json_is_string(j_element)) {
+      json_array_append_new(result, json_pack("{ss}", "type_uid", "type_uid is mandatory and must be a valid device type"));
+    }
   }
   
   option_valid = is_device_option_list_valid(config, device);

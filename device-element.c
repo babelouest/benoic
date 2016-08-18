@@ -593,8 +593,12 @@ int element_add_tag(struct _benoic_config * config, json_t * device, const int e
     if (tag_list == NULL) {
       json_object_set_new(json_object_get(element_data, "options"), "tags", json_array());
     }
-    json_array_append_new(json_object_get(json_object_get(element_data, "options"), "tags"), json_string(tag));
-    res = set_element_data(config, device, element_name, element_type, element_data, 1);
+    if (json_is_array(tag_list) && json_array_size(tag_list) < 128) {
+      json_array_append_new(json_object_get(json_object_get(element_data, "options"), "tags"), json_string(tag));
+      res = set_element_data(config, device, element_name, element_type, element_data, 1);
+    } else {
+      res = B_ERROR_PARAM;
+    }
   } else {
     res = B_ERROR_NOT_FOUND;
   }

@@ -484,7 +484,7 @@ int callback_benoic_device_modify (const struct _u_request * request, struct _u_
     result = is_device_valid((struct _benoic_config *)user_data, request->json_body, 1);
     if (result == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error is_device_valid");
-      response->status = 400;
+      response->status = 500;
     } else if (json_array_size(result) > 0) {
       response->status = 400;
       response->json_body = result;
@@ -827,6 +827,7 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
 int callback_benoic_device_element_add_tag (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device, * element = NULL;
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
+  int res;
   
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
@@ -858,9 +859,14 @@ int callback_benoic_device_element_add_tag (const struct _u_request * request, s
           if (strlen(u_map_get(request->map_url, "tag")) > 64) {
             response->status = 400;
             response->json_body = json_pack("{ss}", "error", "tag must be max 64 characters");
-          } else if (element_add_tag((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), u_map_get(request->map_url, "tag")) != B_OK) {
-            response->status = 500;
-            y_log_message(Y_LOG_LEVEL_ERROR, "Error saving tag %s", u_map_get(request->map_url, "tag"));
+          } else {
+            res = element_add_tag((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), u_map_get(request->map_url, "tag"));
+            if (res == B_ERROR_PARAM) {
+              response->status = 400;
+            } else if (res != B_OK) {
+              response->status = 500;
+              y_log_message(Y_LOG_LEVEL_ERROR, "Error saving tag %s", u_map_get(request->map_url, "tag"));
+            }
           }
           json_decref(element);
         } else {
