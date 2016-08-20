@@ -117,6 +117,7 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
 
 // Device db management functions
 json_t * get_device_types_list(struct _benoic_config * config);
+json_t * reload_device_types_list(struct _benoic_config * config);
 json_t * get_device(struct _benoic_config * config, const char * name);
 int add_device(struct _benoic_config * config, const json_t * device);
 int modify_device(struct _benoic_config * config, const json_t * device, const char * name);
@@ -129,6 +130,7 @@ json_t * is_device_option_valid(json_t * option_format, json_t * options);
 int update_last_seen_device(struct _benoic_config * config, json_t * device);
 
 // Device hardware management functions
+int connect_enabled_devices(struct _benoic_config * config);
 int connect_device(struct _benoic_config * config, json_t * device);
 int disconnect_device(struct _benoic_config * config, json_t * device, int update_db_status);
 int ping_device(struct _benoic_config * config, json_t * device);
@@ -171,6 +173,7 @@ void * thread_monitor_run(void * args);
 
 // endpoints callback functions
 int callback_benoic_device_get_types (const struct _u_request * request, struct _u_response * response, void * user_data);
+int callback_benoic_device_reload_types (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_benoic_device_get_list (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_benoic_device_get (const struct _u_request * request, struct _u_response * response, void * user_data);
 int callback_benoic_device_add (const struct _u_request * request, struct _u_response * response, void * user_data);

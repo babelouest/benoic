@@ -39,6 +39,7 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     
     // Devices management
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/", NULL, NULL, NULL, &callback_benoic_device_get_types, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/reload", NULL, NULL, NULL, &callback_benoic_device_reload_types, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_get_list, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name", NULL, NULL, NULL, &callback_benoic_device_get, (void*)config);
     ulfius_add_endpoint_by_val(instance, "POST", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_add, (void*)config);
@@ -62,6 +63,9 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     // Get differents types available for devices by loading library files in module_path
     if (init_device_type_list(config) != B_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error loading device types list");
+      return B_ERROR_IO;
+    } else if (connect_enabled_devices(config) != B_OK) {
+      y_log_message(Y_LOG_LEVEL_ERROR, "init_benoic - Error connecting devices");
       return B_ERROR_IO;
     }
     
@@ -93,6 +97,7 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
   
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
+    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/reload");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name");
     ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/");
@@ -398,6 +403,31 @@ int callback_benoic_device_get_types (const struct _u_request * request, struct 
     response->json_body = get_device_types_list((struct _benoic_config *)user_data);
     if (response->json_body == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error getting device types list, aborting");
+      response->status = 500;
+    }
+    return U_OK;
+  }
+}
+
+int callback_benoic_device_reload_types (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  if (user_data == NULL) {
+    y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error, user_data is NULL");
+    return U_ERROR_PARAMS;
+  } else {
+    if (close_device_type_list(((struct _benoic_config *)user_data)->device_type_list) == B_OK) {
+      free(((struct _benoic_config *)user_data)->device_type_list);
+      if (init_device_type_list((struct _benoic_config *)user_data) == B_OK) {
+        response->json_body = get_device_types_list((struct _benoic_config *)user_data);
+        if (response->json_body == NULL) {
+          y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error getting device types list, aborting");
+          response->status = 500;
+        }
+      } else {
+        y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error reopening device type list");
+        response->status = 500;
+      }
+    } else {
+      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error closing device type list");
       response->status = 500;
     }
     return U_OK;

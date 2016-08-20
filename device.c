@@ -60,13 +60,13 @@ int close_device_type_list(struct _device_type * device_type_list) {
  * Initializes the struct _device_type according to all the devices types libraries present in config->modules_path
  */
 int init_device_type_list(struct _benoic_config * config) {
-  json_t * j_query, * j_result, * device_handshake, * device_list, * device;
+  json_t * j_query, * j_result, * device_handshake;
   DIR * modules_directory;
   struct dirent * in_file;
   char * file_path;
   void * file_handle;
   int res;
-  size_t nb_device_types = 0, index;
+  size_t nb_device_types = 0;
   
   config->device_type_list = malloc(sizeof(struct _device_type));
   
@@ -254,29 +254,34 @@ int init_device_type_list(struct _benoic_config * config) {
     if (nb_device_types == 0) {
       y_log_message(Y_LOG_LEVEL_WARNING, "No device type found for benoic subsystem. If not needed, you can disable it");
     }
-    
-    // Connect all devices that are marked connected in the database
-    device_list = get_device(config, NULL);
-    if (device_list != NULL) {
-      json_array_foreach(device_list, index, device) {
-        if (json_object_get(device, "connected") == json_true()) {
-          int res = connect_device(config, device);
-          if (res == B_OK) {
-            y_log_message(Y_LOG_LEVEL_INFO, "Device %s connected", json_string_value(json_object_get(device, "name")));
-          } else {
-            y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, reason: %d", json_string_value(json_object_get(device, "name")), res);
-          }
-        }
-      }
-      json_decref(device_list);
-    } else {
-      y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting device list");
-      return B_ERROR_DB;
-    }
     return B_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error input parameters");
     return B_ERROR_PARAM;
+  }
+}
+
+int connect_enabled_devices(struct _benoic_config * config) {
+  // Connect all devices that are marked connected in the database
+  json_t * device_list = get_device(config, NULL), * device;
+  size_t index;
+  
+  if (device_list != NULL) {
+    json_array_foreach(device_list, index, device) {
+      if (json_object_get(device, "connected") == json_true()) {
+        int res = connect_device(config, device);
+        if (res == B_OK) {
+          y_log_message(Y_LOG_LEVEL_INFO, "Device %s connected", json_string_value(json_object_get(device, "name")));
+        } else {
+          y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, reason: %d", json_string_value(json_object_get(device, "name")), res);
+        }
+      }
+    }
+    json_decref(device_list);
+    return B_OK;
+  } else {
+    y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting device list");
+    return B_ERROR_DB;
   }
 }
 
