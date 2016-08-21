@@ -339,6 +339,7 @@ json_t * get_device(struct _benoic_config * config, const char * name) {
   json_t * j_query = json_object(), * j_result, * j_to_return = NULL, * value, * cur_device;
   size_t index;
   int res;
+  struct _device_type * cur_type;
   
   if (j_query == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "get_device - Error allocating resources for j_query");
@@ -362,7 +363,12 @@ json_t * get_device(struct _benoic_config * config, const char * name) {
       }
       json_array_foreach(j_result, index, value) {
         cur_device = parse_device_from_db(value);
-        json_array_append_new(j_to_return, cur_device);
+        cur_type = get_device_type(config, cur_device);
+        if (cur_type != NULL) {
+          json_array_append_new(j_to_return, cur_device);
+        } else {
+          json_decref(cur_device);
+        }
       }
       json_decref(j_result);
     } else {
@@ -372,7 +378,13 @@ json_t * get_device(struct _benoic_config * config, const char * name) {
       } else {
         j_to_return = parse_device_from_db(json_array_get(j_result, 0));
         json_decref(j_result);
-        return(j_to_return);
+        cur_type = get_device_type(config, j_to_return);
+        if (cur_type != NULL) {
+          return(j_to_return);
+        } else {
+          json_decref(j_to_return);
+          return NULL;
+        }
       }
     }
   } else {
@@ -708,6 +720,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
   char * device_name;
   int res;
   void * device_ptr = NULL;
+  int to_return = B_OK;
   
   if (json_object_get(device, "enabled") != json_true()) {
     y_log_message(Y_LOG_LEVEL_ERROR, "Device disabled");
@@ -727,7 +740,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       if (device_ptr != NULL) {
         if (set_device_data(config, json_string_value(json_object_get(device, "name")), device_ptr) != B_OK) {
           y_log_message(Y_LOG_LEVEL_ERROR, "Error setting device_data for device %s", json_string_value(json_object_get(device, "name")));
-          return B_ERROR_MEMORY;
+          to_return = B_ERROR_MEMORY;
         }
       }
       // update database with options sent back if exist
@@ -743,32 +756,31 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       json_object_set_new(j_db_device, "bd_connected", json_integer(1));
       res = modify_device(config, j_db_device, device_name);
       free(device_name);
-      json_decref(result);
       json_decref(j_db_device);
       update_last_seen_device(config, device);
-      return res;
+      to_return = res;
     } else if (result != NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %" JSON_INTEGER_FORMAT, json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-      json_decref(result);
       device_name = nstrdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
       json_object_set_new(j_db_device, "bd_connected", json_integer(0));
       modify_device(config, j_db_device, device_name);
       free(device_name);
-      json_decref(result);
       json_decref(j_db_device);
-      return B_ERROR_IO;
+      to_return = B_ERROR_IO;
     } else {
-      return B_ERROR_IO;
+      to_return = B_ERROR_IO;
     }
+    json_decref(result);
   } else {
     j_db_device = parse_device_to_db(device, 1);
     json_object_set_new(j_db_device, "bd_connected", json_integer(0));
     modify_device(config, j_db_device, json_string_value(json_object_get(device, "name")));
     json_decref(j_db_device);
     y_log_message(Y_LOG_LEVEL_ERROR, "Error, No type found for this device");
-    return B_ERROR_PARAM;
+    to_return = B_ERROR_PARAM;
   }
+  return to_return;
 }
 
 /**

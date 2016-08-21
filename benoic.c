@@ -39,7 +39,7 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
     
     // Devices management
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/", NULL, NULL, NULL, &callback_benoic_device_get_types, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/reload", NULL, NULL, NULL, &callback_benoic_device_reload_types, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/deviceTypes/reload", NULL, NULL, NULL, &callback_benoic_device_reload_types, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_get_list, (void*)config);
     ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name", NULL, NULL, NULL, &callback_benoic_device_get, (void*)config);
     ulfius_add_endpoint_by_val(instance, "POST", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_add, (void*)config);
@@ -97,7 +97,7 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
   
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
-    ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/reload");
+    ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/deviceTypes/reload");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/");
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name");
     ulfius_remove_endpoint_by_val(instance, "POST", url_prefix, "/device/");
