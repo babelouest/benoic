@@ -79,7 +79,7 @@ json_t * b_device_type_init () {
                     "result", WEBSERVICE_RESULT_OK,
                     "uid", "24-67-85", 
                     "name", "Taulas Device", 
-                    "description", "Device used to connect to a Taulas device", 
+                    "description", "Connect to a Taulas device", 
                     "options", options);
 }
 
