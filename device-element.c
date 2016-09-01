@@ -32,6 +32,7 @@
 int has_element(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name) {
   struct _device_type * device_type;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device != NULL && json_object_get(device, "connected") == json_true()) {
     device_type = get_device_type(config, device);
     if (device_type == NULL) {
@@ -55,6 +56,7 @@ json_t * get_sensor(struct _benoic_config * config, json_t * device, const char 
   json_t * sensor_value, * sensor_data, * to_return, * value;
   const char * key;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_type == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "get_sensor - Error getting device_type");
     return NULL;
@@ -96,6 +98,7 @@ json_t * get_switch(struct _benoic_config * config, json_t * device, const char 
   json_t * switch_value = device_type->b_device_get_switch(device, switch_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * switch_data, * to_return, * value;
   const char * key;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Look for the device type
   if (switch_value != NULL && json_integer_value(json_object_get(switch_value, "result")) == DEVICE_RESULT_OK) {
     json_object_del(switch_value, "result");
@@ -129,6 +132,7 @@ int set_switch(struct _benoic_config * config, json_t * device, const char * swi
   json_t * result;
   int i_return;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_type != NULL) {
     result = device_type->b_device_set_switch(device, switch_name, command, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
     if (result != NULL) {
@@ -163,6 +167,7 @@ json_t * get_dimmer(struct _benoic_config * config, json_t * device, const char 
   json_t * dimmer_value = device_type->b_device_get_dimmer(device, dimmer_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * dimmer_data, * to_return, * value;
   const char * key;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Look for the device type
   if (dimmer_value != NULL && json_integer_value(json_object_get(dimmer_value, "result")) == DEVICE_RESULT_OK) {
     json_object_del(dimmer_value, "result");
@@ -196,6 +201,7 @@ int set_dimmer(struct _benoic_config * config, json_t * device, const char * dim
   json_t * result;
   int i_return;
 
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_type != NULL) {
     result = device_type->b_device_set_dimmer(device, dimmer_name, command, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
     if (result != NULL) {
@@ -227,6 +233,7 @@ json_t * get_heater(struct _benoic_config * config, json_t * device, const char 
   json_t * heater_value = device_type->b_device_get_heater(device, heater_name, get_device_ptr(config, json_string_value(json_object_get(device, "name")))), * heater_data, * to_return, * value;
   const char * key;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // Look for the device type
   if (heater_value != NULL && json_integer_value(json_object_get(heater_value, "result")) == DEVICE_RESULT_OK) {
     json_object_del(heater_value, "result");
@@ -260,6 +267,7 @@ int set_heater(struct _benoic_config * config, json_t * device, const char * hea
   json_t * result;
   int i_return;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_type != NULL) {
     result = device_type->b_device_set_heater(device, heater_name, mode, command, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
     if (result != NULL) {
@@ -296,6 +304,7 @@ json_t * get_element_data(struct _benoic_config * config, json_t * device, const
   json_t * j_query = json_object(), * j_result, * j_return, * default_data;
   int res;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config == NULL || device == NULL || element_name == NULL || j_query == NULL) {
     json_decref(j_query);
     y_log_message(Y_LOG_LEVEL_ERROR, "get_element_data - Error input parameters");
@@ -358,6 +367,7 @@ int set_element_data(struct _benoic_config * config, json_t * device, const char
   json_t * db_data, * j_query;
   int res;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config == NULL || device == NULL || element_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "set_element_data - Error input parameter");
     return B_ERROR_PARAM;
@@ -403,6 +413,7 @@ int set_element_data(struct _benoic_config * config, json_t * device, const char
 json_t * parse_element_from_db(json_t * element) {
   json_t * to_return;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (element == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "parse_element_from_db - Error input parameter");
     return NULL;
@@ -433,6 +444,7 @@ json_t * parse_element_to_db(json_t * element, const char * device, const char *
   json_t * to_return;
   char * dump;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (element == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "parse_element_to_db - Error input parameter");
     return NULL;
@@ -470,6 +482,7 @@ json_t * parse_element_to_db(json_t * element, const char * device, const char *
 json_t * is_element_valid(json_t * element, const int element_type) {
   json_t * result, * value, * option_result;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (element == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "is_element_valid - Error input parameters");
     return NULL;
@@ -529,6 +542,7 @@ json_t * is_element_valid(json_t * element, const int element_type) {
 json_t * is_option_valid(json_t * options, int element_type) {
   json_t * result;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   result = json_array();
   
   if (result == NULL) {
@@ -564,6 +578,7 @@ int is_tag_list_valid(json_t * tags) {
   json_t * value;
   size_t index;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (tags == NULL) {
     return 1;
   } else if (!json_is_array(tags)) {
@@ -588,6 +603,7 @@ int element_add_tag(struct _benoic_config * config, json_t * device, const int e
   json_t * element_data = get_element_data(config, device, element_type, element_name, 0), * tag_list;
   int res;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (element_data != NULL) {
     tag_list = json_object_get(json_object_get(element_data, "options"), "tags");
     if (tag_list == NULL) {
@@ -614,6 +630,7 @@ int element_remove_tag(struct _benoic_config * config, json_t * device, const in
   json_t * element_data = get_element_data(config, device, element_type, element_name, 0), * cur_tag;
   int res, index;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (element_data != NULL) {
     for (index = json_array_size(json_object_get(json_object_get(element_data, "options"), "tags"))-1; index>=0; index--) {
       cur_tag = json_array_get(json_object_get(json_object_get(element_data, "options"), "tags"), index);
@@ -638,6 +655,7 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
   char * tmp = NULL, * escaped_device, * escaped_name;
   int res;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (j_query == NULL || j_where == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "element_get_monitor - Error allocating values for j_query or j_where");
     json_decref(j_query);

@@ -169,6 +169,7 @@ char * naming_label(const char * label) {
   char * to_return = NULL;
   int i;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (label != NULL) {
     to_return = strdup(label);
     for (i=0; to_return[i] != '\0'; i++) {
@@ -186,7 +187,7 @@ char * naming_label(const char * label) {
  * return the node in this device identified by it id
  */
 node * get_device_node(zwave_context * zcontext, uint8 node_id) {
-  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (zcontext == NULL || zcontext->nodes_list == NULL) {
     return NULL;
   } else {
@@ -205,6 +206,7 @@ node * get_device_node(zwave_context * zcontext, uint8 node_id) {
  * return the ValueID of the node identified by the command_class value
  */
 ValueID * get_device_value_id(node * cur_node, uint8 command_class) {
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_node != NULL) {
     for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
       ValueID * v = &(*it);
@@ -221,6 +223,8 @@ ValueID * get_device_value_id(node * cur_node, uint8 command_class) {
  */
 uint get_device_value_id_count(node * cur_node, uint8 command_class) {
   uint count = 0;
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_node != NULL) {
     for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
       ValueID * v = &(*it);
@@ -237,6 +241,8 @@ uint get_device_value_id_count(node * cur_node, uint8 command_class) {
  */
 ValueID * get_device_value_id_by_index(node * cur_node, uint8 command_class, uint index) {
   uint count = 0;
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_node != NULL) {
     for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
       ValueID * v = &(*it);
@@ -257,6 +263,8 @@ ValueID * get_device_value_id_by_index(node * cur_node, uint8 command_class, uin
  */
 ValueID * get_device_value_id_by_label(node * cur_node, uint8 command_class, const char * label) {
   char * named_label;
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (cur_node != NULL) {
     for( list<ValueID>::iterator it = cur_node->values.begin(); it != cur_node->values.end(); ++it ) {
       ValueID * v = &(*it);
@@ -281,6 +289,7 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
   ValueID * value;
   node * cur_node;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // first token is the type
   str_type = strtok_r(dup_name, "$", &save_ptr);
   
@@ -294,7 +303,7 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
     free(dup_name_save);
     return NULL;
   } else {
-    if (0 == strcmp(str_type, "se")) {
+    if (0 == nstrcmp(str_type, "se")) {
       // This is a sensor
       if (str_label == NULL) {
         free(dup_name_save);
@@ -307,13 +316,13 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
         free(dup_name_save);
         return value;
       }
-    } else if (0 == strcmp(str_type, "sw")) {
+    } else if (0 == nstrcmp(str_type, "sw")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_BINARY);
-    } else if (0 == strcmp(str_type, "di")) {
+    } else if (0 == nstrcmp(str_type, "di")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_MULTILEVEL);
-    } else if (0 == strcmp(str_type, "he")) {
+    } else if (0 == nstrcmp(str_type, "he")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_THERMOSTAT_SETPOINT);
     } else {
@@ -328,6 +337,7 @@ int send_angharad_alert(zwave_context * zcontext, char * source) {
   char * element_name = NULL;
   int res;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (zcontext == NULL || source == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "send_angharad_alert - Error input parameters");
     return RESULT_ERROR;
@@ -358,6 +368,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
   
   node * cur_node;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   switch( _notification->GetType() ) {
   
     // Add the new value to our list if it doesn't already exists
@@ -509,6 +520,7 @@ void on_notification_zwave ( Notification const * _notification, void * _context
  */
 extern "C" json_t * b_device_type_init () {
   json_t * options = json_array();
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_array_append_new(options, json_pack("{ssssssso}", "name", "uri", "type", "string", "description", "uri to connect to the device", "optional", json_false()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "config_path", "type", "string", "description", "Path to openzwave configuration", "optional", json_true()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "user_path", "type", "string", "description", "Path to openzwave user files", "optional", json_true()));
@@ -528,6 +540,8 @@ extern "C" json_t * b_device_type_init () {
 extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int i;
   char filename[256];
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   * device_ptr = malloc(sizeof(struct zwave_context));
   nstrncpy(((struct zwave_context *) * device_ptr)->uri, json_string_value(json_object_get(json_object_get(device, "options"), "uri")), 256);
   if (json_object_get(json_object_get(device, "options"), "config_path") != NULL) {
@@ -599,6 +613,7 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
  * disconnects the device
  */
 extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_ptr != NULL && strlen(((struct zwave_context *) device_ptr)->usb_file) > 0) {
     Options::Destroy();
     Manager::Destroy();
@@ -615,6 +630,7 @@ extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
  * Ping the device type
  */
 extern "C" json_t * b_device_ping (json_t * device, void * device_ptr) {
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_ptr != NULL) {
     return json_pack("{si}", "result", RESULT_OK);
   } else {
@@ -634,6 +650,7 @@ extern "C" json_t * b_device_get_sensor (json_t * device, const char * sensor_na
   double d_value;
   int is_binary = 0;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   // first token is the type, supposed to be "se" in this case
   str_type = strtok_r(dup_name, "$", &save_ptr);
   
@@ -688,6 +705,7 @@ extern "C" json_t * b_device_get_switch (json_t * device, const char * switch_na
   bool b_status;
   json_t * result = NULL;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, switch_name);
   if (value != NULL) {
     Manager::Get()->RefreshValue(*value);
@@ -709,6 +727,7 @@ extern "C" json_t * b_device_set_switch (json_t * device, const char * switch_na
   ValueID * value = NULL;
   json_t * result = NULL;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, switch_name);
   if (value != NULL) {
     if (Manager::Get()->SetValue((*value), (command?true:false))) {
@@ -730,6 +749,7 @@ extern "C" json_t * b_device_get_dimmer (json_t * device, const char * dimmer_na
   string s_status;
   json_t * result = NULL;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, dimmer_name);
   if (value != NULL) {
     Manager::Get()->RefreshValue(*value);
@@ -754,6 +774,7 @@ extern "C" json_t * b_device_set_dimmer (json_t * device, const char * dimmer_na
   char val[4];
   int cur_command;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   value = get_device_value_id_by_element_name((zwave_context *)device_ptr, dimmer_name);
   if (value != NULL) {
     if (command < 0) cur_command = 0;
@@ -781,6 +802,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
   char * end_ptr;
   json_t * heater = json_object();
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (heater == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "b_device_get_heater - Error allocating resources for heater");
     return json_pack("{si}", "result", RESULT_ERROR);
@@ -809,7 +831,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
     if (value != NULL) {
       Manager::Get()->RefreshValue(*value);
       Manager::Get()->GetValueAsString(*value, &s_status);
-      if (strcmp(s_status.c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
+      if (nstrcmp(s_status.c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
         json_object_set_new(heater, "on", json_true());
       } else {
         json_object_set_new(heater, "on", json_false());
@@ -841,6 +863,7 @@ extern "C" json_t * b_device_set_heater (json_t * device, const char * heater_na
   uint i;
   char str_command[33];
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   node_id = strtol(strstr(heater_name, "$") + 1, &end_ptr, 10);
   if (*end_ptr == '\0') {
     value = get_device_value_id(get_device_node((zwave_context *)device_ptr, node_id), COMMAND_CLASS_THERMOSTAT_MODE);
@@ -871,6 +894,7 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
   char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = nstrdup(element_name);
   ValueID * value;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (u_map_has_key(((zwave_context *)device_ptr)->alarms, element_name) && element_type == ELEMENT_TYPE_SENSOR) {
     return 1;
   } else if (element_type == ELEMENT_TYPE_SENSOR) {
@@ -933,6 +957,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
   int i;
   const char ** keys = NULL;
   
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   list<node*> * nodes_list = (list<node*> *) ((zwave_context *)device_ptr)->nodes_list;
   for( list<node*>::iterator it = nodes_list->begin(); it != nodes_list->end(); ++it ) {
     node* node = *it;
