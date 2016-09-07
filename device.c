@@ -1047,6 +1047,7 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
       json_decref(overview);
       return to_return;
     } else {
+      json_decref(overview);
       y_log_message(Y_LOG_LEVEL_ERROR, "overview_device - Error getting overview");
       return NULL;
     }
