@@ -51,6 +51,37 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr);
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr);
 
+/**
+ * decode a u_map into a string
+ */
+char * print_map(const struct _u_map * map) {
+  char * line, * to_return = NULL;
+  const char **keys;
+  int len, i;
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  if (map != NULL) {
+    keys = u_map_enum_keys(map);
+    for (i=0; keys[i] != NULL; i++) {
+      len = snprintf(NULL, 0, "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
+      line = malloc((len+1)*sizeof(char));
+      snprintf(line, (len+1), "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
+      if (to_return != NULL) {
+        len = strlen(to_return) + strlen(line) + 1;
+        to_return = realloc(to_return, (len+1)*sizeof(char));
+      } else {
+        to_return = malloc((strlen(line) + 1)*sizeof(char));
+        to_return[0] = 0;
+      }
+      strcat(to_return, line);
+      free(line);
+    }
+    return to_return;
+  } else {
+    return NULL;
+  }
+}
+
 void init_request_for_device(struct _u_request * req, json_t * device, const char * command) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   ulfius_init_request(req);
@@ -63,7 +94,7 @@ void init_request_for_device(struct _u_request * req, json_t * device, const cha
   if (json_object_get(json_object_get(device, "options"), "user") != NULL && json_string_length(json_object_get(json_object_get(device, "options"), "user")) > 0) {
     req->auth_basic_user = nstrdup(json_string_value(json_object_get(json_object_get(device, "options"), "user")));
   }
-  req->http_url = msprintf("%s/%s", json_string_value(json_object_get(json_object_get(device, "options"), "uri")), command);
+  req->http_url = msprintf("%s%s", json_string_value(json_object_get(json_object_get(device, "options"), "uri")), command);
 }
 
 /**
@@ -73,6 +104,7 @@ json_t * b_device_type_init () {
   json_t * options = json_array();
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_array_append_new(options, json_pack("{ssssssso}", "name", "uri", "type", "string", "description", "uri to connect to the device", "optional", json_false()));
+  json_array_append_new(options, json_pack("{ssssssso}", "name", "send_alert_uri", "type", "string", "description", "uri to use to send the server alert uri to the client", "optional", json_false()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "do_not_check_certificate", "type", "boolean", "description", "check the certificate of the device if needed", "optional", json_true()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "old_version", "type", "boolean", "description", "Is the device an old Taulas device or a new one?", "optional", json_true()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "user", "type", "string", "description", "Username to connect to the device", "optional", json_true()));
@@ -134,7 +166,15 @@ json_t * b_device_ping (json_t * device, void * device_ptr) {
   
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK && nstrcmp("POLO", resp.string_body)) {
-    j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  } else {
+      if (resp.status == 200 && resp.json_body != NULL && 0 == nstrcmp(json_string_value(json_object_get(resp.json_body, "value")), "POLO")) {
+        j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+      } else {
+        j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
+    }
   } else {
     j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
@@ -145,45 +185,13 @@ json_t * b_device_ping (json_t * device, void * device_ptr) {
 }
 
 /**
- * decode a u_map into a string
- */
-char * print_map(const struct _u_map * map) {
-  char * line, * to_return = NULL;
-  const char **keys;
-  int len, i;
-  
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (map != NULL) {
-    keys = u_map_enum_keys(map);
-    for (i=0; keys[i] != NULL; i++) {
-      len = snprintf(NULL, 0, "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
-      line = malloc((len+1)*sizeof(char));
-      snprintf(line, (len+1), "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
-      if (to_return != NULL) {
-        len = strlen(to_return) + strlen(line) + 1;
-        to_return = realloc(to_return, (len+1)*sizeof(char));
-      } else {
-        to_return = malloc((strlen(line) + 1)*sizeof(char));
-        to_return[0] = 0;
-      }
-      strcat(to_return, line);
-      free(line);
-    }
-    return to_return;
-  } else {
-    return NULL;
-  }
-}
-
-/**
  * Get the device overview
- * Returns a mocked overview with 2 sensors, 2 switches, 2 dimmers and 2 heaters
  */
 json_t * b_device_overview (json_t * device, void * device_ptr) {
   struct _u_request req;
   struct _u_response resp;
   int res;
-  json_t * overview;
+  json_t * overview = NULL;
   char * saved_body, * str, * token, * token_dup, * saveptr, * element, * saveptr2, * name, * value, * saveptr3, * endptr;
   json_int_t i_value;
   double d_value;
@@ -195,74 +203,82 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    overview = json_object();
-    
-    saved_body = nstrdup(resp.string_body);
-    saved_body[strlen(saved_body) - 1] = '\0';
-    str = saved_body;
-    token = strtok_r(str + sizeof(char), ";", &saveptr);
-    while (token != NULL) {
-      token_dup = nstrdup(token);
-      if (nstrncmp("SWITCHES", token_dup, strlen("SWITCHES")) == 0 && nstrstr(token_dup, ",") != NULL) {
-        json_object_set_new(overview, "switches", json_object());
-        element = strtok_r(token_dup + strlen("SWITCHES,"), ",", &saveptr2);
-        while (element != NULL) {
-          name = strtok_r(element, ":", &saveptr3);
-          value = strtok_r(NULL, ":", &saveptr3);
-          if (name != NULL && value != NULL) {
-            i_value = strtol(value, &endptr, 10);
-            if (value != endptr) {
-              json_object_set_new(json_object_get(overview, "switches"), name, json_integer(i_value));
-              u_map_put(elements, name, "");
-            }
-          }
-          element = strtok_r(NULL, ",", &saveptr2);
-        }
-      } else if (nstrncmp("SENSORS", token_dup, strlen("SENSORS")) == 0 && nstrstr(token_dup, ",") != NULL) {
-        json_object_set_new(overview, "sensors", json_object());
-        element = strtok_r(token_dup + strlen("SENSORS,"), ",", &saveptr2);
-        while (element != NULL) {
-          name = strtok_r(element, ":", &saveptr3);
-          value = strtok_r(NULL, ":", &saveptr3);
-          if (name != NULL && value != NULL) {
-            d_value = strtod(value, &endptr);
-            if (value == endptr) {
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      overview = json_object();
+      saved_body = nstrdup(resp.string_body);
+      saved_body[strlen(saved_body) - 1] = '\0';
+      str = saved_body;
+      token = strtok_r(str + sizeof(char), ";", &saveptr);
+      while (token != NULL) {
+        token_dup = nstrdup(token);
+        if (nstrncmp("SWITCHES", token_dup, strlen("SWITCHES")) == 0 && nstrstr(token_dup, ",") != NULL) {
+          json_object_set_new(overview, "switches", json_object());
+          element = strtok_r(token_dup + strlen("SWITCHES,"), ",", &saveptr2);
+          while (element != NULL) {
+            name = strtok_r(element, ":", &saveptr3);
+            value = strtok_r(NULL, ":", &saveptr3);
+            if (name != NULL && value != NULL) {
               i_value = strtol(value, &endptr, 10);
-              if (value == endptr) {
-                json_object_set_new(json_object_get(overview, "sensors"), name, json_string(value));
-                u_map_put(elements, name, "");
-              } else {
-                json_object_set_new(json_object_get(overview, "sensors"), name, json_integer(i_value));
+              if (value != endptr) {
+                json_object_set_new(json_object_get(overview, "switches"), name, json_integer(i_value));
                 u_map_put(elements, name, "");
               }
-            } else {
-              json_object_set_new(json_object_get(overview, "sensors"), name, json_real(d_value));
-              u_map_put(elements, name, "");
             }
+            element = strtok_r(NULL, ",", &saveptr2);
           }
-          element = strtok_r(NULL, ",", &saveptr2);
-        }
-      } else if (nstrncmp("DIMMERS", token_dup, strlen("DIMMERS")) == 0 && nstrstr(token_dup, ",") != NULL) {
-        json_object_set_new(overview, "dimmers", json_object());
-        element = strtok_r(token_dup + strlen("DIMMERS,"), ",", &saveptr2);
-        while (element != NULL) {
-          name = strtok_r(element, ":", &saveptr3);
-          value = strtok_r(NULL, ":", &saveptr3);
-          if (name != NULL && value != NULL) {
-            i_value = strtol(value, &endptr, 10);
-            if (value != endptr) {
-              json_object_set_new(json_object_get(overview, "dimmers"), name, json_integer(i_value));
-              u_map_put(elements, name, "");
+        } else if (nstrncmp("SENSORS", token_dup, strlen("SENSORS")) == 0 && nstrstr(token_dup, ",") != NULL) {
+          json_object_set_new(overview, "sensors", json_object());
+          element = strtok_r(token_dup + strlen("SENSORS,"), ",", &saveptr2);
+          while (element != NULL) {
+            name = strtok_r(element, ":", &saveptr3);
+            value = strtok_r(NULL, ":", &saveptr3);
+            if (name != NULL && value != NULL) {
+              d_value = strtod(value, &endptr);
+              if (value == endptr) {
+                i_value = strtol(value, &endptr, 10);
+                if (value == endptr) {
+                  json_object_set_new(json_object_get(overview, "sensors"), name, json_string(value));
+                  u_map_put(elements, name, "");
+                } else {
+                  json_object_set_new(json_object_get(overview, "sensors"), name, json_integer(i_value));
+                  u_map_put(elements, name, "");
+                }
+              } else {
+                json_object_set_new(json_object_get(overview, "sensors"), name, json_real(d_value));
+                u_map_put(elements, name, "");
+              }
             }
+            element = strtok_r(NULL, ",", &saveptr2);
           }
-          element = strtok_r(NULL, ",", &saveptr2);
+        } else if (nstrncmp("DIMMERS", token_dup, strlen("DIMMERS")) == 0 && nstrstr(token_dup, ",") != NULL) {
+          json_object_set_new(overview, "dimmers", json_object());
+          element = strtok_r(token_dup + strlen("DIMMERS,"), ",", &saveptr2);
+          while (element != NULL) {
+            name = strtok_r(element, ":", &saveptr3);
+            value = strtok_r(NULL, ":", &saveptr3);
+            if (name != NULL && value != NULL) {
+              i_value = strtol(value, &endptr, 10);
+              if (value != endptr) {
+                json_object_set_new(json_object_get(overview, "dimmers"), name, json_integer(i_value));
+                u_map_put(elements, name, "");
+              }
+            }
+            element = strtok_r(NULL, ",", &saveptr2);
+          }
         }
+        free(token_dup);
+        token = strtok_r(NULL, ";", &saveptr);
       }
-      free(token_dup);
-      token = strtok_r(NULL, ";", &saveptr);
+      free(saved_body);
+      json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
+	  } else {
+      if (resp.status == 200 && resp.json_body != NULL) {
+        overview = json_copy(resp.json_body);
+        json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
+      } else {
+        overview = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
     }
-    free(saved_body);
-    json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
   } else {
     overview = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
@@ -291,19 +307,28 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
   
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
-    value = resp.string_body + sizeof(char);
-    value[strlen(value) - 1] = '\0';
-    d_value = strtod(value, &endptr);
-    if (resp.string_body == endptr) {
-      i_value = strtol(value, &endptr, 10);
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+      value = resp.string_body + sizeof(char);
+      value[strlen(value) - 1] = '\0';
+      d_value = strtod(value, &endptr);
       if (resp.string_body == endptr) {
-        json_object_set_new(j_result, "value", json_string(value));
+        i_value = strtol(value, &endptr, 10);
+        if (resp.string_body == endptr) {
+          json_object_set_new(j_result, "value", json_string(value));
+        } else {
+          json_object_set_new(j_result, "value", json_integer(i_value));
+        }
       } else {
-        json_object_set_new(j_result, "value", json_integer(i_value));
+        json_object_set_new(j_result, "value", json_real(d_value));
       }
-    } else {
-      json_object_set_new(j_result, "value", json_real(d_value));
+	  } else {
+      if (resp.status == 200 && resp.json_body != NULL) {
+        j_result = json_copy(resp.json_body);
+        json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
+      } else {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
     }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
@@ -332,14 +357,23 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
   
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    value = resp.string_body + sizeof(char);
-    value[strlen(value) - 1] = '\0';
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      value = resp.string_body + sizeof(char);
+      value[strlen(value) - 1] = '\0';
       i_value = strtol(value, &endptr, 10);
       if (resp.string_body == endptr) {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       } else {
         j_result = json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", i_value);
       }
+	  } else {
+      if (resp.status == 200 && resp.json_body != NULL) {
+        j_result = json_copy(resp.json_body);
+        json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
+      } else {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
+    }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
@@ -354,6 +388,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
  */
 json_t * b_device_set_switch (json_t * device, const char * switch_name, const int command, void * device_ptr) {
   struct _u_request req;
+  struct _u_response resp;
   int res;
   char * path;
   json_t * j_result = NULL;
@@ -361,15 +396,25 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   path = msprintf("%s/%s/%d", "SETSWITCH", switch_name, command);
   init_request_for_device(&req, device, path);
+  ulfius_init_response(&resp);
   
-  res = ulfius_send_http_request(&req, NULL);
+  res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  } else {
+      if (resp.status == 200) {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+      } else {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
+    }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
   free(path);
   ulfius_clean_request(&req);
+  ulfius_clean_response(&resp);
   return j_result;
 }
 
@@ -391,14 +436,23 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
   
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    value = resp.string_body + sizeof(char);
-    value[strlen(value) - 1] = '\0';
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      value = resp.string_body + sizeof(char);
+      value[strlen(value) - 1] = '\0';
       i_value = strtol(value, &endptr, 10);
       if (resp.string_body == endptr) {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       } else {
         j_result = json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", i_value);
       }
+	  } else {
+      if (resp.status == 200 && resp.json_body != NULL) {
+        j_result = json_copy(resp.json_body);
+        json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
+      } else {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
+    }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
@@ -413,6 +467,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
  */
 json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const int command, void * device_ptr) {
   struct _u_request req;
+  struct _u_response resp;
   int res;
   char * path;
   json_t * j_result = NULL;
@@ -420,15 +475,25 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   path = msprintf("%s/%s/%d", "SETDIMMER", dimmer_name, command);
   init_request_for_device(&req, device, path);
+  ulfius_init_response(&resp);
   
-  res = ulfius_send_http_request(&req, NULL);
+  res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
-    j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
+      j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+	  } else {
+      if (resp.status == 200) {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+      } else {
+        j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+      }
+    }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
   free(path);
   ulfius_clean_request(&req);
+  ulfius_clean_response(&resp);
   return j_result;
 }
 
@@ -437,7 +502,7 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
  */
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  return json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+  return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
 }
 
 /**
@@ -445,7 +510,7 @@ json_t * b_device_get_heater (json_t * device, const char * heater_name, void * 
  */
 json_t * b_device_set_heater (json_t * device, const char * heater_name, const char * mode, const float command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  return json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
+  return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
 }
 
 /**
