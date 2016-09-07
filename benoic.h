@@ -157,6 +157,7 @@ int is_tag_list_valid(json_t * tags);
 int element_add_tag(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name, const char * tag);
 int element_remove_tag(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name, const char * tag);
 json_t * element_get_monitor(struct _benoic_config * config, json_t * device, const int element_type, const char * element_name, json_t * params);
+json_t * element_get_lists(struct _benoic_config * config, json_t * device);
 
 // benoic initialization function
 int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config);

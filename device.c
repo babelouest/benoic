@@ -714,7 +714,7 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
  * return B_OK on success
  */
 int connect_device(struct _benoic_config * config, json_t * device) {
-  json_t * result, * result_options, * value, * j_db_device;
+  json_t * result, * result_options, * value, * j_db_device, * j_element_lists;
   struct _device_type * device_type = NULL;
   const char * key;
   char * device_name;
@@ -733,7 +733,20 @@ int connect_device(struct _benoic_config * config, json_t * device) {
     if (config->alert_url != NULL) {
       json_object_set_new(json_object_get(device, "options"), "alert_url", json_string(config->alert_url));
     }
+    
+    j_element_lists = element_get_lists(config, device);
+    if (j_element_lists != NULL) {
+      json_object_set_new(json_object_get(device, "options"), "element", json_copy(j_element_lists));
+    } else {
+      json_object_set_new(json_object_get(device, "options"), "element", json_pack("{s[]s[]s[]s[]}", "switches", "dimmers", "sensors", "heaters"));
+    }
+    json_decref(j_element_lists);
+    
     result = device_type->b_device_connect(device, &device_ptr);
+    
+    // Remove element list
+    json_object_del(json_object_get(device, "options"), "element");
+    
     if (result != NULL && json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_OK) {
       y_log_message(Y_LOG_LEVEL_INFO, "Connect device %s: success", json_string_value(json_object_get(device, "name")));
       // Update device_data array
@@ -1014,6 +1027,13 @@ json_t * overview_device(struct _benoic_config * config, json_t * device) {
           json_object_foreach(element_array, key, value) {
             element = get_element_data(config, device, BENOIC_ELEMENT_TYPE_HEATER, key, 1);
             if (element != NULL) {
+              if (json_object_get(value, "unit") != NULL) {
+                const char * elt_unit = json_string_value(json_object_get(json_object_get(element, "options"), "unit"));
+                if (elt_unit == NULL || strlen(elt_unit) == 0) {
+                  json_object_set_new(json_object_get(element, "options"), "unit", json_copy(json_object_get(value, "unit")));
+                }
+                json_object_del(value, "unit");
+              }
               json_object_set_new(element, "value", json_copy(value));
               json_object_set_new(json_object_get(to_return, "heaters"), key, element);
             } else {

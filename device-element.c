@@ -26,6 +26,60 @@
 #include "benoic.h"
 
 /**
+ * Get the lists of elements of the specified device stored in the database
+ */
+json_t * element_get_lists(struct _benoic_config * config, json_t * device) {
+  json_t * j_query, * j_result, * j_return = NULL, * element;
+  int res;
+  size_t index;
+  
+  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  
+  j_query = json_pack("{sss[ss]s{ss}}", 
+                      "table", 
+                      BENOIC_TABLE_ELEMENT,
+                      "columns",
+                        "be_name AS name",
+                        "be_type AS type",
+                      "where",
+                        "bd_name",
+                        json_string_value(json_object_get(device, "name")));
+  if (j_query != NULL) {
+    res = h_select(config->conn, j_query, &j_result, NULL);
+    json_decref(j_query);
+    if (res == H_OK || !json_is_array(j_result)) {
+      j_return = json_pack("{s[]s[]s[]s[]}", "switches", "dimmers", "sensors", "heaters");
+      if (j_return != NULL) {
+        json_array_foreach(j_result, index, element) {
+          switch (json_integer_value(json_object_get(element, "type"))) {
+            case BENOIC_ELEMENT_TYPE_SENSOR:
+              json_array_append_new(json_object_get(j_return, "sensors"), json_copy(json_object_get(element, "name")));
+              break;
+            case BENOIC_ELEMENT_TYPE_SWITCH:
+              json_array_append_new(json_object_get(j_return, "switches"), json_copy(json_object_get(element, "name")));
+              break;
+            case BENOIC_ELEMENT_TYPE_DIMMER:
+              json_array_append_new(json_object_get(j_return, "dimmers"), json_copy(json_object_get(element, "name")));
+              break;
+            case BENOIC_ELEMENT_TYPE_HEATER:
+              json_array_append_new(json_object_get(j_return, "heaters"), json_copy(json_object_get(element, "name")));
+              break;
+          }
+        }
+        json_decref(j_result);
+      } else {
+        y_log_message(Y_LOG_LEVEL_DEBUG, "element_get_lists - Error allocating resources for j_list");
+      }
+    } else {
+      y_log_message(Y_LOG_LEVEL_DEBUG, "element_get_lists - Error executing j_query");
+    }
+  } else {
+    y_log_message(Y_LOG_LEVEL_DEBUG, "element_get_lists - Error allocating resources for j_query");
+  }
+  return j_return;
+}
+
+/**
  * Check if the device has the specified element of the specified type
  * return true or false
  */
