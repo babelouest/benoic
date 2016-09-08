@@ -191,10 +191,11 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   struct _u_request req;
   struct _u_response resp;
   int res;
-  json_t * overview = NULL;
+  json_t * overview = NULL, * j_elt;
   char * saved_body, * str, * token, * token_dup, * saveptr, * element, * saveptr2, * name, * value, * saveptr3, * endptr;
   json_int_t i_value;
   double d_value;
+  const char * elt_name;
   struct _u_map * elements = (struct _u_map *)device_ptr;
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
@@ -275,6 +276,19 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
       if (resp.status == 200 && resp.json_body != NULL) {
         overview = json_copy(resp.json_body);
         json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
+        
+        json_object_foreach(json_object_get(overview, "sensors"), elt_name, j_elt) {
+          u_map_put(elements, elt_name, "");
+        }
+        json_object_foreach(json_object_get(overview, "switches"), elt_name, j_elt) {
+          u_map_put(elements, elt_name, "");
+        }
+        json_object_foreach(json_object_get(overview, "dimmers"), elt_name, j_elt) {
+          u_map_put(elements, elt_name, "");
+        }
+        json_object_foreach(json_object_get(overview, "heaters"), elt_name, j_elt) {
+          u_map_put(elements, elt_name, "");
+        }
       } else {
         overview = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
