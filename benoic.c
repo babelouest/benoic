@@ -727,7 +727,7 @@ int callback_benoic_device_element_get (const struct _u_request * request, struc
 }
 
 int callback_benoic_device_element_put (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  json_t * device, * element, * valid;
+  json_t * device, * element = NULL, * valid;
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
@@ -748,21 +748,17 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
     } else {
       if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-        element = get_sensor((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-        element = get_switch((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-        element = get_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
-        element = get_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else {
         response->status = 400;
         response->json_body = json_pack("{ss}", "error", "element type incorrect");
-        element = NULL;
       }
+      element = get_element_data((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), 0);
       if (element != NULL) {
         valid = is_element_valid(request->json_body, element_type);
         if (valid == NULL) {
