@@ -192,7 +192,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   struct _u_response resp;
   int res;
   json_t * overview = NULL, * j_elt;
-  char * saved_body, * str, * token, * token_dup, * saveptr, * element, * saveptr2, * name, * value, * saveptr3, * endptr;
+  char * saved_body, * str, * token, * token_dup, * saveptr = NULL, * element, * saveptr2 = NULL, * name, * value, * saveptr3 = NULL, * endptr = NULL;
   json_int_t i_value;
   double d_value;
   const char * elt_name;
