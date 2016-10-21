@@ -758,25 +758,30 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
         response->status = 400;
         response->json_body = json_pack("{ss}", "error", "element type incorrect");
       }
-      element = get_element_data((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), 0);
-      if (element != NULL) {
-        valid = is_element_valid(request->json_body, element_type);
-        if (valid == NULL) {
-          y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error is_element_valid");
-          response->status = 500;
-        } else if (json_array_size(valid) > 0) {
-            response->json_body = valid;
-            response->status = 400;
-        } else {
-          if (set_element_data((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), element_type, request->json_body, 1) != B_OK) {
-            y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error setting element data");
+      if (has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
+        element = get_element_data((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), 1);
+        if (element != NULL) {
+          valid = is_element_valid(request->json_body, element_type);
+          if (valid == NULL) {
+            y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error is_element_valid");
             response->status = 500;
+          } else if (json_array_size(valid) > 0) {
+              response->json_body = valid;
+              response->status = 400;
+          } else {
+            if (set_element_data((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), element_type, request->json_body, 1) != B_OK) {
+              y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error setting element data");
+              response->status = 500;
+            }
+            json_decref(valid);
           }
-          json_decref(valid);
+          json_decref(element);
+        } else {
+          // Error
+          y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error get_element_data");
+          response->status = 500;
         }
-        json_decref(element);
       } else {
-        // Element not found
         response->status = 404;
       }
       json_decref(device);
