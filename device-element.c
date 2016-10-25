@@ -721,7 +721,7 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
   if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
     json_object_set_new(j_query, "columns", json_pack("[ss]", "UNIX_TIMESTAMP(bm_date) AS timestamp", "bm_value AS value"));
   } else {
-    json_object_set_new(j_query, "columns", json_pack("[ss]", "datetime(bm_date, 'unixepoch', 'localtime') AS timestamp", "bm_value AS value"));
+    json_object_set_new(j_query, "columns", json_pack("[ss]", "bm_date AS timestamp", "bm_value AS value"));
   }
   
   escaped_device = h_escape_string(config->conn, json_string_value(json_object_get(device, "name")));
