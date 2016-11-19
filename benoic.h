@@ -26,11 +26,8 @@
 #ifndef __BENOIC_H_
 #define __BENOIC_H_
 
-#include <stdlib.h>
-#include <dirent.h>
-#include <stdio.h>
-#include <pthread.h>
-#include <dlfcn.h>
+#define _BENOIC_VERSION 0.9
+
 #include <jansson.h>
 
 /** Angharad libraries **/
@@ -40,8 +37,6 @@
 #define _HOEL_MARIADB
 #define _HOEL_SQLITE
 #include <hoel.h>
-
-#define _BENOIC_VERSION 0.9
 
 #define B_OK              0
 #define B_ERROR           1
