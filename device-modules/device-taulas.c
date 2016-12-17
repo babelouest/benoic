@@ -24,6 +24,7 @@
  *
  */
 
+#include <string.h>
 #include <jansson.h>
 #include <yder.h>
 #include <orcania.h>
