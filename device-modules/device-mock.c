@@ -83,9 +83,10 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   
   if (device_ptr != NULL) {
     // Allocating *device_ptr for further use
-    *device_ptr = (json_t *)json_pack("{s{sisi}s{sisi}s{s{sssfsos[sss]}s{sssfsos[sss]}}}",
+    *device_ptr = (json_t *)json_pack("{s{sisi}s{sisi}s{sisi}s{s{sssfsos[sss]}s{sssfsos[sss]}}}",
                              "switches", "sw1", 0, "sw2", 1,
                              "dimmers", "di1", 42, "di2", 5,
+                             "dimmers_values", "di1", 42, "di2", 5,
                              "heaters", 
                                "he1", "mode", "auto", "command", 18.0, "on", json_true(), "availableModes",
                                   "auto", "manual", "off",
@@ -207,7 +208,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_dimmer for dimmer %s on device %s", dimmer_name, json_string_value(json_object_get(device, "name")));
   if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
-    return json_pack("{sisi}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
+    return json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
   } else {
     return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
   }
@@ -219,8 +220,15 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
 json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const int command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_dimmer for dimmer %s on device %s with the value %d", dimmer_name, json_string_value(json_object_get(device, "name")), command);
   if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
-    json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name, json_integer(command));
-    return json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
+    if (command < 101) {
+      json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name, json_integer(command));
+      if (command > 0) {
+        json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers_values"), dimmer_name, json_integer(command));
+      }
+    } else {
+      json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name, json_copy(json_object_get(json_object_get((json_t *)device_ptr, "dimmers_values"), dimmer_name)));
+    }
+    return json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
   } else {
     return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
   }

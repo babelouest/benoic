@@ -137,7 +137,7 @@ json_t * get_sensor(struct _benoic_config * config, json_t * device, const char 
 json_t * get_switch(struct _benoic_config * config, json_t * device, const char * switch_name);
 int set_switch(struct _benoic_config * config, json_t * device, const char * switch_name, const int command);
 json_t * get_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name);
-int set_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name, const int command);
+json_t * set_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name, const int command);
 json_t * get_heater(struct _benoic_config * config, json_t * device, const char * heater_name);
 int set_heater(struct _benoic_config * config, json_t * device, const char * heater_name, const char * mode, const float command);
 

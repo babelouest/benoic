@@ -250,31 +250,30 @@ json_t * get_dimmer(struct _benoic_config * config, json_t * device, const char 
  * set the dimmer command
  * return B_OK on success
  */
-int set_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name, const int command) {
+json_t * set_dimmer(struct _benoic_config * config, json_t * device, const char * dimmer_name, const int command) {
   struct _device_type * device_type = get_device_type(config, device);
-  json_t * result;
-  int i_return;
+  json_t * result, * j_return;
 
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (device_type != NULL) {
     result = device_type->b_device_set_dimmer(device, dimmer_name, command, get_device_ptr(config, json_string_value(json_object_get(device, "name"))));
     if (result != NULL) {
       if (json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_OK) {
-        i_return = B_OK;
+        j_return = json_pack("{sisI}", "result", B_OK, "value", json_integer_value(json_object_get(result, "value")));
       } else if (json_integer_value(json_object_get(result, "result")) == DEVICE_RESULT_NOT_FOUND) {
-        i_return = B_ERROR_NOT_FOUND;
+        j_return = json_pack("{si}", "result", B_ERROR_NOT_FOUND);
       } else {
-        i_return = B_ERROR_IO;
+        j_return = json_pack("{si}", "result", B_ERROR_IO);
       }
       json_decref(result);
     } else {
-      i_return = B_ERROR_IO;
+      j_return = json_pack("{si}", "result", B_ERROR_IO);
     }
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "set_dimmer - Device type not found");
-    i_return = B_ERROR_PARAM;
+    j_return = json_pack("{si}", "result", B_ERROR_PARAM);
   }
-  return i_return;
+  return j_return;
 }
 
 /**

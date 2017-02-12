@@ -839,10 +839,15 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
               break;
             case BENOIC_ELEMENT_TYPE_DIMMER:
               i_command = strtol(u_map_get(request->map_url, "command"), &endptr, 10);
-              if (*endptr == '\0' && i_command >= 0 && i_command <= 100) {
-                if (set_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), i_command) != B_OK) {
+              if (*endptr == '\0' && i_command >= 0 && i_command <= 101) {
+                json_t * j_result = set_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), i_command);
+                if (json_integer_value(json_object_get(j_result, "result")) != B_OK) {
                   response->status = 500;
+                } else {
+                  json_object_del(j_result, "result");
+                  response->json_body = json_copy(j_result);
                 }
+                json_decref(j_result);
               } else {
                 response->status = 400;
                 response->json_body = json_pack("{ss}", "error", "incorrect command, must be between 0 and 100");

@@ -157,6 +157,7 @@ struct zwave_context {
   char          * alert_url;
   char          * device_name;
   struct _u_map * alarms;
+  struct _u_map * dimmer_values;
 };
 
 /**
@@ -574,6 +575,8 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   ((struct zwave_context *) *device_ptr)->nodes_list = new list<node*>();
   ((struct zwave_context *) *device_ptr)->alarms = new struct _u_map;
   u_map_init(((struct zwave_context *) *device_ptr)->alarms);
+  ((struct zwave_context *) *device_ptr)->dimmer_values = new struct _u_map;
+  u_map_init(((struct zwave_context *) *device_ptr)->dimmer_values);
   
   Options::Create( ((struct zwave_context *) *device_ptr)->config_path, ((struct zwave_context *) *device_ptr)->user_path, ((struct zwave_context *) *device_ptr)->command_line );
   Options::Get()->AddOptionString( "LogFileName", ((struct zwave_context *) *device_ptr)->log_path, false );
@@ -621,6 +624,7 @@ extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
     free(((struct zwave_context *) device_ptr)->alert_url);
     free(((struct zwave_context *) device_ptr)->device_name);
     u_map_clean_full(((struct zwave_context *) device_ptr)->alarms);
+    u_map_clean_full(((struct zwave_context *) device_ptr)->dimmer_values);
     free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
@@ -754,6 +758,9 @@ extern "C" json_t * b_device_get_dimmer (json_t * device, const char * dimmer_na
   if (value != NULL) {
     Manager::Get()->RefreshValue(*value);
     if (Manager::Get()->GetValueAsString((*value), &s_status)) {
+      if (s_status.compare("0")) {
+        u_map_put(((zwave_context *)device_ptr)->dimmer_values, dimmer_name, s_status.c_str());
+      }
       result = json_pack("{sisi}", "result", RESULT_OK, "value", strtol(s_status.c_str(), NULL, 10));
     } else {
       result = json_pack("{si}", "result", RESULT_ERROR);
@@ -780,9 +787,16 @@ extern "C" json_t * b_device_set_dimmer (json_t * device, const char * dimmer_na
     if (command < 0) cur_command = 0;
     else if (command > 99) cur_command = 99;
     else cur_command = command;
-    snprintf(val, 3*sizeof(char), "%d", cur_command);
+    if (command != 101) {
+      snprintf(val, 3*sizeof(char), "%d", cur_command);
+      u_map_put(((zwave_context *)device_ptr)->dimmer_values, dimmer_name, val);
+    } else if (u_map_has_key(((zwave_context *)device_ptr)->dimmer_values, dimmer_name)) {
+      strncpy(val, u_map_get(((zwave_context *)device_ptr)->dimmer_values, dimmer_name), 3*sizeof(char));
+    } else {
+      strcpy(val, "50");
+    }
     if (Manager::Get()->SetValue((*value), string(val)) ) {
-      result = json_pack("{si}", "result", RESULT_OK);
+      result = json_pack("{sisi}", "result", RESULT_OK, "value", strtol(val, NULL, 10));
     } else {
       result = json_pack("{si}", "result", RESULT_ERROR);
     }
@@ -988,6 +1002,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
           cur_node = "dimmers";
           unit = (char *)Manager::Get()->GetValueUnits(v).c_str();
           if (Manager::Get()->GetValueAsString(v, &s_status)) {
+            u_map_put(((zwave_context *)device_ptr)->dimmer_values, name, s_status.c_str());
             if (json_object_get(overview, cur_node) == NULL) {
               json_object_set_new(overview, cur_node, json_object());
             }
