@@ -787,13 +787,16 @@ extern "C" json_t * b_device_set_dimmer (json_t * device, const char * dimmer_na
     if (command < 0) cur_command = 0;
     else if (command > 99) cur_command = 99;
     else cur_command = command;
+    
     if (command != 101) {
       snprintf(val, 3*sizeof(char), "%d", cur_command);
-      u_map_put(((zwave_context *)device_ptr)->dimmer_values, dimmer_name, val);
+      if (command > 0) {
+        u_map_put(((zwave_context *)device_ptr)->dimmer_values, dimmer_name, val);
+      }
     } else if (u_map_has_key(((zwave_context *)device_ptr)->dimmer_values, dimmer_name)) {
       strncpy(val, u_map_get(((zwave_context *)device_ptr)->dimmer_values, dimmer_name), 3*sizeof(char));
     } else {
-      strcpy(val, "50");
+      strcpy(val, "0");
     }
     if (Manager::Get()->SetValue((*value), string(val)) ) {
       result = json_pack("{sisi}", "result", RESULT_OK, "value", strtol(val, NULL, 10));
