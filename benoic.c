@@ -850,7 +850,7 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
                 json_decref(j_result);
               } else {
                 response->status = 400;
-                response->json_body = json_pack("{ss}", "error", "incorrect command, must be between 0 and 100");
+                response->json_body = json_pack("{ss}", "error", "incorrect command, must be between 0 and 101");
               }
               break;
             case BENOIC_ELEMENT_TYPE_HEATER:
