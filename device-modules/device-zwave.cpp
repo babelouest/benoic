@@ -1005,7 +1005,9 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
           cur_node = "dimmers";
           unit = (char *)Manager::Get()->GetValueUnits(v).c_str();
           if (Manager::Get()->GetValueAsString(v, &s_status)) {
-            u_map_put(((zwave_context *)device_ptr)->dimmer_values, name, s_status.c_str());
+            if (s_status.compare("0")) {
+              u_map_put(((zwave_context *)device_ptr)->dimmer_values, name, s_status.c_str());
+            }
             if (json_object_get(overview, cur_node) == NULL) {
               json_object_set_new(overview, cur_node, json_object());
             }
