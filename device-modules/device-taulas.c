@@ -86,6 +86,8 @@ char * print_map(const struct _u_map * map) {
 void init_request_for_device(struct _u_request * req, json_t * device, const char * command) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   ulfius_init_request(req);
+  // Set request timeout to 20 seconds
+  req->timeout = 20;
   if (json_object_get(json_object_get(device, "options"), "do_not_check_certificate") == json_true()) {
     req->check_server_certificate = 0;
   }
