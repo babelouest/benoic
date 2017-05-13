@@ -50,7 +50,7 @@ double get_sensor_value(const char * sensor_name) {
   time_t now = time(0);
   struct tm * local = localtime(&now);
   int current_nb_seconds = local->tm_sec + (60 * local->tm_min) + (60 * 60 * local->tm_hour);
-  if (0 == nstrcmp(sensor_name, "se1")) {
+  if (0 == o_strcmp(sensor_name, "se1")) {
     return sin((double)current_nb_seconds / (double)NB_SECONDS_PER_DAY);
   } else {
     return ((sin(((double)((current_nb_seconds + (NB_SECONDS_PER_DAY / 2)) % NB_SECONDS_PER_DAY)) / (double)NB_SECONDS_PER_DAY) * 5.0) + 15.0);
@@ -94,7 +94,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
                                   "auto", "manual", "off");
   }
   
-  if (nstrstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
+  if (o_strstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
     param = msprintf("%s says I'm batman with the alert_url %s", json_string_value(json_object_get(device, "name")), json_string_value(json_object_get(json_object_get(device, "options"), "alert_url")));
     j_param = json_pack("{sis{ss}}", "result", WEBSERVICE_RESULT_OK, "options", "device_specified", param);
     free(param);
@@ -168,7 +168,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
  */
 json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command sensor for sensor %s on device %s", sensor_name, json_string_value(json_object_get(device, "name")));
-  if (0 == nstrcmp(sensor_name, "se1") || 0 == nstrcmp(sensor_name, "se2")) {
+  if (0 == o_strcmp(sensor_name, "se1") || 0 == o_strcmp(sensor_name, "se2")) {
     return json_pack("{sisf}", "result", WEBSERVICE_RESULT_OK, "value", get_sensor_value(sensor_name));
   } else {
     return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
@@ -180,9 +180,9 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
  */
 json_t * b_device_get_switch (json_t * device, const char * switch_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_switch for switch %s on device %s", switch_name, json_string_value(json_object_get(device, "name")));
-  if (0 == nstrcmp(switch_name, "sw1")) {
+  if (0 == o_strcmp(switch_name, "sw1")) {
     return json_pack("{sisi}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "switches"), "sw1")));
-  } else if (0 == nstrcmp(switch_name, "sw2")) {
+  } else if (0 == o_strcmp(switch_name, "sw2")) {
     return json_pack("{sisi}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "switches"), "sw2")));
   } else {
     return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
@@ -194,7 +194,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
  */
 json_t * b_device_set_switch (json_t * device, const char * switch_name, const int command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_switch for switch %s on device %s with the value %d", switch_name, json_string_value(json_object_get(device, "name")), command);
-  if (0 == nstrcmp(switch_name, "sw1") || 0 == nstrcmp(switch_name, "sw2")) {
+  if (0 == o_strcmp(switch_name, "sw1") || 0 == o_strcmp(switch_name, "sw2")) {
     json_object_set_new(json_object_get((json_t *)device_ptr, "switches"), switch_name, json_integer(command));
     return json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
   } else {
@@ -207,7 +207,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
  */
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_dimmer for dimmer %s on device %s", dimmer_name, json_string_value(json_object_get(device, "name")));
-  if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
+  if (0 == o_strcmp(dimmer_name, "di1") || 0 == o_strcmp(dimmer_name, "di2")) {
     return json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", json_integer_value(json_object_get(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name)));
   } else {
     return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
@@ -219,7 +219,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
  */
 json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const int command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_dimmer for dimmer %s on device %s with the value %d", dimmer_name, json_string_value(json_object_get(device, "name")), command);
-  if (0 == nstrcmp(dimmer_name, "di1") || 0 == nstrcmp(dimmer_name, "di2")) {
+  if (0 == o_strcmp(dimmer_name, "di1") || 0 == o_strcmp(dimmer_name, "di2")) {
     if (command < 101) {
       json_object_set_new(json_object_get((json_t *)device_ptr, "dimmers"), dimmer_name, json_integer(command));
       if (command > 0) {
@@ -239,11 +239,11 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
  */
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command get_heater for heater %s on device %s", heater_name, json_string_value(json_object_get(device, "name")));
-  if (0 == nstrcmp(heater_name, "he1")) {
+  if (0 == o_strcmp(heater_name, "he1")) {
     json_t * heater = json_copy(json_object_get(json_object_get((json_t *)device_ptr, "heaters"), heater_name));
     json_object_set_new(heater, "result", json_integer(WEBSERVICE_RESULT_OK));
     return heater;
-  } else if (0 == nstrcmp(heater_name, "he2")) {
+  } else if (0 == o_strcmp(heater_name, "he2")) {
     json_t * heater = json_copy(json_object_get(json_object_get((json_t *)device_ptr, "heaters"), heater_name));
     json_object_set_new(heater, "result", json_integer(WEBSERVICE_RESULT_OK));
     return heater;
@@ -257,13 +257,13 @@ json_t * b_device_get_heater (json_t * device, const char * heater_name, void * 
  */
 json_t * b_device_set_heater (json_t * device, const char * heater_name, const char * mode, const float command, void * device_ptr) {
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command set_heater for heater %s on device %s with the value %f and the mode %s", heater_name, json_string_value(json_object_get(device, "name")), command, mode);
-  if (0 == nstrcmp(heater_name, "he1") || 0 == nstrcmp(heater_name, "he2")) {
+  if (0 == o_strcmp(heater_name, "he1") || 0 == o_strcmp(heater_name, "he2")) {
     json_t * heater = json_object_get(json_object_get((json_t *)device_ptr, "heaters"), heater_name);
-    if (mode != NULL && 0 == nstrcmp(mode, BENOIC_ELEMENT_HEATER_MODE_MANUAL)) {
+    if (mode != NULL && 0 == o_strcmp(mode, BENOIC_ELEMENT_HEATER_MODE_MANUAL)) {
       json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_MANUAL));
-    } else if (mode != NULL && 0 == nstrcmp(mode,  BENOIC_ELEMENT_HEATER_MODE_AUTO)) {
+    } else if (mode != NULL && 0 == o_strcmp(mode,  BENOIC_ELEMENT_HEATER_MODE_AUTO)) {
       json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_AUTO));
-    } else if (mode != NULL && 0 == nstrcmp(mode, BENOIC_ELEMENT_HEATER_MODE_OFF)) {
+    } else if (mode != NULL && 0 == o_strcmp(mode, BENOIC_ELEMENT_HEATER_MODE_OFF)) {
       json_object_set_new(heater, "mode", json_string(BENOIC_ELEMENT_HEATER_MODE_OFF));
     } else if (mode != NULL) {
       return json_pack("{si}", "result", WEBSERVICE_RESULT_PARAM);
@@ -282,16 +282,16 @@ int b_device_has_element (json_t * device, int element_type, const char * elemen
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Checking if element '%s' of type %d exists in device %s", element_name, element_type, json_string_value(json_object_get(device, "name")));
   switch (element_type) {
     case ELEMENT_TYPE_SENSOR:
-      return (0 == nstrcmp(element_name, "se1") || 0 == nstrcmp(element_name, "se2"));
+      return (0 == o_strcmp(element_name, "se1") || 0 == o_strcmp(element_name, "se2"));
       break;
     case ELEMENT_TYPE_SWITCH:
-      return (0 == nstrcmp(element_name, "sw1") || 0 == nstrcmp(element_name, "sw2"));
+      return (0 == o_strcmp(element_name, "sw1") || 0 == o_strcmp(element_name, "sw2"));
       break;
     case ELEMENT_TYPE_DIMMER:
-      return (0 == nstrcmp(element_name, "di1") || 0 == nstrcmp(element_name, "di2"));
+      return (0 == o_strcmp(element_name, "di1") || 0 == o_strcmp(element_name, "di2"));
       break;
     case ELEMENT_TYPE_HEATER:
-      return (0 == nstrcmp(element_name, "he1") || 0 == nstrcmp(element_name, "he2"));
+      return (0 == o_strcmp(element_name, "he1") || 0 == o_strcmp(element_name, "he2"));
       break;
     default:
       return 0;

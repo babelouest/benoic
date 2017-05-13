@@ -92,10 +92,10 @@ void init_request_for_device(struct _u_request * req, json_t * device, const cha
     req->check_server_certificate = 0;
   }
   if (json_object_get(json_object_get(device, "options"), "user") != NULL && json_string_length(json_object_get(json_object_get(device, "options"), "user")) > 0) {
-    req->auth_basic_user = nstrdup(json_string_value(json_object_get(json_object_get(device, "options"), "user")));
+    req->auth_basic_user = o_strdup(json_string_value(json_object_get(json_object_get(device, "options"), "user")));
   }
   if (json_object_get(json_object_get(device, "options"), "user") != NULL && json_string_length(json_object_get(json_object_get(device, "options"), "user")) > 0) {
-    req->auth_basic_user = nstrdup(json_string_value(json_object_get(json_object_get(device, "options"), "user")));
+    req->auth_basic_user = o_strdup(json_string_value(json_object_get(json_object_get(device, "options"), "user")));
   }
   req->http_url = msprintf("%s%s", json_string_value(json_object_get(json_object_get(device, "options"), "uri")), command);
 }
@@ -168,15 +168,17 @@ json_t * b_device_ping (json_t * device, void * device_ptr) {
   ulfius_init_response(&resp);
   
   res = ulfius_send_http_request(&req, &resp);
-  if (res == U_OK && nstrcmp("POLO", resp.string_body)) {
+  if (res == U_OK && o_strncmp("POLO", resp.binary_body, strlen("POLO"))) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
       j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
 	  } else {
-      if (resp.status == 200 && resp.json_body != NULL && 0 == nstrcmp(json_string_value(json_object_get(resp.json_body, "value")), "POLO")) {
+      json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
+      if (resp.status == 200 && json_body != NULL && 0 == o_strcmp(json_string_value(json_object_get(json_body, "value")), "POLO")) {
         j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
       } else {
         j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
+      json_decref(json_body);
     }
   } else {
     j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
@@ -209,13 +211,13 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   if (res == U_OK) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
       overview = json_object();
-      saved_body = nstrdup(resp.string_body);
+      saved_body = o_strndup(resp.binary_body, resp.binary_body_length);
       saved_body[strlen(saved_body) - 1] = '\0';
       str = saved_body;
       token = strtok_r(str + sizeof(char), ";", &saveptr);
       while (token != NULL) {
-        token_dup = nstrdup(token);
-        if (nstrncmp("SWITCHES", token_dup, strlen("SWITCHES")) == 0 && nstrstr(token_dup, ",") != NULL) {
+        token_dup = o_strdup(token);
+        if (o_strncmp("SWITCHES", token_dup, strlen("SWITCHES")) == 0 && o_strstr(token_dup, ",") != NULL) {
           json_object_set_new(overview, "switches", json_object());
           element = strtok_r(token_dup + strlen("SWITCHES,"), ",", &saveptr2);
           while (element != NULL) {
@@ -230,7 +232,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
             }
             element = strtok_r(NULL, ",", &saveptr2);
           }
-        } else if (nstrncmp("SENSORS", token_dup, strlen("SENSORS")) == 0 && nstrstr(token_dup, ",") != NULL) {
+        } else if (o_strncmp("SENSORS", token_dup, strlen("SENSORS")) == 0 && o_strstr(token_dup, ",") != NULL) {
           json_object_set_new(overview, "sensors", json_object());
           element = strtok_r(token_dup + strlen("SENSORS,"), ",", &saveptr2);
           while (element != NULL) {
@@ -254,7 +256,7 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
             }
             element = strtok_r(NULL, ",", &saveptr2);
           }
-        } else if (nstrncmp("DIMMERS", token_dup, strlen("DIMMERS")) == 0 && nstrstr(token_dup, ",") != NULL) {
+        } else if (o_strncmp("DIMMERS", token_dup, strlen("DIMMERS")) == 0 && o_strstr(token_dup, ",") != NULL) {
           json_object_set_new(overview, "dimmers", json_object());
           element = strtok_r(token_dup + strlen("DIMMERS,"), ",", &saveptr2);
           while (element != NULL) {
@@ -276,8 +278,9 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
       free(saved_body);
       json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
 	  } else {
-      if (resp.status == 200 && resp.json_body != NULL) {
-        overview = json_copy(resp.json_body);
+      json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
+      if (resp.status == 200 && json_body != NULL) {
+        overview = json_copy(json_body);
         json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
         
         json_object_foreach(json_object_get(overview, "sensors"), elt_name, j_elt) {
@@ -293,11 +296,12 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
           u_map_put(elements, elt_name, "");
         }
       } else {
-        char * json_body = json_dumps(resp.json_body, JSON_ENCODE_ANY);
+        char * str_body = json_dumps(json_body, JSON_ENCODE_ANY);
         y_log_message(Y_LOG_LEVEL_ERROR, "Error getting device overview, url was %s, status code is %d, json body is %s", req.http_url, resp.status, json_body);
-        free(json_body);
+        free(str_body);
         overview = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
+      json_decref(json_body);
     }
   } else {
     overview = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
@@ -329,12 +333,12 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
   if (res == U_OK) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
       j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
-      value = resp.string_body + sizeof(char);
+      value = resp.binary_body + sizeof(char);
       value[strlen(value) - 1] = '\0';
       d_value = strtod(value, &endptr);
-      if (resp.string_body == endptr) {
+      if (value == endptr) {
         i_value = strtol(value, &endptr, 10);
-        if (resp.string_body == endptr) {
+        if (value == endptr) {
           json_object_set_new(j_result, "value", json_string(value));
         } else {
           json_object_set_new(j_result, "value", json_integer(i_value));
@@ -343,12 +347,14 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
         json_object_set_new(j_result, "value", json_real(d_value));
       }
 	  } else {
-      if (resp.status == 200 && resp.json_body != NULL) {
-        j_result = json_copy(resp.json_body);
+      json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
+      if (resp.status == 200 && json_body != NULL) {
+        j_result = json_copy(json_body);
         json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
       } else {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
+      json_decref(json_body);
     }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
@@ -378,21 +384,23 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
-      value = resp.string_body + sizeof(char);
+      value = resp.binary_body + sizeof(char);
       value[strlen(value) - 1] = '\0';
       i_value = strtol(value, &endptr, 10);
-      if (resp.string_body == endptr) {
+      if (value == endptr) {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       } else {
         j_result = json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", i_value);
       }
 	  } else {
-      if (resp.status == 200 && resp.json_body != NULL) {
-        j_result = json_copy(resp.json_body);
+      json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
+      if (resp.status == 200 && json_body != NULL) {
+        j_result = json_copy(json_body);
         json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
       } else {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
+      json_decref(json_body);
     }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
@@ -457,21 +465,23 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
-      value = resp.string_body + sizeof(char);
+      value = resp.binary_body + sizeof(char);
       value[strlen(value) - 1] = '\0';
       i_value = strtol(value, &endptr, 10);
-      if (resp.string_body == endptr) {
+      if (value == endptr) {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       } else {
         j_result = json_pack("{sisI}", "result", WEBSERVICE_RESULT_OK, "value", i_value);
       }
 	  } else {
-      if (resp.status == 200 && resp.json_body != NULL) {
-        j_result = json_copy(resp.json_body);
+      json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
+      if (resp.status == 200 && json_body != NULL) {
+        j_result = json_copy(json_body);
         json_object_set_new(j_result, "result", json_integer(WEBSERVICE_RESULT_OK));
       } else {
         j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
       }
+      json_decref(json_body);
     }
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
