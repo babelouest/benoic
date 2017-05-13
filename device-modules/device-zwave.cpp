@@ -271,7 +271,7 @@ ValueID * get_device_value_id_by_label(node * cur_node, uint8 command_class, con
       ValueID * v = &(*it);
       if ( v->GetCommandClassId() == command_class ) {
         named_label = naming_label(Manager::Get()->GetValueLabel(*v).c_str());
-        if (0 == nstrcmp(named_label, label)) {
+        if (0 == o_strcmp(named_label, label)) {
           free(named_label);
           return v;
         }
@@ -286,7 +286,7 @@ ValueID * get_device_value_id_by_label(node * cur_node, uint8 command_class, con
  * return the ValueID of the node identified by the command_class value
  */
 ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const char * element_name) {
-  char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = nstrdup(element_name);
+  char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = o_strdup(element_name);
   ValueID * value;
   node * cur_node;
   
@@ -304,7 +304,7 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
     free(dup_name_save);
     return NULL;
   } else {
-    if (0 == nstrcmp(str_type, "se")) {
+    if (0 == o_strcmp(str_type, "se")) {
       // This is a sensor
       if (str_label == NULL) {
         free(dup_name_save);
@@ -317,13 +317,13 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
         free(dup_name_save);
         return value;
       }
-    } else if (0 == nstrcmp(str_type, "sw")) {
+    } else if (0 == o_strcmp(str_type, "sw")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_BINARY);
-    } else if (0 == nstrcmp(str_type, "di")) {
+    } else if (0 == o_strcmp(str_type, "di")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_MULTILEVEL);
-    } else if (0 == nstrcmp(str_type, "he")) {
+    } else if (0 == o_strcmp(str_type, "he")) {
       free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_THERMOSTAT_SETPOINT);
     } else {
@@ -376,6 +376,10 @@ void on_notification_zwave ( Notification const * _notification, void * _context
     case Notification::Type_ValueAdded: {
       cur_node = get_device_node( zcontext, _notification->GetNodeId() );
       if( cur_node != NULL ) {
+        if (_notification->GetValueID().GetCommandClassId() == COMMAND_CLASS_SWITCH_MULTILEVEL) {
+          // Activate ChangeVerified flag to true for dimmers
+          Manager::Get()->SetChangeVerified(_notification->GetValueID(), true);
+        }
         cur_node->values.push_back( _notification->GetValueID() );
         y_log_message(Y_LOG_LEVEL_DEBUG, "Adding ValueID type %x to node %d with id %x", _notification->GetValueID().GetCommandClassId(), cur_node->node_id, _notification->GetValueID().GetId());
       }
@@ -544,33 +548,33 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   * device_ptr = malloc(sizeof(struct zwave_context));
-  nstrncpy(((struct zwave_context *) * device_ptr)->uri, json_string_value(json_object_get(json_object_get(device, "options"), "uri")), 256);
+  o_strncpy(((struct zwave_context *) * device_ptr)->uri, json_string_value(json_object_get(json_object_get(device, "options"), "uri")), 256);
   if (json_object_get(json_object_get(device, "options"), "config_path") != NULL) {
-    nstrncpy(((struct zwave_context *) * device_ptr)->config_path, json_string_value(json_object_get(json_object_get(device, "options"), "config_path")), 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->config_path, json_string_value(json_object_get(json_object_get(device, "options"), "config_path")), 256);
   } else {
-    nstrncpy(((struct zwave_context *) * device_ptr)->config_path, DEFAULT_CONFIG_PATH, 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->config_path, DEFAULT_CONFIG_PATH, 256);
   }
   if (json_object_get(json_object_get(device, "options"), "user_path") != NULL) {
-    nstrncpy(((struct zwave_context *) * device_ptr)->user_path, json_string_value(json_object_get(json_object_get(device, "options"), "user_path")), 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->user_path, json_string_value(json_object_get(json_object_get(device, "options"), "user_path")), 256);
   } else {
-    nstrncpy(((struct zwave_context *) * device_ptr)->user_path, DEFAULT_USER_PATH, 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->user_path, DEFAULT_USER_PATH, 256);
   }
   if (json_object_get(json_object_get(device, "options"), "command_line") != NULL) {
-    nstrncpy(((struct zwave_context *) * device_ptr)->command_line, json_string_value(json_object_get(json_object_get(device, "options"), "command_line")), 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->command_line, json_string_value(json_object_get(json_object_get(device, "options"), "command_line")), 256);
   } else {
-    nstrncpy(((struct zwave_context *) * device_ptr)->command_line, DEFAULT_COMMAND_LINE, 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->command_line, DEFAULT_COMMAND_LINE, 256);
   }
   if (json_object_get(json_object_get(device, "options"), "log_path") != NULL) {
-    nstrncpy(((struct zwave_context *) * device_ptr)->log_path, json_string_value(json_object_get(json_object_get(device, "options"), "log_path")), 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->log_path, json_string_value(json_object_get(json_object_get(device, "options"), "log_path")), 256);
   } else {
-    nstrncpy(((struct zwave_context *) * device_ptr)->log_path, DEFAULT_LOG_PATH, 256);
+    o_strncpy(((struct zwave_context *) * device_ptr)->log_path, DEFAULT_LOG_PATH, 256);
   }
   if (json_object_get(json_object_get(device, "options"), "alert_url") != NULL) {
-    ((struct zwave_context *) * device_ptr)->alert_url = nstrdup(json_string_value(json_object_get(json_object_get(device, "options"), "alert_url")));
+    ((struct zwave_context *) * device_ptr)->alert_url = o_strdup(json_string_value(json_object_get(json_object_get(device, "options"), "alert_url")));
   } else {
     ((struct zwave_context *) * device_ptr)->alert_url = NULL;
   }
-  ((struct zwave_context *) * device_ptr)->device_name = nstrdup(json_string_value(json_object_get(device, "name")));
+  ((struct zwave_context *) * device_ptr)->device_name = o_strdup(json_string_value(json_object_get(device, "name")));
   
   ((struct zwave_context *) *device_ptr)->nodes_list = new list<node*>();
   ((struct zwave_context *) *device_ptr)->alarms = new struct _u_map;
@@ -646,7 +650,7 @@ extern "C" json_t * b_device_ping (json_t * device, void * device_ptr) {
  * Get the sensor value
  */
 extern "C" json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * device_ptr) {
-  char * str_type, * str_node_id, * str_label, * save_ptr, * end_ptr_d, * dup_name_save, * dup_name = dup_name_save = nstrdup(sensor_name);
+  char * str_type, * str_node_id, * str_label, * save_ptr, * end_ptr_d, * dup_name_save, * dup_name = dup_name_save = o_strdup(sensor_name);
   ValueID * value;
   string s_status;
   bool b_status;
@@ -848,7 +852,7 @@ extern "C" json_t * b_device_get_heater (json_t * device, const char * heater_na
     if (value != NULL) {
       Manager::Get()->RefreshValue(*value);
       Manager::Get()->GetValueAsString(*value, &s_status);
-      if (nstrcmp(s_status.c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
+      if (o_strcmp(s_status.c_str(), COMMAND_CLASS_THERMOSTAT_OPERATING_STATE_HEATING) == 0) {
         json_object_set_new(heater, "on", json_true());
       } else {
         json_object_set_new(heater, "on", json_false());
@@ -908,7 +912,7 @@ extern "C" json_t * b_device_set_heater (json_t * device, const char * heater_na
  * Return true if an element with the specified name and the specified type exist in this device
  */
 extern "C" int b_device_has_element (json_t * device, int element_type, const char * element_name, void * device_ptr) {
-  char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = nstrdup(element_name);
+  char * str_type, * str_node_id, * str_label, * save_ptr, * dup_name_save, * dup_name = dup_name_save = o_strdup(element_name);
   ValueID * value;
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
