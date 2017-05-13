@@ -40,27 +40,27 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     
     // Devices management
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/", NULL, NULL, NULL, &callback_benoic_device_get_types, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/deviceTypes/reload", NULL, NULL, NULL, &callback_benoic_device_reload_types, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_get_list, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name", NULL, NULL, NULL, &callback_benoic_device_get, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "POST", url_prefix, "/device/", NULL, NULL, NULL, &callback_benoic_device_add, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name", NULL, NULL, NULL, &callback_benoic_device_modify, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name", NULL, NULL, NULL, &callback_benoic_device_delete, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/connect", NULL, NULL, NULL, &callback_benoic_device_connect, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/disconnect", NULL, NULL, NULL, &callback_benoic_device_disconnect, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/ping", NULL, NULL, NULL, &callback_benoic_device_ping, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/", 2, &callback_benoic_device_get_types, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/deviceTypes/reload", 2, &callback_benoic_device_reload_types, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/", 2, &callback_benoic_device_get_list, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name", 2, &callback_benoic_device_get, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "POST", url_prefix, "/device/", 2, &callback_benoic_device_add, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name", 2, &callback_benoic_device_modify, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name", 2, &callback_benoic_device_delete, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/connect", 2, &callback_benoic_device_connect, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/disconnect", 2, &callback_benoic_device_disconnect, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/ping", 2, &callback_benoic_device_ping, (void*)config);
     
     // Device elements overview
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/overview", NULL, NULL, NULL, &callback_benoic_device_overview, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/overview", 2, &callback_benoic_device_overview, (void*)config);
     
     // Elements get, set and put
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name", NULL, NULL, NULL, &callback_benoic_device_element_get, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command", NULL, NULL, NULL, &callback_benoic_device_element_set, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name", NULL, NULL, NULL, &callback_benoic_device_element_put, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", NULL, NULL, NULL, &callback_benoic_device_element_add_tag, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", NULL, NULL, NULL, &callback_benoic_device_element_remove_tag, (void*)config);
-    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/", NULL, NULL, NULL, &callback_benoic_device_element_monitor, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name", 2, &callback_benoic_device_element_get, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/device/@device_name/@element_type/@element_name/@command", 2, &callback_benoic_device_element_set, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name", 2, &callback_benoic_device_element_put, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "PUT", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", 2, &callback_benoic_device_element_add_tag, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "DELETE", url_prefix, "/device/@device_name/@element_type/@element_name/@tag", 2, &callback_benoic_device_element_remove_tag, (void*)config);
+    ulfius_add_endpoint_by_val(instance, "GET", url_prefix, "/monitor/@device_name/@element_type/@element_name/", 2, &callback_benoic_device_element_monitor, (void*)config);
     
     // Get differents types available for devices by loading library files in module_path
     if (init_device_type_list(config) != B_OK) {
@@ -216,7 +216,7 @@ void * thread_monitor_run(void * args) {
                     } else if (json_is_number(json_object_get(value, "value"))) {
                       s_value = msprintf("%.2f", json_number_value(json_object_get(value, "value")));
                     } else if (json_is_string(json_object_get(value, "value"))) {
-                      s_value = nstrdup(json_string_value(json_object_get(value, "value")));
+                      s_value = o_strdup(json_string_value(json_object_get(value, "value")));
                     }
                     if (s_value != NULL) {
                       j_query = json_pack("{sss{sIss}}", 
@@ -283,7 +283,7 @@ void * get_device_ptr(struct _benoic_config * config, const char * device_name) 
   }
   
   for (i=0; config->device_data_list != NULL && config->device_data_list[i].device_name != NULL; i++) {
-    if (0 == nstrcmp(config->device_data_list[i].device_name, device_name)) {
+    if (0 == o_strcmp(config->device_data_list[i].device_name, device_name)) {
       return config->device_data_list[i].device_ptr;
     }
   }
@@ -311,7 +311,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
     }
-    config->device_data_list[0].device_name = nstrdup(device_name);
+    config->device_data_list[0].device_name = o_strdup(device_name);
     if (config->device_data_list[0].device_name == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list[0].device_name");
       return B_ERROR_MEMORY;
@@ -327,7 +327,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
       return B_ERROR_MEMORY;
     }
     config->device_data_list = tmp;
-    config->device_data_list[device_data_list_size].device_name = nstrdup(device_name);
+    config->device_data_list[device_data_list_size].device_name = o_strdup(device_name);
     if (config->device_data_list[device_data_list_size].device_name == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list[device_data_list_size].device_name");
       return B_ERROR_MEMORY;
@@ -353,7 +353,7 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
   
   if (config->device_data_list != NULL) {
     for (i=0; config->device_data_list[i].device_name != NULL; i++) {
-      if (0 == nstrcmp(config->device_data_list[i].device_name, device_name)) {
+      if (0 == o_strcmp(config->device_data_list[i].device_name, device_name)) {
         // device_data found, remove it and move next device_data to previous index
         free(config->device_data_list[i].device_name);
         config->device_data_list[i].device_name = NULL;
@@ -408,14 +408,10 @@ int callback_benoic_device_get_types (const struct _u_request * request, struct 
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
-    response->json_body = get_device_types_list((struct _benoic_config *)user_data);
-    if (response->json_body == NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error getting device types list, aborting");
-      response->status = 500;
-    }
-    return U_OK;
+    set_response_json_body_and_clean(response, 200, get_device_types_list((struct _benoic_config *)user_data));
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -423,16 +419,12 @@ int callback_benoic_device_reload_types (const struct _u_request * request, stru
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     if (close_device_type_list(((struct _benoic_config *)user_data)->device_type_list) == B_OK) {
       free(((struct _benoic_config *)user_data)->device_type_list);
       if (init_device_type_list((struct _benoic_config *)user_data) == B_OK) {
-        response->json_body = get_device_types_list((struct _benoic_config *)user_data);
-        if (response->json_body == NULL) {
-          y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error getting device types list, aborting");
-          response->status = 500;
-        }
+        set_response_json_body_and_clean(response, 200, get_device_types_list((struct _benoic_config *)user_data));
       } else {
         y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error reopening device type list");
         response->status = 500;
@@ -441,7 +433,7 @@ int callback_benoic_device_reload_types (const struct _u_request * request, stru
       y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error closing device type list");
       response->status = 500;
     }
-    return U_OK;
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -449,99 +441,95 @@ int callback_benoic_device_get_list (const struct _u_request * request, struct _
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_list - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
-    response->json_body = get_device((struct _benoic_config *)user_data, NULL);
-    if (response->json_body == NULL) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_list - Error getting device list, aborting");
-      response->status = 500;
-    }
-    return U_OK;
+    set_response_json_body_and_clean(response, 200, get_device((struct _benoic_config *)user_data, NULL));
+    return U_CALLBACK_CONTINUE;
   }
 }
 
 int callback_benoic_device_get (const struct _u_request * request, struct _u_response * response, void * user_data) {
+  json_t * json_body;
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
-    response->json_body = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
-    if (response->json_body == NULL) {
+    json_body = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
+    if (json_body == NULL) {
       response->status = 404;
+    } else {
+      set_response_json_body_and_clean(response, 200, json_body);
     }
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_add (const struct _u_request * request, struct _u_response * response, void * user_data) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_t * result, * device;
-  if (request->json_body == NULL || request->json_has_error) {
-    if (request->json_has_error) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error json input parameters callback_benoic_device_add: %s", request->json_error->text);
-    }
-    json_object_set_new(response->json_body, "error", json_string("invalid input json format"));
-    response->status = 400;
-    return U_OK;
+  json_t * json_body = ulfius_get_json_body_request(request, NULL);
+  
+  if (json_body == NULL) {
+    set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "invalid input json format"));
+    return U_CALLBACK_CONTINUE;
   } else if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error, callback_benoic_device_add user_data is NULL");
-    return U_ERROR_PARAMS;
+    json_decref(json_body);
+    return U_CALLBACK_ERROR;
   } else {
-    result = is_device_valid((struct _benoic_config *)user_data, request->json_body, 0);
+    result = is_device_valid((struct _benoic_config *)user_data, json_body, 0);
     if (result == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error is_device_valid");
       response->status = 400;
     } else if (json_array_size(result) > 0) {
-      ulfius_set_json_response(response, 400, result);
+      set_response_json_body_and_clean(response, 400, json_copy(result));
     } else {
-      device = get_device((struct _benoic_config *)user_data, json_string_value(json_object_get(request->json_body, "name")));
+      device = get_device((struct _benoic_config *)user_data, json_string_value(json_object_get(json_body, "name")));
       if (device == NULL) {
-        device = parse_device_to_db(request->json_body, 0);
+        device = parse_device_to_db(json_body, 0);
         if (add_device((struct _benoic_config *)user_data, device) != B_OK) {
           y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_add - Error adding new device");
           response->status = 500;
         }
       } else {
-        ulfius_set_json_response(response, 400, json_pack("{ss}", "message", "Device name already exist"));
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "message", "Device name already exist"));
       }
       json_decref(device);
     }
     json_decref(result);
-    return U_OK;
+    json_decref(json_body);
+    return U_CALLBACK_CONTINUE;
   }
 }
 
 int callback_benoic_device_modify (const struct _u_request * request, struct _u_response * response, void * user_data) {
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_t * result, * device;
-  if (request->json_body == NULL || request->json_has_error) {
-    if (request->json_has_error) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error json input parameters callback_benoic_device_modify: %s", request->json_error->text);
-    }
-    json_object_set_new(response->json_body, "error", json_string("invalid input json format"));
-    response->status = 400;
-    return U_OK;
+  json_t * json_body = ulfius_get_json_body_request(request, NULL);
+  
+  if (json_body == NULL) {
+    set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "invalid input json format"));
+    return U_CALLBACK_CONTINUE;
   } else if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error, callback_benoic_device_modify user_data is NULL");
-    return U_ERROR_PARAMS;
+    json_decref(json_body);
+    return U_CALLBACK_ERROR;
   } else {
-    result = is_device_valid((struct _benoic_config *)user_data, request->json_body, 1);
+    result = is_device_valid((struct _benoic_config *)user_data, json_body, 1);
     if (result == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_modify - Error is_device_valid");
       response->status = 500;
     } else if (json_array_size(result) > 0) {
-      response->status = 400;
-      response->json_body = result;
+      set_response_json_body_and_clean(response, 400, result);
     } else {
       device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
       if (device == NULL) {
         json_t * j_body = json_pack("{ss}", "message", "Device not found");
-        ulfius_set_json_response(response, 404, j_body);
-        json_decref(j_body);
+        set_response_json_body_and_clean(response, 404, j_body);
       } else {
         json_decref(device);
-        device = parse_device_to_db(request->json_body, 1);
+        device = parse_device_to_db(json_body, 1);
         if (modify_device((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "device_name")) != B_OK) {
           response->status = 500;
         }
@@ -549,7 +537,8 @@ int callback_benoic_device_modify (const struct _u_request * request, struct _u_
       }
       json_decref(result);
     }
-    return U_OK;
+    json_decref(json_body);
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -560,12 +549,11 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_delete - Error, callback_benoic_device_delete user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
-        response->json_body = json_pack("{ss}", "message", "Device not found");
-        response->status = 404;
+      set_response_json_body_and_clean(response, 404, json_pack("{ss}", "message", "Device not found"));
     } else {
       if (json_object_get(device, "connected") == json_true()) {
         res = disconnect_device((struct _benoic_config *)user_data, device, 1);
@@ -578,7 +566,7 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
       }
     }
     json_decref(device);
-    return U_OK;
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -588,7 +576,7 @@ int callback_benoic_device_connect (const struct _u_request * request, struct _u
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
@@ -598,7 +586,7 @@ int callback_benoic_device_connect (const struct _u_request * request, struct _u
     }
     json_decref(device);
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_disconnect (const struct _u_request * request, struct _u_response * response, void * user_data) {
@@ -607,7 +595,7 @@ int callback_benoic_device_disconnect (const struct _u_request * request, struct
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
@@ -617,7 +605,7 @@ int callback_benoic_device_disconnect (const struct _u_request * request, struct
     }
     json_decref(device);
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_ping (const struct _u_request * request, struct _u_response * response, void * user_data) {
@@ -626,19 +614,17 @@ int callback_benoic_device_ping (const struct _u_request * request, struct _u_re
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
       response->status = 404;
     } else if (json_object_get(device, "enabled") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
       if (ping_device((struct _benoic_config *)user_data, device) == B_OK) {
         response->status = 200;
@@ -648,7 +634,7 @@ int callback_benoic_device_ping (const struct _u_request * request, struct _u_re
       json_decref(device);
     }
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_overview (const struct _u_request * request, struct _u_response * response, void * user_data) {
@@ -657,23 +643,21 @@ int callback_benoic_device_overview (const struct _u_request * request, struct _
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
       response->status = 404;
     } else if (json_object_get(device, "enabled") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
       overview = overview_device((struct _benoic_config *)user_data, device);
       if (overview != NULL) {
-        response->json_body = overview;
+        set_response_json_body_and_clean(response, 200, overview);
       } else {
         y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error getting overview for device %s", u_map_get(request->map_url, "device_name"));
         response->status = 500;
@@ -681,7 +665,7 @@ int callback_benoic_device_overview (const struct _u_request * request, struct _
       json_decref(device);
     }
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_element_get (const struct _u_request * request, struct _u_response * response, void * user_data) {
@@ -690,87 +674,80 @@ int callback_benoic_device_element_get (const struct _u_request * request, struc
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
       response->status = 404;
     } else if (json_object_get(device, "enabled") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         result = get_sensor((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         result = get_switch((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         result = get_dimmer((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         result = get_heater((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"));
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       if (result != NULL) {
-        response->json_body = result;
+        set_response_json_body_and_clean(response, 200, result);
       } else {
         response->status = 404;
       }
       json_decref(device);
     }
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }
 
 int callback_benoic_device_element_put (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device, * element = NULL, * valid;
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
+  json_t * json_body = ulfius_get_json_body_request(request, NULL);
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  if (request->json_body == NULL || request->json_has_error) {
-    if (request->json_has_error) {
-      y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error json input parameters callback_benoic_device_add: %s", request->json_error->text);
-    }
-    json_object_set_new(response->json_body, "error", json_string("invalid input json format"));
-    response->status = 400;
-    return U_OK;
+  if (json_body == NULL) {
+    set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "invalid input json format"));
+    return U_CALLBACK_CONTINUE;
   } else if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    json_decref(json_body);
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
       response->status = 404;
     } else {
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       if (has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
         element = get_element_data((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), 1);
         if (element != NULL) {
-          valid = is_element_valid(request->json_body, element_type);
+          valid = is_element_valid(json_body, element_type);
           if (valid == NULL) {
             y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error is_element_valid");
             response->status = 500;
           } else if (json_array_size(valid) > 0) {
-              response->json_body = valid;
-              response->status = 400;
+            set_response_json_body_and_clean(response, 400, valid);
           } else {
-            if (set_element_data((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), element_type, request->json_body, 1) != B_OK) {
+            if (set_element_data((struct _benoic_config *)user_data, device, u_map_get(request->map_url, "element_name"), element_type, json_body, 1) != B_OK) {
               y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_put - Error setting element data");
               response->status = 500;
             }
@@ -787,7 +764,8 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
       }
       json_decref(device);
     }
-    return U_OK;
+    json_decref(json_body);
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -800,26 +778,23 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
-      response->status = 404;
-      response->json_body = json_pack("{ss}", "error", "device not found");
+      set_response_json_body_and_clean(response, 404, json_pack("{ss}", "error", "device not found"));
     } else if (json_object_get(device, "enabled") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE) {
@@ -833,8 +808,7 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
                   response->status = 500;
                 }
               } else {
-                response->status = 400;
-                response->json_body = json_pack("{ss}", "error", "incorrect command, must be -1 (toggle), 0 (off) or 1 (on)");
+                set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "incorrect command, must be -1 (toggle), 0 (off) or 1 (on)"));
               }
               break;
             case BENOIC_ELEMENT_TYPE_DIMMER:
@@ -845,12 +819,11 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
                   response->status = 500;
                 } else {
                   json_object_del(j_result, "result");
-                  response->json_body = json_copy(j_result);
+                  set_response_json_body_and_clean(response, 200, json_copy(j_result));
                 }
                 json_decref(j_result);
               } else {
-                response->status = 400;
-                response->json_body = json_pack("{ss}", "error", "incorrect command, must be between 0 and 101");
+                set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "incorrect command, must be between 0 and 101"));
               }
               break;
             case BENOIC_ELEMENT_TYPE_HEATER:
@@ -863,27 +836,23 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
                   response->status = 500;
                 }
               } else {
-                response->status = 400;
-                response->json_body = json_pack("{ss}", "error", "mode (optional) must be off, manual or auto, command must be a numeric value");
+                set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "mode (optional) must be off, manual or auto, command must be a numeric value"));
               }
               break;
             default:
-              response->status = 400;
-              response->json_body = json_pack("{ss}", "error", "element type incorrect");
+            set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
               break;
           }
           json_decref(element);
         } else {
-          response->status = 404;
-          response->json_body = json_pack("{ss}", "error", "element not found");
+          set_response_json_body_and_clean(response, 404, json_pack("{ss}", "error", "element not found"));
         }
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       json_decref(device);
     }
-    return U_OK;
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -895,34 +864,30 @@ int callback_benoic_device_element_add_tag (const struct _u_request * request, s
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
-      response->status = 404;
-      response->json_body = json_pack("{ss}", "error", "device not found");
+      set_response_json_body_and_clean(response, 404, json_pack("{ss}", "error", "device not found"));
     } else if (json_object_get(device, "enabled") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE && has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
         element = get_element_data((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), 1);
         if (element != NULL) {
           if (strlen(u_map_get(request->map_url, "tag")) > 64) {
-            response->status = 400;
-            response->json_body = json_pack("{ss}", "error", "tag must be max 64 characters");
+            set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "tag must be max 64 characters"));
           } else {
             res = element_add_tag((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), u_map_get(request->map_url, "tag"));
             if (res == B_ERROR_PARAM) {
@@ -937,12 +902,11 @@ int callback_benoic_device_element_add_tag (const struct _u_request * request, s
           response->status = 500;
         }
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       json_decref(device);
     }
-    return U_OK;
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -953,26 +917,23 @@ int callback_benoic_device_element_remove_tag (const struct _u_request * request
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
-      response->status = 404;
-      response->json_body = json_pack("{ss}", "error", "device not found");
+      set_response_json_body_and_clean(response, 404, json_pack("{ss}", "error", "device not found"));
     } else if (json_object_get(device, "enabled") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       }
       if (element_type != BENOIC_ELEMENT_TYPE_NONE && has_element((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"))) {
@@ -987,12 +948,11 @@ int callback_benoic_device_element_remove_tag (const struct _u_request * request
           response->status = 500;
         }
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       json_decref(device);
     }
-    return U_OK;
+    return U_CALLBACK_CONTINUE;
   }
 }
 
@@ -1004,58 +964,53 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_monitor - Error, user_data is NULL");
-    return U_ERROR_PARAMS;
+    return U_CALLBACK_ERROR;
   } else if (params == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_monitor - Error allocating resources for params");
-    return U_ERROR_MEMORY;
+    return U_CALLBACK_ERROR;
   } else {
     device = get_device((struct _benoic_config *)user_data, u_map_get(request->map_url, "device_name"));
     if (device == NULL) {
       response->status = 404;
     } else if (json_object_get(device, "enabled") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disabled");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disabled"));
     } else if (json_object_get(device, "connected") == json_false()) {
       json_decref(device);
-      response->status = 400;
-      response->json_body = json_pack("{ss}", "error", "device disconnected");
+      set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "device disconnected"));
     } else {
       if (u_map_get(request->map_url, "from") != NULL) {
         dt_param = strtol(u_map_get(request->map_url, "from"), &endptr, 10);
         if (endptr != NULL && endptr[0] != '\0') {
-          response->status = 400;
-          response->json_body = json_pack("{ss}", "error", "from parameter must be an epoch timestamp value");
+          set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "from parameter must be an epoch timestamp value"));
           json_decref(params);
-          return U_OK;
+          return U_CALLBACK_CONTINUE;
         }
         json_object_set_new(params, "from", json_integer(dt_param));
       }
       if (u_map_get(request->map_url, "to") != NULL) {
         dt_param = strtol(u_map_get(request->map_url, "to"), &endptr, 10);
         if (endptr != NULL && endptr[0] != '\0') {
-          response->status = 400;
-          response->json_body = json_pack("{ss}", "error", "to parameter must be an epoch timestamp value");
+          set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "to parameter must be an epoch timestamp value"));
           json_decref(params);
-          return U_OK;
+          return U_CALLBACK_CONTINUE;
         }
         json_object_set_new(params, "to", json_integer(dt_param));
       }
-      if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
+      if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "sensor")) {
         element_type = BENOIC_ELEMENT_TYPE_SENSOR;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "switch")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "switch")) {
         element_type = BENOIC_ELEMENT_TYPE_SWITCH;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "dimmer")) {
         element_type = BENOIC_ELEMENT_TYPE_DIMMER;
-      } else if (0 == nstrcmp(u_map_get(request->map_url, "element_type"), "heater")) {
+      } else if (0 == o_strcmp(u_map_get(request->map_url, "element_type"), "heater")) {
         element_type = BENOIC_ELEMENT_TYPE_HEATER;
       } else {
-        response->status = 400;
-        response->json_body = json_pack("{ss}", "error", "element type incorrect");
+        set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "element type incorrect"));
       }
       result = element_get_monitor((struct _benoic_config *)user_data, device, element_type, u_map_get(request->map_url, "element_name"), params);
       if (result != NULL) {
-        response->json_body = result;
+        set_response_json_body_and_clean(response, 200, result);
       } else {
         response->status = 500;
       }
@@ -1063,5 +1018,5 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
       json_decref(params);
     }
   }
-  return U_OK;
+  return U_CALLBACK_CONTINUE;
 }

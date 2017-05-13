@@ -106,10 +106,10 @@ int init_device_type_list(struct _benoic_config * config) {
     }
     
     while ((in_file = readdir(modules_directory))) {
-      if (!nstrcmp (in_file->d_name, ".")) {
+      if (!o_strcmp (in_file->d_name, ".")) {
         continue;
       }
-      if (!nstrcmp (in_file->d_name, "..")) {
+      if (!o_strcmp (in_file->d_name, "..")) {
         continue;
       }
       
@@ -147,9 +147,9 @@ int init_device_type_list(struct _benoic_config * config) {
             (cur_device.b_device_get_dimmer != NULL) && (cur_device.b_device_set_dimmer != NULL) && (cur_device.b_device_get_heater != NULL) && 
             (cur_device.b_device_set_heater != NULL) && (cur_device.b_device_has_element != NULL)) {
           device_handshake = (*cur_device.b_device_type_init)();
-          cur_device.uid = nstrdup(json_string_value(json_object_get(device_handshake, "uid")));
-          cur_device.name = nstrdup(json_string_value(json_object_get(device_handshake, "name")));
-          cur_device.description = nstrdup(json_string_value(json_object_get(device_handshake, "description")));
+          cur_device.uid = o_strdup(json_string_value(json_object_get(device_handshake, "uid")));
+          cur_device.name = o_strdup(json_string_value(json_object_get(device_handshake, "name")));
+          cur_device.description = o_strdup(json_string_value(json_object_get(device_handshake, "description")));
           cur_device.options = json_copy(json_object_get(device_handshake, "options"));
           json_decref(device_handshake);
           device_handshake = NULL;
@@ -524,7 +524,7 @@ json_t * is_device_option_list_valid(struct _benoic_config * config, json_t * de
   }
   
   for (i=0; config->device_type_list[i].uid != NULL; i++) {
-    if (0 == nstrcmp(config->device_type_list[i].uid, json_string_value(json_object_get(device, "type_uid")))) {
+    if (0 == o_strcmp(config->device_type_list[i].uid, json_string_value(json_object_get(device, "type_uid")))) {
       found = 1;
       
       // Loop in all options and check each of them
@@ -699,7 +699,7 @@ struct _device_type * get_device_type(struct _benoic_config * config, json_t * d
   }
   
   for (i=0; config->device_type_list[i].uid != NULL; i++) {
-    if (0 == nstrcmp(config->device_type_list[i].uid, type_uid)) {
+    if (0 == o_strcmp(config->device_type_list[i].uid, type_uid)) {
       return (config->device_type_list + i);
     }
   }
@@ -767,7 +767,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
           json_object_set_new(json_object_get(device, "options"), key, json_copy(value));
         }
       }
-      device_name = nstrdup(json_string_value(json_object_get(device, "name")));
+      device_name = o_strdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
       json_object_set_new(j_db_device, "bd_connected", json_integer(1));
       res = modify_device(config, j_db_device, device_name);
@@ -777,7 +777,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       to_return = res;
     } else if (result != NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "Error connecting device %s, result code is %" JSON_INTEGER_FORMAT, json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
-      device_name = nstrdup(json_string_value(json_object_get(device, "name")));
+      device_name = o_strdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
       json_object_set_new(j_db_device, "bd_connected", json_integer(0));
       modify_device(config, j_db_device, device_name);
@@ -833,7 +833,7 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
           json_object_set_new(json_object_get(device, "options"), key, json_copy(value));
         }
       }
-      device_name = nstrdup(json_string_value(json_object_get(device, "name")));
+      device_name = o_strdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
       if (update_db_status) {
         json_object_set_new(j_db_device, "bd_connected", json_integer(0));
@@ -847,7 +847,7 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
     } else if (result != NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "Error disconnect device %s, result code is %" JSON_INTEGER_FORMAT, json_string_value(json_object_get(device, "name")), json_integer_value(json_object_get(result, "result")));
       json_decref(result);
-      device_name = nstrdup(json_string_value(json_object_get(device, "name")));
+      device_name = o_strdup(json_string_value(json_object_get(device, "name")));
       j_db_device = parse_device_to_db(device, 1);
       if (update_db_status) {
         json_object_set_new(j_db_device, "bd_connected", json_integer(0));

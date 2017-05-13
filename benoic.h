@@ -26,7 +26,7 @@
 #ifndef __BENOIC_H_
 #define __BENOIC_H_
 
-#define _BENOIC_VERSION 0.9
+#define _BENOIC_VERSION 1.1
 
 #include <jansson.h>
 
@@ -109,6 +109,7 @@ struct _benoic_config {
 };
 
 struct _device_type * get_device_type(struct _benoic_config * config, json_t * device);
+int set_response_json_body_and_clean(struct _u_response * response, uint status, json_t * json_body);
 
 // Device db management functions
 json_t * get_device_types_list(struct _benoic_config * config);
