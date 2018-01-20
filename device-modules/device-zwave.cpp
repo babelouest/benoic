@@ -544,7 +544,7 @@ extern "C" json_t * b_device_type_init () {
  */
 extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int i;
-  char filename[256];
+  char filename[513];
   
   y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   * device_ptr = malloc(sizeof(struct zwave_context));
@@ -606,7 +606,7 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   
   // Loo into uris to find the good one
   for (i=0; i<128; i++) {
-    snprintf(filename, 255*sizeof(char), "%s%d", ((struct zwave_context *) *device_ptr)->uri, i);
+    snprintf(filename, 512*sizeof(char), "%s%d", ((struct zwave_context *) *device_ptr)->uri, i);
     if (Manager::Get()->AddDriver( filename )) {
       snprintf(((struct zwave_context *) *device_ptr)->usb_file, 255*sizeof(char), "%s", filename);
       return json_pack("{si}", "result", RESULT_OK);
