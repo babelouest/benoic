@@ -28,8 +28,7 @@
 #include <ulfius.h>
 #include <orcania.h>
 
-//#define SERVER_URL_PREFIX "http://localhost:2642/benoic"
-#define SERVER_URL_PREFIX "http://localhost:2473/benoic"
+#define SERVER_URL_PREFIX "http://localhost:2474/benoic"
 
 #define AUTH_SERVER_URI "http://localhost:4593/glewlwyd"
 #define USER_LOGIN "user1"
