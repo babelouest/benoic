@@ -971,7 +971,8 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
  */
 extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {  
   json_t * overview = json_object(), * value;
-  char * name, * unit, * cur_node, * end_ptr_d;
+  char * name, * unit, * end_ptr_d;
+	const char * cur_node = NULL;
   string s_status;
   bool b_status;
   double d_value;
