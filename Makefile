@@ -50,7 +50,7 @@ all: release
 
 debug: ADDITIONALFLAGS=-DDEBUG -g -O0
 
-debug: benoic-standalone unit-tests modules
+debug: benoic-standalone modules
 
 release-standalone: ADDITIONALFLAGS=-O3
 
@@ -64,11 +64,8 @@ test: debug
 	./benoic-standalone
 
 clean:
-	rm -f *.o benoic-standalone unit-tests valgrind.txt
+	rm -f *.o benoic-standalone valgrind.txt
 	cd $(MODULES_LOCATION) && $(MAKE) clean
-
-unit-tests: unit-tests.c
-	$(CC) -o unit-tests unit-tests.c -lc -lulfius -lorcania -ljansson -L$(PREFIX)/lib
 
 install_modules: modules
 	cd $(MODULES_LOCATION) && $(MAKE) install
