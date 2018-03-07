@@ -48,6 +48,9 @@
 
 #define NB_SECONDS_PER_DAY 86400
 
+/** Macro to avoid compiler warning when some parameters are unused and that's ok **/
+#define UNUSED(x) (void)(x)
+
 json_t * b_device_get_switch (json_t * device, const char * switch_name, void * device_ptr);
 json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * device_ptr);
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr);
@@ -60,22 +63,21 @@ char * print_map(const struct _u_map * map) {
   const char **keys;
   int len, i;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (map != NULL) {
     keys = u_map_enum_keys(map);
     for (i=0; keys[i] != NULL; i++) {
       len = snprintf(NULL, 0, "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
-      line = malloc((len+1)*sizeof(char));
+      line = o_malloc((len+1)*sizeof(char));
       snprintf(line, (len+1), "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
       if (to_return != NULL) {
         len = strlen(to_return) + strlen(line) + 1;
-        to_return = realloc(to_return, (len+1)*sizeof(char));
+        to_return = o_realloc(to_return, (len+1)*sizeof(char));
       } else {
-        to_return = malloc((strlen(line) + 1)*sizeof(char));
+        to_return = o_malloc((strlen(line) + 1)*sizeof(char));
         to_return[0] = 0;
       }
       strcat(to_return, line);
-      free(line);
+      o_free(line);
     }
     return to_return;
   } else {
@@ -84,7 +86,6 @@ char * print_map(const struct _u_map * map) {
 }
 
 void init_request_for_device(struct _u_request * req, json_t * device, const char * command) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   ulfius_init_request(req);
   // Set request timeout to 20 seconds
   req->timeout = 20;
@@ -105,7 +106,6 @@ void init_request_for_device(struct _u_request * req, json_t * device, const cha
  */
 json_t * b_device_type_init () {
   json_t * options = json_array();
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_array_append_new(options, json_pack("{ssssssso}", "name", "uri", "type", "string", "description", "uri to connect to the device", "optional", json_false()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "send_alert_uri", "type", "string", "description", "uri to use to send the server alert uri to the client", "optional", json_false()));
   json_array_append_new(options, json_pack("{ssssssso}", "name", "do_not_check_certificate", "type", "boolean", "description", "check the certificate of the device if needed", "optional", json_true()));
@@ -128,8 +128,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int res;
   json_t * j_param;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  * device_ptr = malloc(sizeof(struct _u_map));
+  * device_ptr = o_malloc(sizeof(struct _u_map));
   u_map_init((struct _u_map *)*device_ptr);
   
   init_request_for_device(&req, device, "MARCO");
@@ -149,7 +148,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
  * disconnects the device
  */
 json_t * b_device_disconnect (json_t * device, void * device_ptr) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device);
   u_map_clean_full((struct _u_map *)device_ptr);
   return json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
 }
@@ -163,10 +162,10 @@ json_t * b_device_ping (json_t * device, void * device_ptr) {
   int res;
   json_t * j_param;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   init_request_for_device(&req, device, "MARCO");
   ulfius_init_response(&resp);
   
+  UNUSED(device_ptr);
   res = ulfius_send_http_request(&req, &resp);
   if (res == U_OK && o_strncmp("POLO", resp.binary_body, strlen("POLO"))) {
 	  if (json_object_get(json_object_get(device, "options"), "old_version") == json_true()) {
@@ -203,7 +202,6 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
   const char * elt_name;
   struct _u_map * elements = (struct _u_map *)device_ptr;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   init_request_for_device(&req, device, "OVERVIEW");
   ulfius_init_response(&resp);
   
@@ -272,10 +270,10 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
             element = strtok_r(NULL, ",", &saveptr2);
           }
         }
-        free(token_dup);
+        o_free(token_dup);
         token = strtok_r(NULL, ";", &saveptr);
       }
-      free(saved_body);
+      o_free(saved_body);
       json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
 	  } else {
       json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
@@ -324,7 +322,7 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
   json_int_t i_value;
   double d_value;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device_ptr);
   path = msprintf("%s/%s", "SENSOR", sensor_name);
   init_request_for_device(&req, device, path);
   ulfius_init_response(&resp);
@@ -359,7 +357,7 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -376,7 +374,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
   json_t * j_result = NULL;
   json_int_t i_value;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device_ptr);
   path = msprintf("%s/%s", "GETSWITCH", switch_name);
   init_request_for_device(&req, device, path);
   ulfius_init_response(&resp);
@@ -405,7 +403,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -421,7 +419,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
   char * path;
   json_t * j_result = NULL;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device_ptr);
   path = msprintf("%s/%s/%d", "SETSWITCH", switch_name, command);
   init_request_for_device(&req, device, path);
   ulfius_init_response(&resp);
@@ -440,7 +438,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -457,7 +455,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
   json_t * j_result = NULL;
   json_int_t i_value;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device_ptr);
   path = msprintf("%s/%s", "GETDIMMER", dimmer_name);
   init_request_for_device(&req, device, path);
   ulfius_init_response(&resp);
@@ -486,7 +484,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -502,7 +500,7 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
   char * path;
   json_t * j_result = NULL;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device_ptr);
   path = msprintf("%s/%s/%d", "SETDIMMER", dimmer_name, command);
   init_request_for_device(&req, device, path);
   ulfius_init_response(&resp);
@@ -521,7 +519,7 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -531,7 +529,9 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
  * Get the heater value
  */
 json_t * b_device_get_heater (json_t * device, const char * heater_name, void * device_ptr) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device);
+  UNUSED(heater_name);
+  UNUSED(device_ptr);
   return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
 }
 
@@ -539,7 +539,11 @@ json_t * b_device_get_heater (json_t * device, const char * heater_name, void * 
  * Set the heater command
  */
 json_t * b_device_set_heater (json_t * device, const char * heater_name, const char * mode, const float command, void * device_ptr) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device);
+  UNUSED(heater_name);
+  UNUSED(mode);
+  UNUSED(command);
+  UNUSED(device_ptr);
   return json_pack("{si}", "result", WEBSERVICE_RESULT_NOT_FOUND);
 }
 
@@ -547,6 +551,7 @@ json_t * b_device_set_heater (json_t * device, const char * heater_name, const c
  * Return true if an element with the specified name and the specified type exist in this device
  */
 int b_device_has_element (json_t * device, int element_type, const char * element_name, void * device_ptr) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
+  UNUSED(device);
+  UNUSED(element_type);
   return u_map_has_key((struct _u_map *)device_ptr, element_name);
 }

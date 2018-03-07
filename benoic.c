@@ -36,7 +36,6 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
   pthread_t thread_monitor;
   int thread_ret_monitor = 0, thread_detach_monitor = 0;
 
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     
     // Devices management
@@ -97,7 +96,6 @@ int init_benoic(struct _u_instance * instance, const char * url_prefix, struct _
 int close_benoic(struct _u_instance * instance, const char * url_prefix, struct _benoic_config * config) {
   int res;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (instance != NULL && url_prefix != NULL && config != NULL) {
     ulfius_remove_endpoint_by_val(instance, "GET", url_prefix, "/deviceTypes/");
     ulfius_remove_endpoint_by_val(instance, "PUT", url_prefix, "/deviceTypes/reload");
@@ -130,7 +128,7 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
       return res;
     }
     res = close_device_type_list(config->device_type_list);
-    free(config->device_type_list);
+    o_free(config->device_type_list);
     config->device_type_list = NULL;
     if (res != B_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error closing device type list");
@@ -151,9 +149,8 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
  * clean configuration structure
  */
 void clean_benoic(struct _benoic_config * config) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
-  free(config->modules_path);
-  free(config);
+  o_free(config->modules_path);
+  o_free(config);
 }
 
 /**
@@ -173,7 +170,6 @@ void * thread_monitor_run(void * args) {
   size_t index;
   char * s_value, * s_next_time;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config != NULL) {
     while (config->benoic_status == BENOIC_STATUS_RUN) {
       // Run monitoring task every minute
@@ -232,7 +228,7 @@ void * thread_monitor_run(void * args) {
                       if (res != H_OK) {
                         y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error inserting data for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
                       }
-                      free(s_value);
+                      o_free(s_value);
                     }
                     json_decref(value);
                   }
@@ -246,7 +242,7 @@ void * thread_monitor_run(void * args) {
                   j_query = json_pack("{sss{s{ss}}s{sI}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
                   res = h_update(config->conn, j_query, NULL);
                   json_decref(j_query);
-                  free(s_next_time);
+                  o_free(s_next_time);
                   if (res != H_OK) {
                     y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error updating next_time for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
                   }
@@ -276,7 +272,6 @@ void * thread_monitor_run(void * args) {
 void * get_device_ptr(struct _benoic_config * config, const char * device_name) {
   int i;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config == NULL || device_name == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "get_device_ptr - Error input parameters");
     return NULL;
@@ -299,14 +294,13 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
   struct _benoic_device_data * tmp;
   size_t device_data_list_size;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config == NULL || device_name == NULL) {
     return B_ERROR_PARAM;
   }
   
   // Append new device_ptr
   if (config->device_data_list == NULL) {
-    config->device_data_list = malloc(2 * sizeof(struct _benoic_device_data));
+    config->device_data_list = o_malloc(2 * sizeof(struct _benoic_device_data));
     if (config->device_data_list == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
@@ -321,7 +315,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
     config->device_data_list[1].device_ptr = NULL;
   } else {
     for (device_data_list_size = 0; config->device_data_list[device_data_list_size].device_ptr != NULL; device_data_list_size++);
-    tmp = realloc(config->device_data_list, (device_data_list_size + 2)*sizeof(struct _benoic_device_data));
+    tmp = o_realloc(config->device_data_list, (device_data_list_size + 2)*sizeof(struct _benoic_device_data));
     if (tmp == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error reallocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
@@ -346,7 +340,6 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
 int remove_device_data(struct _benoic_config * config, const char * device_name) {
   int i;
 
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config == NULL || device_name == NULL) {
     return B_ERROR_PARAM;
   }
@@ -355,7 +348,7 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
     for (i=0; config->device_data_list[i].device_name != NULL; i++) {
       if (0 == o_strcmp(config->device_data_list[i].device_name, device_name)) {
         // device_data found, remove it and move next device_data to previous index
-        free(config->device_data_list[i].device_name);
+        o_free(config->device_data_list[i].device_name);
         config->device_data_list[i].device_name = NULL;
         config->device_data_list[i].device_ptr = NULL;
         while (config->device_data_list[i+1].device_name != NULL) {
@@ -383,7 +376,6 @@ int disconnect_all_devices(struct _benoic_config * config) {
   size_t index;
   json_t * device, * device_list;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (config != NULL) {
     device_list = get_device(config, NULL);
     json_array_foreach(device_list, index, device) {
@@ -392,7 +384,7 @@ int disconnect_all_devices(struct _benoic_config * config) {
       }
     }
     json_decref(device_list);
-    free(config->device_data_list);
+    o_free(config->device_data_list);
     config->device_data_list = NULL;
     return B_OK;
   } else {
@@ -405,7 +397,6 @@ int disconnect_all_devices(struct _benoic_config * config) {
  * Callback functions declaration
  */
 int callback_benoic_device_get_types (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -416,13 +407,12 @@ int callback_benoic_device_get_types (const struct _u_request * request, struct 
 }
 
 int callback_benoic_device_reload_types (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_types - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
   } else {
     if (close_device_type_list(((struct _benoic_config *)user_data)->device_type_list) == B_OK) {
-      free(((struct _benoic_config *)user_data)->device_type_list);
+      o_free(((struct _benoic_config *)user_data)->device_type_list);
       if (init_device_type_list((struct _benoic_config *)user_data) == B_OK) {
         set_response_json_body_and_clean(response, 200, get_device_types_list((struct _benoic_config *)user_data));
       } else {
@@ -438,7 +428,6 @@ int callback_benoic_device_reload_types (const struct _u_request * request, stru
 }
 
 int callback_benoic_device_get_list (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get_list - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -450,7 +439,6 @@ int callback_benoic_device_get_list (const struct _u_request * request, struct _
 
 int callback_benoic_device_get (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * json_body;
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -466,7 +454,6 @@ int callback_benoic_device_get (const struct _u_request * request, struct _u_res
 }
 
 int callback_benoic_device_add (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_t * result, * device;
   json_t * json_body = ulfius_get_json_body_request(request, NULL);
   
@@ -504,7 +491,6 @@ int callback_benoic_device_add (const struct _u_request * request, struct _u_res
 }
 
 int callback_benoic_device_modify (const struct _u_request * request, struct _u_response * response, void * user_data) {
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   json_t * result, * device;
   json_t * json_body = ulfius_get_json_body_request(request, NULL);
   
@@ -546,7 +532,6 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
   json_t * device;
   int res;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_delete - Error, callback_benoic_device_delete user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -573,7 +558,6 @@ int callback_benoic_device_delete (const struct _u_request * request, struct _u_
 int callback_benoic_device_connect (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -592,7 +576,6 @@ int callback_benoic_device_connect (const struct _u_request * request, struct _u
 int callback_benoic_device_disconnect (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -611,7 +594,6 @@ int callback_benoic_device_disconnect (const struct _u_request * request, struct
 int callback_benoic_device_ping (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -640,7 +622,6 @@ int callback_benoic_device_ping (const struct _u_request * request, struct _u_re
 int callback_benoic_device_overview (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device, * overview;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -671,7 +652,6 @@ int callback_benoic_device_overview (const struct _u_request * request, struct _
 int callback_benoic_device_element_get (const struct _u_request * request, struct _u_response * response, void * user_data) {
   json_t * device, * result = NULL;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_get - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -713,7 +693,6 @@ int callback_benoic_device_element_put (const struct _u_request * request, struc
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
   json_t * json_body = ulfius_get_json_body_request(request, NULL);
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (json_body == NULL) {
     set_response_json_body_and_clean(response, 400, json_pack("{ss}", "error", "invalid input json format"));
     return U_CALLBACK_CONTINUE;
@@ -775,7 +754,6 @@ int callback_benoic_device_element_set (const struct _u_request * request, struc
   float f_command;
   char * endptr;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -861,7 +839,6 @@ int callback_benoic_device_element_add_tag (const struct _u_request * request, s
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
   int res;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -914,7 +891,6 @@ int callback_benoic_device_element_remove_tag (const struct _u_request * request
   json_t * device, * element = NULL;
   int element_type = BENOIC_ELEMENT_TYPE_NONE;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_set - Error, user_data is NULL");
     return U_CALLBACK_ERROR;
@@ -961,7 +937,6 @@ int callback_benoic_device_element_monitor(const struct _u_request * request, st
   int element_type = BENOIC_ELEMENT_TYPE_NONE, dt_param;
   char * endptr;
   
-  y_log_message(Y_LOG_LEVEL_DEBUG, "Entering function %s from file %s", __PRETTY_FUNCTION__, __FILE__);
   if (user_data == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "callback_benoic_device_element_monitor - Error, user_data is NULL");
     return U_CALLBACK_ERROR;

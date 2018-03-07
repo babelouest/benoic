@@ -32,9 +32,9 @@
  * Close its dl handles and free a struct _device_type
  */
 void close_device_type(struct _device_type device_type) {
-  free(device_type.uid);
-  free(device_type.name);
-  free(device_type.description);
+  o_free(device_type.uid);
+  o_free(device_type.name);
+  o_free(device_type.description);
   dlclose(device_type.dl_handle);
   json_decref(device_type.options);
   device_type.uid = NULL;
@@ -71,7 +71,7 @@ int init_device_type_list(struct _benoic_config * config) {
   int res;
   size_t nb_device_types = 0;
   
-  config->device_type_list = malloc(sizeof(struct _device_type));
+  config->device_type_list = o_malloc(sizeof(struct _device_type));
   
   if (config->device_type_list == NULL) {
     y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error getting device_type_list");
@@ -156,11 +156,11 @@ int init_device_type_list(struct _benoic_config * config) {
           
           if (cur_device.uid != NULL && cur_device.name != NULL && cur_device.description != NULL) {
             nb_device_types++;
-            config->device_type_list = realloc(config->device_type_list, (nb_device_types+1)*sizeof(struct _device_type));
+            config->device_type_list = o_realloc(config->device_type_list, (nb_device_types+1)*sizeof(struct _device_type));
             if (config->device_type_list == NULL) {
               y_log_message(Y_LOG_LEVEL_ERROR, "init_device_type_list - Error allocating resources for device_type_list");
               close_device_type_list(config->device_type_list);
-              free(config->device_type_list);
+              o_free(config->device_type_list);
               config->device_type_list = NULL;
               return B_ERROR_MEMORY;
             }
@@ -250,7 +250,7 @@ int init_device_type_list(struct _benoic_config * config) {
       } else {
         y_log_message(Y_LOG_LEVEL_ERROR, "Error opening benoic module file %s, reason: %s", file_path, dlerror());
       }
-      free(file_path);
+      o_free(file_path);
     }
     closedir(modules_directory);
     
@@ -449,7 +449,7 @@ json_t * parse_device_to_db(json_t * device, const int update) {
   json_object_set_new(result, "bd_enabled", json_object_get(device, "enabled")==json_true()?json_integer(1):json_integer(2));
   tmp = json_dumps(json_object_get(device, "options"), JSON_COMPACT);
   json_object_set_new(result, "bd_options", json_string(tmp));
-  free(tmp);
+  o_free(tmp);
   
   return result;
 }
@@ -771,7 +771,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       j_db_device = parse_device_to_db(device, 1);
       json_object_set_new(j_db_device, "bd_connected", json_integer(1));
       res = modify_device(config, j_db_device, device_name);
-      free(device_name);
+      o_free(device_name);
       json_decref(j_db_device);
       update_last_seen_device(config, device);
       to_return = res;
@@ -781,7 +781,7 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       j_db_device = parse_device_to_db(device, 1);
       json_object_set_new(j_db_device, "bd_connected", json_integer(0));
       modify_device(config, j_db_device, device_name);
-      free(device_name);
+      o_free(device_name);
       json_decref(j_db_device);
       to_return = B_ERROR_IO;
     } else {
@@ -839,7 +839,7 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
         json_object_set_new(j_db_device, "bd_connected", json_integer(0));
       }
       res = modify_device(config, j_db_device, device_name);
-      free(device_name);
+      o_free(device_name);
       json_decref(result);
       json_decref(j_db_device);
       update_last_seen_device(config, device);
@@ -853,7 +853,7 @@ int disconnect_device(struct _benoic_config * config, json_t * device, int updat
         json_object_set_new(j_db_device, "bd_connected", json_integer(0));
       }
       modify_device(config, j_db_device, device_name);
-      free(device_name);
+      o_free(device_name);
       json_decref(result);
       json_decref(j_db_device);
       return B_ERROR_IO;
@@ -1085,7 +1085,7 @@ int update_last_seen_device(struct _benoic_config * config, json_t * device) {
   }
   
   json_object_set_new(j_query, "table", json_string(BENOIC_TABLE_DEVICE));
-  json_object_set_new(j_query, "set", json_pack("{s{ss}}", "bd_last_seen", "raw", "NOW()"));
+  json_object_set_new(j_query, "set", json_pack("{s{ss}}", "bd_last_seen", "raw", (config->conn->type == HOEL_DB_TYPE_MARIADB?"NOW()":"strftime('%s','now')")));
   json_object_set_new(j_query, "where", json_pack("{ss}", "bd_name", json_string_value(json_object_get(device, "name"))));
   
   res = h_update(config->conn, j_query, NULL);
