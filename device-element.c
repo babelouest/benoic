@@ -506,7 +506,7 @@ json_t * parse_element_to_db(json_t * element, const char * device, const char *
   json_object_set_new(to_return, "be_enabled", json_object_get(element, "enabled")==json_true()?json_integer(1):json_integer(0));
   dump = json_dumps(json_object_get(element, "options"), JSON_COMPACT);
   json_object_set_new(to_return, "be_options", json_string(dump));
-  free(dump);
+  o_free(dump);
   json_object_set_new(to_return, "be_monitored", json_object_get(element, "monitored")==json_true()?json_integer(1):json_integer(0));
   json_object_set_new(to_return, "be_monitored_every", json_copy(json_object_get(element, "monitored_every")));
   
@@ -706,10 +706,10 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
   escaped_device = h_escape_string(config->conn, json_string_value(json_object_get(device, "name")));
   escaped_name = h_escape_string(config->conn, element_name);
   tmp = msprintf("= (SELECT `be_id` FROM `b_element` WHERE `be_name` = '%s' AND `be_type` = %d AND `bd_name` = '%s')", escaped_name, element_type, escaped_device);
-  free(escaped_device);
-  free(escaped_name);
+  o_free(escaped_device);
+  o_free(escaped_name);
   json_object_set_new(j_where, "be_id", json_pack("{ssss}", "operator", "raw", "value", tmp));
-  free(tmp);
+  o_free(tmp);
   
   if (json_object_get(params, "from") != NULL) {
     if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
@@ -718,7 +718,7 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
       tmp = msprintf("> '%" JSON_INTEGER_FORMAT "'", json_integer_value(json_object_get(params, "from")));
     }
     json_object_set_new(j_where, "bm_date", json_pack("{ssss}", "operator", "raw", "value", tmp));
-    free(tmp);
+    o_free(tmp);
   } else {
     if (config->conn->type == HOEL_DB_TYPE_MARIADB) {
       json_object_set_new(j_where, "bm_date", json_pack("{ssss}", "operator", "raw", "value", "> DATE_SUB(CURDATE(), INTERVAL 1 DAY)"));
@@ -734,7 +734,7 @@ json_t * element_get_monitor(struct _benoic_config * config, json_t * device, co
       tmp = msprintf("< '%" JSON_INTEGER_FORMAT "'", json_integer_value(json_object_get(params, "from")));
     }
     json_object_set_new(j_where, "bm_date", json_pack("{ssss}", "operator", "raw", "value", tmp));
-    free(tmp);
+    o_free(tmp);
   }
   
   json_object_set_new(j_query, "where", j_where);

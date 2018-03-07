@@ -97,7 +97,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   if (o_strstr(json_string_value(json_object_get(json_object_get(device, "options"), "device_specified")), "batman") == NULL) {
     param = msprintf("%s says I'm batman with the alert_url %s", json_string_value(json_object_get(device, "name")), json_string_value(json_object_get(json_object_get(device, "options"), "alert_url")));
     j_param = json_pack("{sis{ss}}", "result", WEBSERVICE_RESULT_OK, "options", "device_specified", param);
-    free(param);
+    o_free(param);
   } else {
     j_param = json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
   }

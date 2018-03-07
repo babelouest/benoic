@@ -171,7 +171,7 @@ char * naming_label(const char * label) {
   int i;
   
   if (label != NULL) {
-    to_return = strdup(label);
+    to_return = o_strdup(label);
     for (i=0; to_return[i] != '\0'; i++) {
       if (to_return[i] == '$' || to_return[i] == ' ') {
         to_return[i] = '_';
@@ -294,33 +294,33 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
   cur_node = get_device_node(zcontext, strtol(str_node_id, NULL, 10));
   
   if (str_type == NULL || str_node_id == NULL) {
-    free(dup_name_save);
+    o_free(dup_name_save);
     return NULL;
   } else {
     if (0 == o_strcmp(str_type, "se")) {
       // This is a sensor
       if (str_label == NULL) {
-        free(dup_name_save);
+        o_free(dup_name_save);
         return NULL;
       } else {
         value = get_device_value_id_by_label(cur_node, COMMAND_CLASS_SENSOR_BINARY, str_label);
         if (value == NULL) {
           value = get_device_value_id_by_label(cur_node, COMMAND_CLASS_SENSOR_MULTILEVEL, str_label);
         }
-        free(dup_name_save);
+        o_free(dup_name_save);
         return value;
       }
     } else if (0 == o_strcmp(str_type, "sw")) {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_BINARY);
     } else if (0 == o_strcmp(str_type, "di")) {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_SWITCH_MULTILEVEL);
     } else if (0 == o_strcmp(str_type, "he")) {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return get_device_value_id(cur_node, COMMAND_CLASS_THERMOSTAT_SETPOINT);
     } else {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return NULL;
     }
   }
@@ -328,7 +328,6 @@ ValueID * get_device_value_id_by_element_name(zwave_context * zcontext, const ch
 
 int send_angharad_alert(zwave_context * zcontext, char * source) {
   struct _u_request request;
-  char * element_name = NULL;
   int res;
   
   if (zcontext == NULL || source == NULL) {
@@ -336,14 +335,13 @@ int send_angharad_alert(zwave_context * zcontext, char * source) {
     return RESULT_ERROR;
   } else if (zcontext->alert_url != NULL) {
     ulfius_init_request(&request);
-    request.http_verb = strdup("GET");
+    request.http_verb = o_strdup("GET");
     request.http_url = msprintf(zcontext->alert_url, "benoic", zcontext->device_name, source, "NOTIFICATION");
     res = ulfius_send_http_request(&request, NULL);
     if (res != U_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "ZWave device, Error sending http request for alert");
     }
     ulfius_clean_request(&request);
-    free(element_name);
     return RESULT_OK;
   } else {
     y_log_message(Y_LOG_LEVEL_ERROR, "send_angharad_alert - no alert url");
@@ -536,7 +534,7 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int i;
   char filename[513];
   
-  * device_ptr = malloc(sizeof(struct zwave_context));
+  * device_ptr = o_malloc(sizeof(struct zwave_context));
   o_strncpy(((struct zwave_context *) * device_ptr)->uri, json_string_value(json_object_get(json_object_get(device, "options"), "uri")), 256);
   if (json_object_get(json_object_get(device, "options"), "config_path") != NULL) {
     o_strncpy(((struct zwave_context *) * device_ptr)->config_path, json_string_value(json_object_get(json_object_get(device, "options"), "config_path")), 256);
@@ -612,11 +610,11 @@ extern "C" json_t * b_device_disconnect (json_t * device, void * device_ptr) {
     Options::Destroy();
     Manager::Destroy();
     delete ((struct zwave_context *) device_ptr)->nodes_list;
-    free(((struct zwave_context *) device_ptr)->alert_url);
-    free(((struct zwave_context *) device_ptr)->device_name);
+    o_free(((struct zwave_context *) device_ptr)->alert_url);
+    o_free(((struct zwave_context *) device_ptr)->device_name);
     u_map_clean_full(((struct zwave_context *) device_ptr)->alarms);
     u_map_clean_full(((struct zwave_context *) device_ptr)->dimmer_values);
-    free(device_ptr);
+    o_free(device_ptr);
   }
   return json_pack("{si}", "result", RESULT_OK);
 }
@@ -779,9 +777,9 @@ extern "C" json_t * b_device_set_dimmer (json_t * device, const char * dimmer_na
         u_map_put(((zwave_context *)device_ptr)->dimmer_values, dimmer_name, val);
       }
     } else if (u_map_has_key(((zwave_context *)device_ptr)->dimmer_values, dimmer_name)) {
-      strncpy(val, u_map_get(((zwave_context *)device_ptr)->dimmer_values, dimmer_name), 3*sizeof(char));
+      o_strncpy(val, u_map_get(((zwave_context *)device_ptr)->dimmer_values, dimmer_name), 3*sizeof(char));
     } else {
-      strcpy(val, "0");
+      o_strcpy(val, "0");
     }
     if (Manager::Get()->SetValue((*value), string(val)) ) {
       result = json_pack("{sisi}", "result", RESULT_OK, "value", strtol(val, NULL, 10));
@@ -905,21 +903,21 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
     str_label = strtok_r(NULL, "$", &save_ptr);
     
     if (str_type == NULL || str_node_id == NULL || str_label == NULL) {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return 0;
     } else {
       value = get_device_value_id_by_label(get_device_node((zwave_context *)device_ptr, strtol(str_node_id, NULL, 10)), COMMAND_CLASS_SENSOR_BINARY, str_label);
       if (value == NULL) {
         value = get_device_value_id_by_label(get_device_node((zwave_context *)device_ptr, strtol(str_node_id, NULL, 10)), COMMAND_CLASS_SENSOR_MULTILEVEL, str_label);
       }
-      free(dup_name_save);
+      o_free(dup_name_save);
       return (value != NULL);
     }
   } else {
     str_type = strtok_r(dup_name, "$", &save_ptr);
     str_node_id = strtok_r(NULL, "$", &save_ptr);
     if (str_type == NULL || str_node_id == NULL) {
-      free(dup_name_save);
+      o_free(dup_name_save);
       return 0;
     } else {
       switch (element_type) {
@@ -936,7 +934,7 @@ extern "C" int b_device_has_element (json_t * device, int element_type, const ch
           value = NULL;
           break;
       }
-      free(dup_name_save);
+      o_free(dup_name_save);
       return (value != NULL);
     }
   }
@@ -979,7 +977,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
             json_object_set_new(json_object_get(overview, cur_node), name, json_integer(b_status?1:0));
           }
         }
-        free(name);
+        o_free(name);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SWITCH_MULTILEVEL ) { // COMMAND_CLASS_SWITCH_MULTILEVEL - Dimmer
         Manager::Get()->RefreshValue(v);
         if (0 == strcasecmp(Manager::Get()->GetValueLabel(v).c_str(), "level")) {
@@ -999,7 +997,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
               json_object_set_new(json_object_get(overview, cur_node), name, json_integer(strtol(s_status.c_str(), NULL, 10)));
             }
           }
-          free(name);
+          o_free(name);
         }
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SENSOR_BINARY ) { // COMMAND_CLASS_SENSOR_BINARY - binary sensor
         Manager::Get()->RefreshValue(v);
@@ -1017,7 +1015,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
             json_object_set_new(json_object_get(overview, cur_node), name, b_status?json_true():json_false());
           }
         }
-        free(name);
+        o_free(name);
         free(named_label);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_SENSOR_MULTILEVEL ) { // COMMAND_CLASS_SENSOR_MULTILEVEL - sensor
         Manager::Get()->RefreshValue(v);
@@ -1042,7 +1040,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
           }
           json_decref(value);
         }
-        free(name);
+        o_free(name);
         free(named_label);
       } else if ( v.GetCommandClassId() == COMMAND_CLASS_THERMOSTAT_SETPOINT ) { // COMMAND_CLASS_THERMOSTAT_SETPOINT - heater
         Manager::Get()->RefreshValue(v);
@@ -1058,7 +1056,7 @@ extern "C" json_t * b_device_overview (json_t * device, void * device_ptr) {
           }
           json_decref(value);
         }
-        free(name);
+        o_free(name);
       }
     }
   }

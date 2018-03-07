@@ -67,17 +67,17 @@ char * print_map(const struct _u_map * map) {
     keys = u_map_enum_keys(map);
     for (i=0; keys[i] != NULL; i++) {
       len = snprintf(NULL, 0, "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
-      line = malloc((len+1)*sizeof(char));
+      line = o_malloc((len+1)*sizeof(char));
       snprintf(line, (len+1), "key is %s, value is %s\n", keys[i], u_map_get(map, keys[i]));
       if (to_return != NULL) {
         len = strlen(to_return) + strlen(line) + 1;
-        to_return = realloc(to_return, (len+1)*sizeof(char));
+        to_return = o_realloc(to_return, (len+1)*sizeof(char));
       } else {
-        to_return = malloc((strlen(line) + 1)*sizeof(char));
+        to_return = o_malloc((strlen(line) + 1)*sizeof(char));
         to_return[0] = 0;
       }
       strcat(to_return, line);
-      free(line);
+      o_free(line);
     }
     return to_return;
   } else {
@@ -128,7 +128,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int res;
   json_t * j_param;
   
-  * device_ptr = malloc(sizeof(struct _u_map));
+  * device_ptr = o_malloc(sizeof(struct _u_map));
   u_map_init((struct _u_map *)*device_ptr);
   
   init_request_for_device(&req, device, "MARCO");
@@ -270,10 +270,10 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
             element = strtok_r(NULL, ",", &saveptr2);
           }
         }
-        free(token_dup);
+        o_free(token_dup);
         token = strtok_r(NULL, ";", &saveptr);
       }
-      free(saved_body);
+      o_free(saved_body);
       json_object_set_new(overview, "result", json_integer(WEBSERVICE_RESULT_OK));
 	  } else {
       json_t * json_body = ulfius_get_json_body_response(&resp, NULL);
@@ -357,7 +357,7 @@ json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -403,7 +403,7 @@ json_t * b_device_get_switch (json_t * device, const char * switch_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -438,7 +438,7 @@ json_t * b_device_set_switch (json_t * device, const char * switch_name, const i
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -484,7 +484,7 @@ json_t * b_device_get_dimmer (json_t * device, const char * dimmer_name, void * 
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;
@@ -519,7 +519,7 @@ json_t * b_device_set_dimmer (json_t * device, const char * dimmer_name, const i
   } else {
     j_result = json_pack("{si}", "result", WEBSERVICE_RESULT_ERROR);
   }
-  free(path);
+  o_free(path);
   ulfius_clean_request(&req);
   ulfius_clean_response(&resp);
   return j_result;

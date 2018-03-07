@@ -128,7 +128,7 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
       return res;
     }
     res = close_device_type_list(config->device_type_list);
-    free(config->device_type_list);
+    o_free(config->device_type_list);
     config->device_type_list = NULL;
     if (res != B_OK) {
       y_log_message(Y_LOG_LEVEL_ERROR, "close_benoic - Error closing device type list");
@@ -149,8 +149,8 @@ int close_benoic(struct _u_instance * instance, const char * url_prefix, struct 
  * clean configuration structure
  */
 void clean_benoic(struct _benoic_config * config) {
-  free(config->modules_path);
-  free(config);
+  o_free(config->modules_path);
+  o_free(config);
 }
 
 /**
@@ -228,7 +228,7 @@ void * thread_monitor_run(void * args) {
                       if (res != H_OK) {
                         y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error inserting data for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
                       }
-                      free(s_value);
+                      o_free(s_value);
                     }
                     json_decref(value);
                   }
@@ -242,7 +242,7 @@ void * thread_monitor_run(void * args) {
                   j_query = json_pack("{sss{s{ss}}s{sI}}", "table", BENOIC_TABLE_ELEMENT, "set", "be_monitored_next", "raw", s_next_time, "where", "be_id", json_integer_value(json_object_get(j_element, "be_id")));
                   res = h_update(config->conn, j_query, NULL);
                   json_decref(j_query);
-                  free(s_next_time);
+                  o_free(s_next_time);
                   if (res != H_OK) {
                     y_log_message(Y_LOG_LEVEL_ERROR, "thread_monitor_run - Error updating next_time for monitor %s/%s", json_string_value(json_object_get(j_element, "bd_name")), json_string_value(json_object_get(j_element, "be_name")));
                   }
@@ -300,7 +300,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
   
   // Append new device_ptr
   if (config->device_data_list == NULL) {
-    config->device_data_list = malloc(2 * sizeof(struct _benoic_device_data));
+    config->device_data_list = o_malloc(2 * sizeof(struct _benoic_device_data));
     if (config->device_data_list == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error allocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
@@ -315,7 +315,7 @@ int set_device_data(struct _benoic_config * config, const char * device_name, vo
     config->device_data_list[1].device_ptr = NULL;
   } else {
     for (device_data_list_size = 0; config->device_data_list[device_data_list_size].device_ptr != NULL; device_data_list_size++);
-    tmp = realloc(config->device_data_list, (device_data_list_size + 2)*sizeof(struct _benoic_device_data));
+    tmp = o_realloc(config->device_data_list, (device_data_list_size + 2)*sizeof(struct _benoic_device_data));
     if (tmp == NULL) {
       y_log_message(Y_LOG_LEVEL_ERROR, "set_device_data - Error reallocating resources for config->device_data_list");
       return B_ERROR_MEMORY;
@@ -348,7 +348,7 @@ int remove_device_data(struct _benoic_config * config, const char * device_name)
     for (i=0; config->device_data_list[i].device_name != NULL; i++) {
       if (0 == o_strcmp(config->device_data_list[i].device_name, device_name)) {
         // device_data found, remove it and move next device_data to previous index
-        free(config->device_data_list[i].device_name);
+        o_free(config->device_data_list[i].device_name);
         config->device_data_list[i].device_name = NULL;
         config->device_data_list[i].device_ptr = NULL;
         while (config->device_data_list[i+1].device_name != NULL) {
@@ -384,7 +384,7 @@ int disconnect_all_devices(struct _benoic_config * config) {
       }
     }
     json_decref(device_list);
-    free(config->device_data_list);
+    o_free(config->device_data_list);
     config->device_data_list = NULL;
     return B_OK;
   } else {
@@ -412,7 +412,7 @@ int callback_benoic_device_reload_types (const struct _u_request * request, stru
     return U_CALLBACK_ERROR;
   } else {
     if (close_device_type_list(((struct _benoic_config *)user_data)->device_type_list) == B_OK) {
-      free(((struct _benoic_config *)user_data)->device_type_list);
+      o_free(((struct _benoic_config *)user_data)->device_type_list);
       if (init_device_type_list((struct _benoic_config *)user_data) == B_OK) {
         set_response_json_body_and_clean(response, 200, get_device_types_list((struct _benoic_config *)user_data));
       } else {
