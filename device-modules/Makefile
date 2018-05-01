@@ -22,14 +22,14 @@
 VERSION=0.4.0
 PREFIX=/usr/local
 MODULES_TARGET=$(PREFIX)/lib/angharad/benoic
-LIBZWPATH=/usr/local/lib
+LIBZWPATH=/usr/lib
 CC=gcc
 CPP=g++
 CFLAGS=-c -fPIC -Wall -Wno-unknown-pragmas -D_REENTRANT -shared -nostartfiles -I$(PREFIX)/include -Wno-pragmas $(ADDITIONALFLAGS)
 LIBS=-L$(PREFIX)/lib -lc -ljansson -lyder -lorcania -lulfius -ldl
 LDFLAGS += -Wl,-R '-Wl,-R$$ORIGIN' -lopenzwave
 
-oz_include=/usr/local/include/openzwave/
+oz_include=/usr/include/openzwave/
 
 OZINCLUDES:= -I $(oz_include) -I $(oz_include)command_classes -I $(oz_include)platform -I $(oz_include)value_classes
 
