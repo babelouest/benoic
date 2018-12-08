@@ -756,7 +756,6 @@ int connect_device(struct _benoic_config * config, json_t * device) {
       if (device_ptr != NULL) {
         if (set_device_data(config, json_string_value(json_object_get(device, "name")), device_ptr) != B_OK) {
           y_log_message(Y_LOG_LEVEL_ERROR, "Error setting device_data for device %s", json_string_value(json_object_get(device, "name")));
-          to_return = B_ERROR_MEMORY;
         }
       }
       // update database with options sent back if exist

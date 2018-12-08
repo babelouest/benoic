@@ -149,7 +149,7 @@ struct zwave_context {
   int             init_failed;
   list<node*>   * nodes_list;
   char            uri[256];
-  char            usb_file[256];     // filename pattern of the usb dongle
+  char            usb_file[512];     // filename pattern of the usb dongle
   char            config_path[256];
   char            user_path[256];
   char            command_line[256];
@@ -532,7 +532,7 @@ extern "C" json_t * b_device_type_init () {
  */
 extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   int i;
-  char filename[513];
+  char filename[512];
   
   * device_ptr = o_malloc(sizeof(struct zwave_context));
   o_strncpy(((struct zwave_context *) * device_ptr)->uri, json_string_value(json_object_get(json_object_get(device, "options"), "uri")), 256);
@@ -595,7 +595,7 @@ extern "C" json_t * b_device_connect (json_t * device, void ** device_ptr) {
   for (i=0; i<128; i++) {
     snprintf(filename, 512*sizeof(char), "%s%d", ((struct zwave_context *) *device_ptr)->uri, i);
     if (Manager::Get()->AddDriver( filename )) {
-      snprintf(((struct zwave_context *) *device_ptr)->usb_file, 255*sizeof(char), "%s", filename);
+      snprintf(((struct zwave_context *) *device_ptr)->usb_file, 512*sizeof(char), "%s", filename);
       return json_pack("{si}", "result", RESULT_OK);
     }
   }
