@@ -28,6 +28,9 @@
 
 #define _BENOIC_VERSION 1.1
 
+/** Macro to avoid compiler warning when some parameters are unused and that's ok **/
+#define UNUSED(x) (void)(x)
+
 #include <jansson.h>
 
 /** Angharad libraries **/

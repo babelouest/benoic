@@ -36,7 +36,7 @@ OZINCLUDES:= -I $(oz_include) -I $(oz_include)command_classes -I $(oz_include)pl
 all: release
 
 device-mock.o: ../benoic.h device-mock.c
-	$(CC) $(CFLAGS) $(FLAGS_YDER) device-mock.c
+	$(CC) $(CFLAGS) -Werror -Wextra $(FLAGS_YDER) device-mock.c
 
 libdevmock.so: device-mock.o
 	$(CC) -shared -Wl,-soname,libdevmock.so -o libdevmock.so device-mock.o $(LIBS)
@@ -48,7 +48,7 @@ libdevzwave.so: device-zwave.o
 	$(CC) -shared -Wl,-soname,libdevzwave.so -o libdevzwave.so device-zwave.o $(LIBS) $(LDFLAGS)
 
 device-taulas.o: device-taulas.c
-	$(CC) $(CFLAGS) $(FLAGS_YDER) device-taulas.c
+	$(CC) $(CFLAGS) -Werror -Wextra $(FLAGS_YDER) device-taulas.c
 
 libdevtaulas.so: device-taulas.o
 	$(CC) -shared -Wl,-soname,libdevtaulas.so -o libdevtaulas.so device-taulas.o $(LIBS)

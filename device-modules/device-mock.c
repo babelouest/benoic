@@ -14,6 +14,9 @@
  *
  */
 
+/** Macro to avoid compiler warning when some parameters are unused and that's ok **/
+#define UNUSED(x) (void)(x)
+
 #include <string.h>
 #include <jansson.h>
 #include <math.h>
@@ -108,6 +111,7 @@ json_t * b_device_connect (json_t * device, void ** device_ptr) {
  * disconnects the device
  */
 json_t * b_device_disconnect (json_t * device, void * device_ptr) {
+  UNUSED(device);
   if (device_ptr != NULL) {
     // Free device_ptr
     json_decref((json_t *)device_ptr);
@@ -119,6 +123,8 @@ json_t * b_device_disconnect (json_t * device, void * device_ptr) {
  * Ping the device type
  */
 json_t * b_device_ping (json_t * device, void * device_ptr) {
+  UNUSED(device);
+  UNUSED(device_ptr);
   return json_pack("{si}", "result", WEBSERVICE_RESULT_OK);
 }
 
@@ -167,6 +173,8 @@ json_t * b_device_overview (json_t * device, void * device_ptr) {
  * Get the sensor value
  */
 json_t * b_device_get_sensor (json_t * device, const char * sensor_name, void * device_ptr) {
+  UNUSED(device);
+  UNUSED(device_ptr);
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Running command sensor for sensor %s on device %s", sensor_name, json_string_value(json_object_get(device, "name")));
   if (0 == o_strcmp(sensor_name, "se1") || 0 == o_strcmp(sensor_name, "se2")) {
     return json_pack("{sisf}", "result", WEBSERVICE_RESULT_OK, "value", get_sensor_value(sensor_name));
@@ -279,6 +287,8 @@ json_t * b_device_set_heater (json_t * device, const char * heater_name, const c
  * Return true if an element with the specified name and the specified type exist in this device
  */
 int b_device_has_element (json_t * device, int element_type, const char * element_name, void * device_ptr) {
+  UNUSED(device);
+  UNUSED(device_ptr);
   y_log_message(Y_LOG_LEVEL_INFO, "device-mock - Checking if element '%s' of type %d exists in device %s", element_name, element_type, json_string_value(json_object_get(device, "name")));
   switch (element_type) {
     case ELEMENT_TYPE_SENSOR:
