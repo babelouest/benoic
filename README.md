@@ -2,6 +2,8 @@
 
 House automation controller.
 
+**This repository has been archived because this source code has moved to its [mother project](https://github.com/babelouest/angharad)**
+
 Used to control switches, dimmers, heaters and sensor.
 
 This program is able to run standalone, but it's better worth using with [Angharad](https://github.com/babelouest/angharad) system.
